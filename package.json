@@ -1,0 +1,13 @@
+{
+  "name": "nai-factory",
+  "version": "1.0.0",
+  "workspaces": [
+    "web",
+    "server",
+    "server-next"
+  ],
+  "devDependencies": {
+    "@tsconfig/bun": "^1.0.10",
+    "@types/bun": "^1.3.9"
+  }
+}

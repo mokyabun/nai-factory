@@ -1,0 +1,750 @@
+{
+    "version": "6",
+    "dialect": "sqlite",
+    "id": "fd33363d-bc72-4fbb-b389-cf4ed5f01dfb",
+    "prevId": "00000000-0000-0000-0000-000000000000",
+    "tables": {
+        "character_prompts": {
+            "name": "character_prompts",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "integer",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "display_order": {
+                    "name": "display_order",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "name": {
+                    "name": "name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "prompt": {
+                    "name": "prompt",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "''"
+                },
+                "negative_prompt": {
+                    "name": "negative_prompt",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "''"
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                }
+            },
+            "indexes": {
+                "character_prompts_project_display_order_uniq": {
+                    "name": "character_prompts_project_display_order_uniq",
+                    "columns": ["project_id", "display_order"],
+                    "isUnique": true
+                }
+            },
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "global_variables": {
+            "name": "global_variables",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "integer",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "key": {
+                    "name": "key",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "value": {
+                    "name": "value",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "''"
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                }
+            },
+            "indexes": {
+                "global_variables_key_unique": {
+                    "name": "global_variables_key_unique",
+                    "columns": ["key"],
+                    "isUnique": true
+                },
+                "global_variables_key_idx": {
+                    "name": "global_variables_key_idx",
+                    "columns": ["key"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "groups": {
+            "name": "groups",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "integer",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "name": {
+                    "name": "name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                }
+            },
+            "indexes": {
+                "groups_name_idx": {
+                    "name": "groups_name_idx",
+                    "columns": ["name"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "images": {
+            "name": "images",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "integer",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "scene_id": {
+                    "name": "scene_id",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "display_order": {
+                    "name": "display_order",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "file_path": {
+                    "name": "file_path",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "thumbnail_path": {
+                    "name": "thumbnail_path",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "metadata": {
+                    "name": "metadata",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "'{}'"
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                }
+            },
+            "indexes": {
+                "images_scene_id_idx": {
+                    "name": "images_scene_id_idx",
+                    "columns": ["scene_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "projects": {
+            "name": "projects",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "integer",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "group_id": {
+                    "name": "group_id",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "display_order": {
+                    "name": "display_order",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "name": {
+                    "name": "name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "general_prompt": {
+                    "name": "general_prompt",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "''"
+                },
+                "negative_prompt": {
+                    "name": "negative_prompt",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "''"
+                },
+                "parameters": {
+                    "name": "parameters",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "'{}'"
+                },
+                "variables": {
+                    "name": "variables",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "'{}'"
+                },
+                "thumbnail_image_id": {
+                    "name": "thumbnail_image_id",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "ai_settings": {
+                    "name": "ai_settings",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "'{}'"
+                },
+                "size": {
+                    "name": "size",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "'{\"width\":832,\"height\":1216}'"
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                }
+            },
+            "indexes": {
+                "projects_group_id_idx": {
+                    "name": "projects_group_id_idx",
+                    "columns": ["group_id"],
+                    "isUnique": false
+                },
+                "projects_name_idx": {
+                    "name": "projects_name_idx",
+                    "columns": ["name"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "queue_items": {
+            "name": "queue_items",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "integer",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "scene_id": {
+                    "name": "scene_id",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "variation_id": {
+                    "name": "variation_id",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "status": {
+                    "name": "status",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "'pending'"
+                },
+                "error_message": {
+                    "name": "error_message",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "started_at": {
+                    "name": "started_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "finished_at": {
+                    "name": "finished_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                }
+            },
+            "indexes": {
+                "queue_items_status_created_at_idx": {
+                    "name": "queue_items_status_created_at_idx",
+                    "columns": ["status", "created_at"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "scenes": {
+            "name": "scenes",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "integer",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": true
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "display_order": {
+                    "name": "display_order",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "name": {
+                    "name": "name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "variables": {
+                    "name": "variables",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "'{}'"
+                },
+                "prompts": {
+                    "name": "prompts",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "''"
+                },
+                "negative_prompts": {
+                    "name": "negative_prompts",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "''"
+                },
+                "image_count": {
+                    "name": "image_count",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": 0
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                }
+            },
+            "indexes": {
+                "scenes_project_id_idx": {
+                    "name": "scenes_project_id_idx",
+                    "columns": ["project_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "settings": {
+            "name": "settings",
+            "columns": {
+                "key": {
+                    "name": "key",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "value": {
+                    "name": "value",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                }
+            },
+            "indexes": {},
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "variations": {
+            "name": "variations",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "integer",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "scene_id": {
+                    "name": "scene_id",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "display_order": {
+                    "name": "display_order",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "name": {
+                    "name": "name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "variables": {
+                    "name": "variables",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "'{}'"
+                },
+                "prompts": {
+                    "name": "prompts",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "''"
+                },
+                "negative_prompts": {
+                    "name": "negative_prompts",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "''"
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                }
+            },
+            "indexes": {
+                "variations_scene_id_idx": {
+                    "name": "variations_scene_id_idx",
+                    "columns": ["scene_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "vibe_transfers": {
+            "name": "vibe_transfers",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "integer",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": true
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "display_order": {
+                    "name": "display_order",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "reference_strength": {
+                    "name": "reference_strength",
+                    "type": "real",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": 0.6
+                },
+                "information_extracted": {
+                    "name": "information_extracted",
+                    "type": "real",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": 1
+                },
+                "encoded": {
+                    "name": "encoded",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "encoded_information_extracted": {
+                    "name": "encoded_information_extracted",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(datetime('now'))"
+                }
+            },
+            "indexes": {
+                "vibe_transfers_project_id_idx": {
+                    "name": "vibe_transfers_project_id_idx",
+                    "columns": ["project_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        }
+    },
+    "views": {},
+    "enums": {},
+    "_meta": {
+        "schemas": {},
+        "tables": {},
+        "columns": {}
+    },
+    "internal": {
+        "indexes": {}
+    }
+}
