@@ -1,13 +1,13 @@
 import { cors } from '@elysiajs/cors'
 import { Elysia } from 'elysia'
-import { characterPrompt } from './routes/character-prompts'
-import { group } from './routes/group'
-import { image } from './routes/image'
-import { project } from './routes/project'
-import { queue } from './routes/queue'
-import { scene } from './routes/scene'
-import { setting } from './routes/settings'
-import { vibeTransfer } from './routes/vibe-transfer'
+import { characterPrompt } from './domain/character-prompts'
+import { group } from './domain/group'
+import { image } from './domain/image'
+import { project } from './domain/project'
+import { queue } from './domain/queue'
+import { scene } from './domain/scene'
+import { setting } from './domain/settings'
+import { vibeTransfer } from './domain/vibe-transfer'
 
 const PORT = Number(process.env.PORT ?? 3000)
 

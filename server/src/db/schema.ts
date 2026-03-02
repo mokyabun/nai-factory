@@ -34,9 +34,6 @@ export const projects = sqliteTable(
 
         thumbnailImageId: integer('thumbnail_image_id'),
 
-        // Using fractional indexing
-        displayOrder: text('display_order').notNull(),
-
         name: text('name').notNull(),
         prompt: text('prompt').notNull().default(''),
         negativePrompt: text('negative_prompt').notNull().default(''),
@@ -77,7 +74,7 @@ export const projects = sqliteTable(
             .notNull()
             .default(sql`(datetime('now'))`),
     },
-    (t) => [index('projects_group_id_idx').on(t.groupId), index('projects_name_idx').on(t.name)],
+    (t) => [index('projects_group_id_name_idx').on(t.groupId, t.name)],
 )
 
 // Vibe Transfers
