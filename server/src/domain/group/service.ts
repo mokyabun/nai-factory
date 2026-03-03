@@ -1,7 +1,7 @@
+import type { GroupModel } from '@nai-factory/shared'
 import { eq } from 'drizzle-orm'
 import { db, groups } from '@/db'
 import { imageService } from '@/services/image'
-import type { CreateBody, UpdateBody } from './model'
 
 export async function getAll() {
     return db.select().from(groups).orderBy(groups.name)
@@ -13,13 +13,13 @@ export async function getById(id: number) {
     return group ?? null
 }
 
-export async function create(data: typeof CreateBody.static) {
+export async function create(data: GroupModel['createBody']) {
     const [created] = await db.insert(groups).values(data).returning()
 
     return created ?? null
 }
 
-export async function update(id: number, data: typeof UpdateBody.static) {
+export async function update(id: number, data: GroupModel['updateBody']) {
     const [updated] = await db
         .update(groups)
         .set({

@@ -1,6 +1,6 @@
+import { GroupModel, IdParams } from '@nai-factory/shared'
 import Elysia from 'elysia'
 import * as projectService from '../project/service'
-import { CreateBody, IdParams, UpdateBody } from './model'
 import * as groupService from './service'
 
 export const groupController = new Elysia({ prefix: '/groups' })
@@ -26,7 +26,7 @@ export const groupController = new Elysia({ prefix: '/groups' })
 
             return group
         },
-        { body: CreateBody },
+        { body: GroupModel.createBody },
     )
     .patch(
         '/:id',
@@ -36,7 +36,7 @@ export const groupController = new Elysia({ prefix: '/groups' })
 
             return updated
         },
-        { params: IdParams, body: UpdateBody },
+        { params: IdParams, body: GroupModel.updateBody },
     )
     .delete(
         '/:id',

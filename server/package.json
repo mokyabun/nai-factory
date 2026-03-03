@@ -10,9 +10,10 @@
         "format": "prettier --write ."
     },
     "dependencies": {
+        "@nai-factory/shared": "workspace:*",
         "@elysiajs/cors": "^1.4.1",
         "drizzle-orm": "^0.45.1",
-        "elysia": "latest",
+        "elysia": "^1.4.27",
         "fflate": "^0.8.2",
         "fractional-indexing-jittered": "^1.0.0",
         "handlebars": "^4.7.8",

@@ -4,7 +4,8 @@
   "workspaces": [
     "web",
     "server",
-    "server-next"
+    "server-next",
+    "shared"
   ],
   "devDependencies": {
     "@tsconfig/bun": "^1.0.10",

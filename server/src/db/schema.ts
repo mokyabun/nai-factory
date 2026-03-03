@@ -28,11 +28,7 @@ export const projects = sqliteTable(
     'projects',
     {
         id: integer('id').primaryKey(),
-        groupId: integer('group_id')
-            .notNull()
-            .references(() => groups.id, { onDelete: 'cascade' }),
-
-        thumbnailImageId: integer('thumbnail_image_id'),
+        groupId: integer('group_id').references(() => groups.id, { onDelete: 'cascade' }),
 
         name: text('name').notNull(),
         prompt: text('prompt').notNull().default(''),
@@ -116,6 +112,8 @@ export const scenes = sqliteTable(
 
         // Using fractional indexing
         displayOrder: text('display_order').notNull(),
+
+        thumbnailImageId: integer('thumbnail_image_id'),
 
         name: text('name').notNull(),
         imageCount: integer('image_count').notNull().default(0),

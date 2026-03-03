@@ -1,0 +1,33 @@
+{
+    "name": "@nai-factory/shared",
+    "module": "src/index.ts",
+    "types": "src/index.ts",
+    "type": "module",
+    "devDependencies": {
+        "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
+        "@tsconfig/bun": "^1.0.10",
+        "@types/bun": "latest",
+        "elysia": "^1.4.27",
+        "prettier": "^3.8.1"
+    },
+    "peerDependencies": {
+        "typescript": "^5",
+        "elysia": "^1.4.27"
+    },
+    "prettier": {
+        "semi": false,
+        "singleQuote": true,
+        "printWidth": 100,
+        "tabWidth": 4,
+        "trailingComma": "all",
+        "plugins": [
+            "@ianvs/prettier-plugin-sort-imports"
+        ],
+        "importOrder": [
+            "^node:(.*)$",
+            "^bun:(.*)$",
+            "^@/(.*)$",
+            "^[./]"
+        ]
+    }
+}
