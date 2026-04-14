@@ -1,23 +1,25 @@
-import Handlebars from 'handlebars'
 import type { CharacterPrompt, Prompt, PromptVariable } from '@/types'
+
+// regex to match [[variableName]] in prompt templates
+const TEMPLATE_VAR_RE = /\[\[([a-zA-Z_$][a-zA-Z0-9_$]*)\]\]/g
+
+function render(template: string, vars: PromptVariable): string {
+    return template.replace(TEMPLATE_VAR_RE, (_, key) => vars[key] ?? '')
+}
 
 export function compilePrompts(source: Prompt, variables: PromptVariable[]): Prompt[] {
     const results: Prompt[] = []
     for (const vars of variables) {
-        const render = (template: string): string => Handlebars.compile(template)(vars)
-
-        const positive = render(source.prompt)
-        const negative = render(source.negativePrompt)
-
         const characterPrompts: CharacterPrompt[] = source.characterPrompts.map((char) => ({
             enabled: char.enabled,
-            prompt: render(char.prompt),
-            negativePrompt: render(char.negativePrompt),
+            prompt: render(char.prompt, vars),
+            uc: render(char.uc, vars),
+            center: char.center,
         }))
 
         results.push({
-            prompt: positive,
-            negativePrompt: negative,
+            prompt: render(source.prompt, vars),
+            negativePrompt: render(source.negativePrompt, vars),
             characterPrompts,
         })
     }

@@ -27,12 +27,13 @@ export const NovelAISampler = t.Union([
 ])
 export type NovelAISampler = typeof NovelAISampler.static
 
-export interface NovelAICharacterPrompt {
-    enabled: boolean
-    center: { x: number; y: number }
-    prompt: string
-    uc: string // negative prompt
-}
+export const NovelAICharacterPrompt = t.Object({
+    enabled: t.Boolean(),
+    center: t.Object({ x: t.Number(), y: t.Number() }),
+    prompt: t.String(),
+    uc: t.String(),
+})
+export type NovelAICharacterPrompt = typeof NovelAICharacterPrompt.static
 
 export interface NovelAICaption {
     base_caption: string
@@ -94,11 +95,11 @@ export interface NovelAIParameters {
     image_format: 'png'
 
     /** AI Settings */
-    steps: number // Prompt guidance scale
+    steps: number
     scale: number
     seed: number
     sampler: NovelAISampler
-    cfg_rescale: number // Prompt guidance rescale
+    cfg_rescale: number
     noise_schedule: NovelAINoiseSchedule
 
     /** Vibe Transfer */
@@ -115,9 +116,9 @@ export interface NovelAIParameters {
     prefer_brownian: boolean
 
     use_coords: boolean
-    add_original_image: boolean // website uses: true
+    add_original_image: boolean
     inpaintImg2ImgStrength: number
-    skip_cfg_above_sigma: 58 | null // what the sigma
+    skip_cfg_above_sigma: 58 | null
 
     v4_prompt: NovelAIV4Prompt
     v4_negative_prompt: NovelAIV4NegativePrompt
@@ -126,15 +127,13 @@ export interface NovelAIParameters {
     legacy_v3_extend: boolean
     legacy_uc: boolean
 
-    deliberate_euler_ancestral_bug?: boolean // only use when k_euler_ancestral is used as sampler
+    deliberate_euler_ancestral_bug?: boolean
 }
 
 export interface NovelAIRequest {
     action: 'generate' | 'inpaint' | 'i2i'
     model: NovelAIModel
-
-    input: string // prompt
-
+    input: string
     parameters: NovelAIParameters
 }
 
@@ -144,20 +143,9 @@ export interface NovelAIVibeImage {
 }
 
 export interface EncodeVibeRequest {
-    image: string // base64 encoded image
+    image: string
     information_extracted: number
     model: NovelAIModel
-}
-
-interface OutputByType {
-    base64: string
-    string: string
-    text: string
-    binarystring: string
-    array: number[]
-    uint8array: Uint8Array
-    arraybuffer: ArrayBuffer
-    blob: Blob
 }
 
 export interface UserData {

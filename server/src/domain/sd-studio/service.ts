@@ -1,0 +1,37 @@
+import { desc, eq } from 'drizzle-orm'
+import { status } from 'elysia'
+import { generateKeyBetween } from 'fractional-indexing-jittered'
+import { db } from '@/db'
+import { projects, scenes } from '@/db/schema'
+import { parseSdStudioFile } from '@/services/sd-studio-import'
+
+export async function importToProject(projectId: number, rawData: unknown) {
+    const [proj] = await db.select().from(projects).where(eq(projects.id, projectId))
+    if (!proj) throw status(404, 'Project not found')
+
+    const pack = parseSdStudioFile(rawData)
+
+    const [lastScene] = await db
+        .select({ displayOrder: scenes.displayOrder })
+        .from(scenes)
+        .where(eq(scenes.projectId, projectId))
+        .orderBy(desc(scenes.displayOrder))
+        .limit(1)
+
+    let prevOrder: string | null = lastScene?.displayOrder ?? null
+    const created = []
+
+    for (const item of pack.scenes) {
+        const displayOrder = generateKeyBetween(prevOrder, null)
+
+        const [scene] = await db
+            .insert(scenes)
+            .values({ projectId, name: item.name, displayOrder, variations: item.variations })
+            .returning()
+
+        created.push(scene!)
+        prevOrder = displayOrder
+    }
+
+    return { imported: created.length, scenes: created }
+}

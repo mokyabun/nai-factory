@@ -1,11 +1,6 @@
 import { unzipSync } from 'fflate'
-import type {
-    EncodeVibeRequest,
-    NovelAIParameters,
-    NovelAIRequest,
-    SimpleNovelAIParameters,
-} from '@/types'
 import ky from 'ky'
+import type { EncodeVibeRequest, NovelAIParameters, NovelAIRequest, SimpleNovelAIParameters } from '@/types'
 
 export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Promise<string> {
     const binary = await ky
@@ -27,11 +22,13 @@ export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Pr
 export async function generateImage(apiKey: string, params: SimpleNovelAIParameters) {
     const seed = params.seed ?? Math.floor(Math.random() * 2 ** 32)
 
+    const enabledChars = params.characterPrompts.filter((c) => c.enabled)
+
     const parameters: NovelAIParameters = {
         params_version: 3,
 
         // Prompts
-        characterPrompts: params.characterPrompts,
+        characterPrompts: enabledChars,
         negative_prompt: params.negativePrompt,
 
         // Image Generation Settings
@@ -51,7 +48,7 @@ export async function generateImage(apiKey: string, params: SimpleNovelAIParamet
         v4_prompt: {
             caption: {
                 base_caption: params.prompt,
-                char_captions: params.characterPrompts.map((char) => ({
+                char_captions: enabledChars.map((char) => ({
                     char_caption: char.prompt,
                     centers: [char.center],
                 })),
@@ -62,7 +59,7 @@ export async function generateImage(apiKey: string, params: SimpleNovelAIParamet
         v4_negative_prompt: {
             caption: {
                 base_caption: params.negativePrompt,
-                char_captions: params.characterPrompts.map((char) => ({
+                char_captions: enabledChars.map((char) => ({
                     char_caption: char.uc,
                     centers: [char.center],
                 })),
@@ -76,6 +73,11 @@ export async function generateImage(apiKey: string, params: SimpleNovelAIParamet
         // Variety Plus
         skip_cfg_above_sigma: params.varietyPlus ? 58 : null,
 
+        // Vibe Transfer
+        normalize_reference_strength_multiple: params.normalizeReferenceStrengthValues,
+        reference_image_multiple: params.vibeTransfers.map((v) => v.encodedImage),
+        reference_strength_multiple: params.vibeTransfers.map((v) => v.strength),
+
         // Misc
         autoSmea: false,
         n_samples: 1,
@@ -88,13 +90,6 @@ export async function generateImage(apiKey: string, params: SimpleNovelAIParamet
         legacy: false,
         legacy_v3_extend: false,
         legacy_uc: false,
-
-        // TODO: implement vibe transfer settings
-        normalize_reference_strength_multiple: params.normalizeReferenceStrengthValues,
-        reference_image_multiple: [],
-        reference_strength_multiple: [],
-
-        // TODO: implement character reference settings
     }
 
     const body: NovelAIRequest = {

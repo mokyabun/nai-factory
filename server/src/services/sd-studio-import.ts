@@ -1,7 +1,6 @@
-// SD Studio JSON import parser
-// Transforms SD Studio preset files into nai-factory scene pack format
+import type { PromptVariable } from '@/types'
 
-export interface SdStudioFile {
+interface SdStudioFile {
     name: string
     scenes: Record<string, SdScene>
     library?: Record<string, SdLibrary>
@@ -10,14 +9,12 @@ export interface SdStudioFile {
 interface SdScene {
     name: string
     slots: SdAlternative[][]
-    mains?: unknown[]
     [key: string]: unknown
 }
 
 interface SdAlternative {
     prompt: string
     enabled?: boolean
-    id?: string
 }
 
 interface SdLibrary {
@@ -30,8 +27,6 @@ interface SdPiece {
     prompt: string
 }
 
-// ─── Output types ────────────────────────────────────────────────────────────
-
 export interface ParsedScenePack {
     name: string
     scenes: ParsedSceneItem[]
@@ -39,16 +34,11 @@ export interface ParsedScenePack {
 
 export interface ParsedSceneItem {
     name: string
-    /** Key-value variables for Mustache rendering */
-    variables: Record<string, string>
-    /** Scene-specific positive prompt */
-    prompts: string
-    sortOrder: number
+    /** Each variation maps to one image generation (key: prompt variable name, e.g. { prompt: "..." }) */
+    variations: PromptVariable[]
 }
 
-// ─── Parsing ─────────────────────────────────────────────────────────────────
-
-// <library_name.piece_name> refs in prompts
+// Matches <library_name.piece_name> refs in prompts
 const LIB_REF_RE = /<([^.>]+)\.([^>]+)>/g
 
 export function parseSdStudioFile(raw: unknown): ParsedScenePack {
@@ -57,96 +47,58 @@ export function parseSdStudioFile(raw: unknown): ParsedScenePack {
         throw new Error('Invalid SD Studio file: missing name or scenes')
     }
 
-    // Collect library pieces: namespace.piece → value
+    // Build library lookup: "libKey.pieceName" → prompt value
     const pieceValues = new Map<string, string>()
     if (file.library) {
         for (const [libKey, lib] of Object.entries(file.library)) {
-            if (lib.pieces) {
-                for (const piece of lib.pieces) {
-                    pieceValues.set(`${libKey}.${piece.name}`, piece.prompt ?? '')
-                }
+            for (const piece of lib.pieces ?? []) {
+                pieceValues.set(`${libKey}.${piece.name}`, piece.prompt ?? '')
             }
         }
     }
 
-    const allScenes: ParsedSceneItem[] = []
-    const nameCount = new Map<string, number>()
-    let sortOrder = 0
-
-    for (const [_key, scene] of Object.entries(file.scenes)) {
-        const sceneName = scene.name || _key
-        const expanded = expandScene(sceneName, scene, pieceValues)
-
-        for (const s of expanded) {
-            // Deduplicate names
-            const baseName = s.name.replace(/ \(\d+\)$/, '')
-            const count = nameCount.get(baseName) ?? 0
-            if (count > 0) {
-                s.name = `${baseName} (${count + 1})`
-            }
-            nameCount.set(baseName, count + 1)
-
-            s.sortOrder = sortOrder++
-            allScenes.push(s)
-        }
+    const scenes: ParsedSceneItem[] = []
+    for (const [key, scene] of Object.entries(file.scenes)) {
+        scenes.push(expandScene(scene.name || key, scene, pieceValues))
     }
 
-    return {
-        name: file.name,
-        scenes: allScenes,
-    }
+    return { name: file.name, scenes }
 }
 
+/**
+ * One SD Studio scene → one app Scene with N variations.
+ * Each slot group is treated as an independent variable dimension;
+ * all enabled alternatives are combined via Cartesian product.
+ */
 function expandScene(
-    baseName: string,
+    name: string,
     scene: SdScene,
     pieceValues: Map<string, string>,
-): ParsedSceneItem[] {
-    const slots = scene.slots ?? []
-    if (slots.length === 0) {
-        return [{ name: baseName, variables: {}, prompts: '', sortOrder: 0 }]
-    }
-
-    // Filter each group to enabled alternatives only
-    const enabledGroups: SdAlternative[][] = []
-    for (const group of slots) {
-        const enabled = group.filter((alt) => alt.enabled !== false)
-        if (enabled.length > 0) {
-            enabledGroups.push(enabled)
-        }
-    }
+): ParsedSceneItem {
+    const enabledGroups = (scene.slots ?? [])
+        .map((group) => group.filter((alt) => alt.enabled !== false))
+        .filter((group) => group.length > 0)
 
     if (enabledGroups.length === 0) {
-        return [{ name: baseName, variables: {}, prompts: '', sortOrder: 0 }]
+        return { name, variations: [{ prompt: '' }] }
     }
 
-    // Compute Cartesian product
-    const combinations = cartesianProduct(enabledGroups)
-    const results: ParsedSceneItem[] = []
-    const needsIndex = combinations.length > 1
+    const variations: PromptVariable[] = cartesianProduct(enabledGroups).map((combo) => {
+        const combined = combo
+            .map((alt) => alt.prompt.trim())
+            .filter(Boolean)
+            .join(', ')
+            .replace(LIB_REF_RE, (_, libName, pieceName) => {
+                return pieceValues.get(`${libName}.${pieceName}`) ?? ''
+            })
 
-    for (let i = 0; i < combinations.length; i++) {
-        const combo = combinations[i]
-        if (!combo) continue
-        const parts = combo.map((alt) => alt.prompt.trim()).filter(Boolean)
-        let combined = parts.join(', ')
+        return { prompt: cleanPrompt(combined) }
+    })
 
-        // Replace <library_name.piece_name> → actual value from library
-        combined = combined.replace(LIB_REF_RE, (_, libName, pieceName) => {
-            return pieceValues.get(`${libName}.${pieceName}`) ?? ''
-        })
-
-        combined = cleanPrompt(combined)
-
-        const name = needsIndex ? `${baseName}.${i + 1}` : baseName
-        results.push({ name, variables: {}, prompts: combined, sortOrder: 0 })
-    }
-
-    return results
+    return { name, variations }
 }
 
 function cartesianProduct<T>(arrays: T[][]): T[][] {
-    if (arrays.length === 0) return [[]]
     return arrays.reduce<T[][]>(
         (acc, group) => acc.flatMap((combo) => group.map((item) => [...combo, item])),
         [[]],
@@ -154,8 +106,10 @@ function cartesianProduct<T>(arrays: T[][]): T[][] {
 }
 
 function cleanPrompt(text: string): string {
-    let result = text.replace(/,(\s*,)+/g, ',')
-    result = result.replace(/^\s*,\s*/, '').replace(/\s*,\s*$/, '')
-    result = result.replace(/\s*,\s*/g, ', ')
-    return result.trim()
+    return text
+        .replace(/,(\s*,)+/g, ',')
+        .replace(/^\s*,\s*/, '')
+        .replace(/\s*,\s*$/, '')
+        .replace(/\s*,\s*/g, ', ')
+        .trim()
 }

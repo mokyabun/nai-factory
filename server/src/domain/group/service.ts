@@ -1,7 +1,7 @@
-import type { GroupModel } from '@nai-factory/shared'
 import { eq } from 'drizzle-orm'
-import { db, groups } from '@/db'
-import { imageService } from '@/services/image'
+import type { GroupModel } from './model'
+import { db, groups, projects } from '@/db'
+import * as imageService from '@/services/image'
 
 export async function getAll() {
     return db.select().from(groups).orderBy(groups.name)
@@ -36,9 +36,10 @@ export async function remove(id: number) {
     const [existing] = await db.select().from(groups).where(eq(groups.id, id))
     if (!existing) return false
 
-    // TODO: Consider using Promise.all but it might cause issue
+    const childProjects = await db.select().from(projects).where(eq(projects.groupId, id))
+
     await db.delete(groups).where(eq(groups.id, id))
-    await imageService.deleteByGroup(id)
+    await Promise.all(childProjects.map((project) => imageService.removeByProject(project.id)))
 
     return true
 }

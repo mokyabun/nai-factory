@@ -19,9 +19,12 @@ function createDb() {
 
     migrate(sqlite)
 
-    return drizzle(sqlite, { schema })
+    return {
+        db: drizzle(sqlite, { schema }),
+        sqlite,
+    }
 }
 
-export const db = createDb()
+export const { db, sqlite } = createDb()
 
 export * from './schema'

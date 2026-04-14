@@ -1,158 +1,122 @@
-import fs from 'fs/promises'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import fs from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import sharp from 'sharp'
-import logger from '../logger'
+import type { ImageSaveType, ImageSettings } from '@/types'
+import baseLogger from '../logger'
+
+const logger = baseLogger.child({ module: 'image-service' })
 
 export const IMAGES_DIR = './data/images'
 export const THUMBNAILS_DIR = './data/thumbnails'
 
-class ImageService {
-    private readonly logger = logger.child({ module: 'image' })
+async function ensureDirectories(path: string) {
+    const dirPath = dirname(path)
 
-    async saveImage(
-        groupId: number,
-        projectId: number,
-        sceneId: number,
-        imageId: number,
-        imageData: Uint8Array,
-    ): Promise<{ filePath: string; thumbnailPath: string }> {
-        const relativePath = join(
-            String(groupId),
-            String(projectId),
-            String(sceneId),
-            `${imageId}.png`,
-        )
-        const filePath = join(IMAGES_DIR, relativePath)
-        const thumbnailPath = join(THUMBNAILS_DIR, relativePath)
+    return fs.mkdir(dirPath, { recursive: true })
+}
 
-        mkdirSync(dirname(filePath), { recursive: true })
-        mkdirSync(dirname(thumbnailPath), { recursive: true })
+async function generateImage(
+    data: Uint8Array,
+    filePath: string,
+    saveType: ImageSaveType,
+    size?: number,
+) {
+    let image = sharp(data)
 
-        writeFileSync(filePath, imageData)
-
-        this.logger.info({ filePath, sizeBytes: imageData.byteLength }, 'Image saved')
-
-        await this.generateThumbnail(filePath, thumbnailPath)
-
-        return {
-            filePath: filePath.replaceAll('\\', '/'),
-            thumbnailPath: thumbnailPath.replaceAll('\\', '/'),
-        }
+    if (size) {
+        image = image.resize(size, size, { fit: 'inside' })
     }
 
-    async deleteByGroup(groupId: number): Promise<void> {
-        const groupPath = join(IMAGES_DIR, String(groupId))
-        const thumbnailGroupPath = join(THUMBNAILS_DIR, String(groupId))
-
-        try {
-            await Promise.all([
-                this.deleteDirectory(groupPath),
-                this.deleteDirectory(thumbnailGroupPath),
-            ])
-
-            this.logger.info({ groupId }, 'Deleted images for group')
-        } catch (error) {
-            this.logger.error({ groupId, err: error }, 'Failed to delete images for group')
-        }
+    switch (saveType.type) {
+        case 'png':
+            image = image.png()
+            break
+        case 'webp':
+            image = image.webp({ quality: saveType.quality })
+            break
+        case 'avif':
+            image = image.avif({ quality: saveType.quality })
+            break
     }
 
-    async deleteByProject(groupId: number, projectId: number): Promise<void> {
-        const projectPath = join(IMAGES_DIR, String(groupId), String(projectId))
-        const thumbnailProjectPath = join(THUMBNAILS_DIR, String(groupId), String(projectId))
+    await image.toFile(filePath)
+}
 
-        try {
-            await Promise.all([
-                this.deleteDirectory(projectPath),
-                this.deleteDirectory(thumbnailProjectPath),
-            ])
+export async function save(
+    projectId: number,
+    sceneId: number,
+    imageId: number,
+    imageData: Uint8Array,
+    imageSettings: ImageSettings,
+) {
+    const imageBasePath = join(String(projectId), String(sceneId), String(imageId))
 
-            this.logger.info({ groupId, projectId }, 'Deleted images for project')
-        } catch (error) {
-            this.logger.error(
-                { groupId, projectId, err: error },
-                'Failed to delete images for project',
-            )
-        }
-    }
+    const filePath = join(IMAGES_DIR, `${imageBasePath}.${imageSettings.sourceType.type}`)
+    const thumbnailPath = join(
+        THUMBNAILS_DIR,
+        `${imageBasePath}.${imageSettings.thumbnailType.type}`,
+    )
 
-    async deleteByScene(groupId: number, projectId: number, sceneId: number): Promise<void> {
-        const scenePath = join(IMAGES_DIR, String(groupId), String(projectId), String(sceneId))
-        const thumbnailScenePath = join(
-            THUMBNAILS_DIR,
-            String(groupId),
-            String(projectId),
-            String(sceneId),
-        )
+    await Promise.all([ensureDirectories(filePath), ensureDirectories(thumbnailPath)])
 
-        try {
-            await Promise.all([
-                this.deleteDirectory(scenePath),
-                this.deleteDirectory(thumbnailScenePath),
-            ])
+    const writeFilePromise = generateImage(imageData, filePath, imageSettings.sourceType)
+    const thumbnailPromise = generateImage(
+        imageData,
+        thumbnailPath,
+        imageSettings.thumbnailType,
+        imageSettings.thumbnailSize,
+    )
 
-            this.logger.info({ groupId, projectId, sceneId }, 'Deleted images for scene')
-        } catch (error) {
-            this.logger.error(
-                { groupId, projectId, sceneId, err: error },
-                'Failed to delete images for scene',
-            )
-        }
-    }
+    await Promise.all([writeFilePromise, thumbnailPromise])
 
-    async deleteByImage(groupId: number, projectId: number, sceneId: number, imageId: number) {
-        const imagePath = join(
-            IMAGES_DIR,
-            String(groupId),
-            String(projectId),
-            String(sceneId),
-            `${imageId}.png`,
-        )
-        const thumbnailImagePath = join(
-            THUMBNAILS_DIR,
-            String(groupId),
-            String(projectId),
-            String(sceneId),
-            `${imageId}.webp`,
-        )
+    logger.info({ filePath, sizeBytes: imageData.byteLength }, 'Image saved')
 
-        try {
-            await Promise.all([
-                fs.rm(imagePath, { force: true }),
-                fs.rm(thumbnailImagePath, { force: true }),
-            ])
-
-            this.logger.info({ groupId, projectId, sceneId, imageId }, 'Deleted image')
-        } catch (error) {
-            this.logger.error(
-                { groupId, projectId, sceneId, imageId, err: error },
-                'Failed to delete image',
-            )
-        }
-    }
-
-    async generateThumbnail(sourcePath: string, thumbnailPath: string): Promise<void> {
-        try {
-            await sharp(sourcePath)
-                .resize(512, 512, { fit: 'inside' })
-                .webp({ quality: 80 })
-                .toFile(thumbnailPath)
-
-            this.logger.info({ thumbnailPath }, 'Thumbnail generated')
-        } catch (error) {
-            this.logger.error({ sourcePath, err: error }, 'Thumbnail generation failed')
-        }
-    }
-
-    private async deleteDirectory(path: string): Promise<void> {
-        try {
-            await fs.rm(path, { recursive: true })
-
-            this.logger.info({ path }, 'Deleted directory')
-        } catch (error) {
-            this.logger.error({ path, err: error }, 'Failed to delete directory')
-        }
+    return {
+        filePath: filePath.replaceAll('\\', '/'),
+        thumbnailPath: thumbnailPath.replaceAll('\\', '/'),
     }
 }
 
-export const imageService = new ImageService()
+export async function remove(filePath: string, thumbnailPath: string | null) {
+    const promises: Promise<void>[] = [fs.rm(filePath, { force: true })]
+    if (thumbnailPath) promises.push(fs.rm(thumbnailPath, { force: true }))
+
+    try {
+        await Promise.all(promises)
+        logger.info({ filePath }, 'Deleted image')
+    } catch (error) {
+        logger.error({ filePath, err: error }, 'Failed to delete image')
+    }
+}
+
+export async function removeByScene(projectId: number, sceneId: number) {
+    const scenePath = join(IMAGES_DIR, String(projectId), String(sceneId))
+    const thumbnailScenePath = join(THUMBNAILS_DIR, String(projectId), String(sceneId))
+
+    try {
+        await Promise.all([
+            fs.rm(scenePath, { recursive: true, force: true }),
+            fs.rm(thumbnailScenePath, { recursive: true, force: true }),
+        ])
+
+        logger.info({ projectId, sceneId }, 'Deleted images for scene')
+    } catch (error) {
+        logger.error({ projectId, sceneId, err: error }, 'Failed to delete images for scene')
+    }
+}
+
+export async function removeByProject(projectId: number) {
+    const projectPath = join(IMAGES_DIR, String(projectId))
+    const thumbnailProjectPath = join(THUMBNAILS_DIR, String(projectId))
+
+    try {
+        await Promise.all([
+            fs.rm(projectPath, { recursive: true, force: true }),
+            fs.rm(thumbnailProjectPath, { recursive: true, force: true }),
+        ])
+
+        logger.info({ projectId }, 'Deleted images for project')
+    } catch (error) {
+        logger.error({ projectId, err: error }, 'Failed to delete images for project')
+    }
+}

@@ -1,12 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import {
-    type CharacterPrompt,
-    type GlobalSettings,
-    type Parameters,
-    type PromptVariable,
-    type VibeTransfer,
-} from '@/types'
+import type { CharacterPrompt, GlobalSettings, Parameters, PromptVariable } from '@/types'
 
 // Groups
 export const groups = sqliteTable(
@@ -41,6 +35,9 @@ export const projects = sqliteTable(
             .default({}),
 
         parameters: text('parameters', { mode: 'json' }).notNull().$type<Parameters>().default({
+            model: 'nai-diffusion-4-5-full',
+            qualityToggle: false,
+
             width: 512,
             height: 512,
 
@@ -77,18 +74,20 @@ export const projects = sqliteTable(
 export const vibeTransfers = sqliteTable(
     'vibe_transfers',
     {
-        id: integer('id').primaryKey({ autoIncrement: true }),
+        id: integer('id').primaryKey(),
         projectId: integer('project_id')
             .notNull()
             .references(() => projects.id, { onDelete: 'cascade' }),
+
+        displayOrder: text('display_order').notNull().default(''),
 
         sourceImagePath: text('source_image_path').notNull(),
 
         referenceStrength: real('reference_strength').notNull().default(0.6),
         informationExtracted: real('information_extracted').notNull().default(1.0),
 
-        // Encoded vibe data stored as base64 text (~80KB per entry)
-        encodedData: text('encoded_data').notNull(),
+        // Nullable: empty until encoded by encodeVibe()
+        encodedData: text('encoded_data'),
         encodedInformationExtracted: real('encoded_information_extracted'),
 
         createdAt: text('created_at')
@@ -105,7 +104,7 @@ export const vibeTransfers = sqliteTable(
 export const scenes = sqliteTable(
     'scenes',
     {
-        id: integer('id').primaryKey({ autoIncrement: true }),
+        id: integer('id').primaryKey(),
         projectId: integer('project_id')
             .notNull()
             .references(() => projects.id, { onDelete: 'cascade' }),
@@ -116,7 +115,6 @@ export const scenes = sqliteTable(
         thumbnailImageId: integer('thumbnail_image_id'),
 
         name: text('name').notNull(),
-        imageCount: integer('image_count').notNull().default(0),
 
         variations: text('variations', { mode: 'json' })
             .notNull()
@@ -160,7 +158,7 @@ export const images = sqliteTable(
 export const queueItems = sqliteTable(
     'queue_items',
     {
-        id: integer('id').primaryKey({ autoIncrement: true }),
+        id: integer('id').primaryKey(),
 
         projectId: integer('project_id')
             .notNull()
@@ -169,13 +167,11 @@ export const queueItems = sqliteTable(
             .notNull()
             .references(() => scenes.id, { onDelete: 'cascade' }),
 
-        priority: integer('priority').notNull().default(0),
+        variationCount: integer('variation_count').notNull(),
 
-        createdAt: text('created_at')
-            .notNull()
-            .default(sql`(datetime('now'))`),
+        sortIndex: integer('sort_index').notNull(),
     },
-    (t) => [index('queue_items_priority_created_at_idx').on(t.priority, t.createdAt)],
+    (t) => [index('queue_items_sort_index_idx').on(t.sortIndex)],
 )
 
 export const settings = sqliteTable('settings', {
@@ -183,16 +179,23 @@ export const settings = sqliteTable('settings', {
 
     globalVariables: text('global_variables', { mode: 'json' })
         .notNull()
-        .$type<PromptVariable>()
+        .$type<GlobalSettings['globalVariables']>()
         .default({}),
-    novelaiSettings: text('novelai_settings', { mode: 'json' })
-        .notNull()
-        .$type<GlobalSettings>()
-        .default({
-            novelaiApiKey: '',
 
-            model: 'nai-diffusion-4-5-full',
-            qualityToggle: false,
+    novelai: text('novelai', { mode: 'json' })
+        .notNull()
+        .$type<GlobalSettings['novelai']>()
+        .default({
+            apiKey: '',
+        }),
+
+    image: text('image', { mode: 'json' })
+        .notNull()
+        .$type<GlobalSettings['image']>()
+        .default({
+            sourceType: { type: 'png' },
+            thumbnailType: { type: 'webp', quality: 60 },
+            thumbnailSize: 512,
         }),
 
     updatedAt: text('updated_at')

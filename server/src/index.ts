@@ -1,18 +1,21 @@
 import { cors } from '@elysiajs/cors'
 import { Elysia } from 'elysia'
-import { characterPrompt } from './domain/character-prompts'
+import { characterPrompt } from './domain/character-prompt'
 import { group } from './domain/group'
 import { image } from './domain/image'
 import { project } from './domain/project'
 import { queue } from './domain/queue'
 import { scene } from './domain/scene'
+import { sdStudio } from './domain/sd-studio'
 import { setting } from './domain/settings'
+import { sse } from './domain/sse'
 import { vibeTransfer } from './domain/vibe-transfer'
 
 const PORT = Number(process.env.PORT ?? 3000)
 
 const app = new Elysia()
     .use(cors())
+    .get('/data/*', ({ params }) => Bun.file(`./data/${params['*']}`))
     .onError(({ code, error, set }) => {
         if (code === 'VALIDATION') {
             set.status = 422
@@ -21,6 +24,11 @@ const app = new Elysia()
         if (code === 'NOT_FOUND') {
             set.status = 404
             return { message: 'Not found' }
+        }
+        // SSE client disconnect — Elysia's adapter tries to finalize the response body
+        // after the ReadableStream is already cancelled. Suppress to avoid noise.
+        if (error instanceof TypeError && error.message.includes('Controller is already closed')) {
+            return
         }
         console.error('[error]', error)
         set.status = 500
@@ -37,7 +45,9 @@ const app = new Elysia()
             .use(scene)
             .use(image)
             .use(queue)
-            .use(setting),
+            .use(sdStudio)
+            .use(setting)
+            .use(sse),
     )
     .listen(PORT)
 

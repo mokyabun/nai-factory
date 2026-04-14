@@ -1,15 +1,9 @@
 import type { Database } from 'bun:sqlite'
 // @ts-ignore
-import unique_nextwave from './migrations/0000_unique_nextwave.sql' with { type: 'text' }
-// @ts-ignore
-import add_queue_priority from './migrations/0001_add_queue_priority.sql' with { type: 'text' }
-// @ts-ignore
-import simplify_queue_items from './migrations/0002_simplify_queue_items.sql' with { type: 'text' }
+import trueAnitaBlake from './migrations/0000_true_anita_blake.sql' with { type: 'text' }
 
 const migrations: { tag: string; sql: string }[] = [
-    { tag: '0000_unique_nextwave', sql: unique_nextwave },
-    { tag: '0001_add_queue_priority', sql: add_queue_priority },
-    { tag: '0002_simplify_queue_items', sql: simplify_queue_items },
+    { tag: '0000_true_anita_blake', sql: trueAnitaBlake },
 ]
 
 export function migrate(db: Database) {

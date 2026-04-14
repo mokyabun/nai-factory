@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Badge } from '$lib/components/ui/badge'
+    import { CodeEditor } from '$lib/components/ui/code-editor'
     import { cn } from '$lib/utils'
 
     type Props = {
@@ -10,54 +11,40 @@
 
     let { class: className, prompt = $bindable(), negativePrompt = $bindable() }: Props = $props()
     let menu = $state<'base' | 'negative'>('base')
-
-    function handleMenuClick(type: 'base' | 'negative') {
-        return () => (menu = type)
-    }
-
-    function handleInput(e: Event) {}
 </script>
 
 {#snippet promptTypeButton(type: 'base' | 'negative')}
     <Badge
         variant="secondary"
-        class="rounded-lg hover:bg-secondary hover:text-secondary-foreground {type !== menu
+        class="cursor-pointer rounded-lg hover:bg-secondary hover:text-secondary-foreground {type !==
+        menu
             ? 'bg-transparent text-secondary-foreground/50'
             : ''}"
-        onclick={handleMenuClick(type)}
+        onclick={() => (menu = type)}
     >
-        {type === 'base' ? 'Base Prompt' : 'Negative Prompt'}
+        {type === 'base' ? '베이스 프롬프트' : '부정 프롬프트'}
     </Badge>
 {/snippet}
 
-<div class={cn('flex h-72 flex-col rounded-md border border-input bg-background', className)}>
-    <div class="mx-3 mt-3 flex h-8 items-center gap-2 select-none">
-        <!-- <FurryAnimeTButton /> -->
+<div class={cn('flex h-72 flex-col overflow-hidden rounded-md border border-input', className)}>
+    <div class="flex h-9 shrink-0 items-center gap-2 border-b border-input px-3 select-none">
         {@render promptTypeButton('base')}
         {@render promptTypeButton('negative')}
     </div>
 
-    {#if menu === 'base'}
-        <!-- base prompt -->
-        <div
-            role="textbox"
-            tabindex="0"
-            class="m-4 h-full resize-none overflow-y-auto text-sm outline-0"
-            contenteditable="true"
-            translate="no"
-            bind:textContent={prompt}
-            oninput={handleInput}
-        ></div>
-    {:else}
-        <!-- negative prompt -->
-        <div
-            role="textbox"
-            tabindex="0"
-            class="m-4 h-full resize-none overflow-y-auto text-sm outline-0"
-            contenteditable="true"
-            translate="no"
-            bind:textContent={negativePrompt}
-            oninput={handleInput}
-        ></div>
-    {/if}
+    <div class="min-h-0 flex-1">
+        {#if menu === 'base'}
+            <CodeEditor
+                bind:value={prompt}
+                placeholder="태그를 입력하세요..."
+                class="h-full border-0 rounded-none"
+            />
+        {:else}
+            <CodeEditor
+                bind:value={negativePrompt}
+                placeholder="부정 태그를 입력하세요..."
+                class="h-full border-0 rounded-none"
+            />
+        {/if}
+    </div>
 </div>

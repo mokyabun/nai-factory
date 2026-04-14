@@ -3,8 +3,8 @@ import type { CharacterPrompt, Prompt, PromptVariable } from '@/types'
 import { compilePrompts, compileVariables } from './prompt'
 
 const basePrompt: Prompt = {
-    prompt: 'a {{subject}} in {{setting}}',
-    negativePrompt: 'bad {{subject}}',
+    prompt: 'a [[subject]] in [[setting]]',
+    negativePrompt: 'bad [[subject]]',
     characterPrompts: [] as CharacterPrompt[],
 }
 
@@ -44,24 +44,29 @@ describe('compilePrompts', () => {
 
     it('compiles character prompts with the same variables', () => {
         const source: Prompt = {
-            prompt: '{{subject}}',
+            prompt: '[[subject]]',
             negativePrompt: '',
             characterPrompts: [
-                { enabled: true, prompt: 'char {{subject}}', negativePrompt: 'no {{subject}}' },
+                {
+                    enabled: true,
+                    prompt: 'char [[subject]]',
+                    uc: 'no [[subject]]',
+                    center: { x: 0.5, y: 0.5 },
+                },
             ],
         }
         const result = compilePrompts(source, [{ subject: 'wizard' }])[0]!
 
         expect(result.characterPrompts).toHaveLength(1)
         expect(result.characterPrompts[0]!.prompt).toBe('char wizard')
-        expect(result.characterPrompts[0]!.negativePrompt).toBe('no wizard')
+        expect(result.characterPrompts[0]!.uc).toBe('no wizard')
     })
 
     it('preserves the enabled flag on character prompts', () => {
         const source: Prompt = {
             prompt: '',
             negativePrompt: '',
-            characterPrompts: [{ enabled: false, prompt: '', negativePrompt: '' }],
+            characterPrompts: [{ enabled: false, prompt: '', uc: '', center: { x: 0.5, y: 0.5 } }],
         }
         const result = compilePrompts(source, [{}])[0]!
 
@@ -70,7 +75,7 @@ describe('compilePrompts', () => {
 
     it('treats missing variables as empty strings', () => {
         const source: Prompt = {
-            prompt: '{{unknown}}',
+            prompt: '[[unknown]]',
             negativePrompt: '',
             characterPrompts: [],
         }
