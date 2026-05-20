@@ -1,0 +1,7 @@
+@import "tw-animate-css";
+
+html,
+body,
+#app {
+    min-height: 100%;
+}

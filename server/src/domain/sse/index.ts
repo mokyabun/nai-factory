@@ -1,41 +1,55 @@
-import { Elysia } from 'elysia'
-import { domainEvents } from '@/services/events'
+import { sse as buildSSE, Elysia } from 'elysia'
+import { type DomainChangeEvent, domainEvents } from '../../services'
 
-export const sse = new Elysia().get('/sse', ({ set }) => {
-    const encoder = new TextEncoder()
-    let unsubscribe: (() => void) | null = null
-    let heartbeat: ReturnType<typeof setInterval> | null = null
+const PING = Symbol('ping')
 
-    set.headers['Content-Type'] = 'text/event-stream'
-    set.headers['Cache-Control'] = 'no-cache'
-    set.headers['Connection'] = 'keep-alive'
-    set.headers['X-Accel-Buffering'] = 'no'
+class Channel<T> {
+    private queue: T[] = []
+    private resolve: ((v: T) => void) | null = null
 
-    return new ReadableStream({
-        start(controller) {
-            controller.enqueue(encoder.encode(': connected\n\n'))
+    push(value: T) {
+        if (this.resolve) {
+            this.resolve(value)
+            this.resolve = null
+        } else {
+            this.queue.push(value)
+        }
+    }
 
-            unsubscribe = domainEvents.subscribe((event) => {
-                try {
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
-                } catch {
-                    // Stream already closed — listener will be cleaned up in cancel()
-                }
-            })
+    next(): Promise<T> {
+        const value = this.queue.shift()
+        if (value !== undefined) return Promise.resolve(value)
 
-            // Keep the connection alive through proxies and load balancers
-            heartbeat = setInterval(() => {
-                try {
-                    controller.enqueue(encoder.encode(': ping\n\n'))
-                } catch {
-                    if (heartbeat) clearInterval(heartbeat)
-                }
-            }, 30_000)
+        return new Promise((r) => (this.resolve = r))
+    }
+}
+
+export const sse = new Elysia().get('/sse', async function* ({ request }) {
+    const channel = new Channel<DomainChangeEvent | typeof PING>()
+
+    const unsub = domainEvents.subscribe((e) => channel.push(e))
+    const heartbeat = setInterval(() => channel.push(PING), 30_000)
+
+    const onAbort = new Promise<null>((r) =>
+        request.signal.addEventListener('abort', () => r(null), { once: true }),
+    )
+
+    request.signal.addEventListener(
+        'abort',
+        () => {
+            unsub()
+            clearInterval(heartbeat)
         },
+        { once: true },
+    )
 
-        cancel() {
-            unsubscribe?.()
-            if (heartbeat) clearInterval(heartbeat)
-        },
-    })
+    while (!request.signal.aborted) {
+        const result = await Promise.race([channel.next(), onAbort])
+        if (result === null) break
+        if (result === PING) {
+            yield buildSSE({ event: 'ping' })
+        } else {
+            yield buildSSE({ data: JSON.stringify(result) })
+        }
+    }
 })

@@ -1,8 +1,8 @@
 import { desc, eq } from 'drizzle-orm'
-import { generateKeyBetween } from 'fractional-indexing-jittered'
-import { db, images, projects, queueItems, scenes } from '@/db'
-import logger from '@/logger'
-import type { ImageSettings, Prompt, SimpleNovelAIParameters } from '@/types'
+import { db, images, projects, queueItems, scenes } from '../db'
+import logger from '../logger'
+import { nextDisplayOrder } from '../shared'
+import type { ImageSettings, Prompt, SimpleNovelAIParameters } from '../types'
 import { domainEvents } from './events'
 import * as imageService from './image'
 import * as novelAIService from './novelai'
@@ -58,7 +58,7 @@ async function generateAndSaveImage(
         .orderBy(desc(images.displayOrder))
         .limit(1)
 
-    const newDisplayOrder = generateKeyBetween(lastImage?.displayOrder ?? null, null)
+    const newDisplayOrder = nextDisplayOrder(lastImage?.displayOrder)
 
     const [image] = await db
         .insert(images)

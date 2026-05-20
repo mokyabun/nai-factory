@@ -1,9 +1,36 @@
-import type { PromptVariable } from '@/types'
+import type { PromptVariable } from '../types'
+
+interface SdSelectedWorkflow {
+    workflowType: string
+    presetName: string
+}
+
+export interface SdPreset {
+    type: string
+    name: string
+    frontPrompt?: string
+    backPrompt?: string
+    uc?: string
+    steps?: number
+    promptGuidance?: number
+    sampling?: string
+    cfgRescale?: number
+    noiseSchedule?: string
+    varietyPlus?: boolean
+    characterPrompts?: Array<{
+        enabled?: boolean
+        center?: { x: number; y: number }
+        prompt?: string
+        uc?: string
+    }>
+}
 
 interface SdStudioFile {
     name: string
     scenes: Record<string, SdScene>
     library?: Record<string, SdLibrary>
+    selectedWorkflow?: SdSelectedWorkflow
+    presets?: Record<string, SdPreset[]>
 }
 
 interface SdScene {
@@ -30,6 +57,7 @@ interface SdPiece {
 export interface ParsedScenePack {
     name: string
     scenes: ParsedSceneItem[]
+    preset?: SdPreset
 }
 
 export interface ParsedSceneItem {
@@ -62,7 +90,17 @@ export function parseSdStudioFile(raw: unknown): ParsedScenePack {
         scenes.push(expandScene(scene.name || key, scene, pieceValues))
     }
 
-    return { name: file.name, scenes }
+    // Find the selected preset
+    let preset: SdPreset | undefined
+    if (file.selectedWorkflow && file.presets) {
+        const { workflowType, presetName } = file.selectedWorkflow
+        const presetList = file.presets[workflowType]
+        if (presetList) {
+            preset = presetList.find((p) => p.name === presetName) ?? presetList[0]
+        }
+    }
+
+    return { name: file.name, scenes, preset }
 }
 
 /**

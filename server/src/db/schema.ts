@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import type { CharacterPrompt, GlobalSettings, Parameters, PromptVariable } from '@/types'
+import type { CharacterPrompt, GlobalSettings, Parameters, PromptVariable } from '../types'
 
 // Groups
 export const groups = sqliteTable(
@@ -8,12 +8,8 @@ export const groups = sqliteTable(
     {
         id: integer('id').primaryKey(),
         name: text('name').notNull(),
-        createdAt: text('created_at')
-            .notNull()
-            .default(sql`(datetime('now'))`),
-        updatedAt: text('updated_at')
-            .notNull()
-            .default(sql`(datetime('now'))`),
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
     },
     (t) => [index('groups_name_idx').on(t.name)],
 )
@@ -60,12 +56,8 @@ export const projects = sqliteTable(
             .$type<CharacterPrompt[]>()
             .default([]),
 
-        createdAt: text('created_at')
-            .notNull()
-            .default(sql`(datetime('now'))`),
-        updatedAt: text('updated_at')
-            .notNull()
-            .default(sql`(datetime('now'))`),
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
     },
     (t) => [index('projects_group_id_name_idx').on(t.groupId, t.name)],
 )
@@ -90,14 +82,10 @@ export const vibeTransfers = sqliteTable(
         encodedData: text('encoded_data'),
         encodedInformationExtracted: real('encoded_information_extracted'),
 
-        createdAt: text('created_at')
-            .notNull()
-            .default(sql`(datetime('now'))`),
-        updatedAt: text('updated_at')
-            .notNull()
-            .default(sql`(datetime('now'))`),
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
     },
-    (t) => [index('vibe_transfers_project_id_idx').on(t.projectId)],
+    (t) => [index('vibe_transfers_project_id_display_order_idx').on(t.projectId, t.displayOrder)],
 )
 
 // Scenes
@@ -112,8 +100,6 @@ export const scenes = sqliteTable(
         // Using fractional indexing
         displayOrder: text('display_order').notNull(),
 
-        thumbnailImageId: integer('thumbnail_image_id'),
-
         name: text('name').notNull(),
 
         variations: text('variations', { mode: 'json' })
@@ -121,12 +107,8 @@ export const scenes = sqliteTable(
             .$type<PromptVariable[]>()
             .default([]),
 
-        createdAt: text('created_at')
-            .notNull()
-            .default(sql`(datetime('now'))`),
-        updatedAt: text('updated_at')
-            .notNull()
-            .default(sql`(datetime('now'))`),
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
     },
     (t) => [index('scenes_display_order_idx').on(t.projectId, t.displayOrder)],
 )
@@ -147,9 +129,7 @@ export const images = sqliteTable(
         thumbnailPath: text('thumbnail_path'),
         metadata: text('metadata', { mode: 'json' }).notNull().default('{}'),
 
-        createdAt: text('created_at')
-            .notNull()
-            .default(sql`(datetime('now'))`),
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
     },
     (t) => [index('images_scene_id_display_order_idx').on(t.sceneId, t.displayOrder)],
 )
@@ -171,7 +151,10 @@ export const queueItems = sqliteTable(
 
         sortIndex: integer('sort_index').notNull(),
     },
-    (t) => [index('queue_items_sort_index_idx').on(t.sortIndex)],
+    (t) => [
+        index('queue_items_sort_index_idx').on(t.sortIndex),
+        index('queue_items_scene_id_idx').on(t.sceneId),
+    ],
 )
 
 export const settings = sqliteTable('settings', {
@@ -198,7 +181,5 @@ export const settings = sqliteTable('settings', {
             thumbnailSize: 512,
         }),
 
-    updatedAt: text('updated_at')
-        .notNull()
-        .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })

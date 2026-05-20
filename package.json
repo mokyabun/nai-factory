@@ -1,13 +1,20 @@
 {
   "name": "nai-factory",
   "version": "1.0.0",
+  "scripts": {
+    "dev:server": "bun --filter @nai-factory/server dev",
+    "dev:web": "wait-on tcp:localhost:3000 && bun --filter @nai-factory/web dev",
+    "dev": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"bun dev:server\" \"bun dev:web\"",
+    "format:server": "bun --filter @nai-factory/server format",
+    "format:web": "bun --filter @nai-factory/web format",
+    "format": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"bun format:server\" \"bun format:web\""
+  },
   "workspaces": [
     "web",
-    "server",
-    "shared"
+    "server"
   ],
   "devDependencies": {
-    "@tsconfig/bun": "^1.0.10",
-    "@types/bun": "^1.3.9"
+    "concurrently": "^9.2.1",
+    "wait-on": "^9.0.10"
   }
 }

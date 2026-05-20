@@ -1,6 +1,11 @@
 import { unzipSync } from 'fflate'
 import ky from 'ky'
-import type { EncodeVibeRequest, NovelAIParameters, NovelAIRequest, SimpleNovelAIParameters } from '@/types'
+import type {
+    EncodeVibeRequest,
+    NovelAIParameters,
+    NovelAIRequest,
+    SimpleNovelAIParameters,
+} from '../types'
 
 export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Promise<string> {
     const binary = await ky

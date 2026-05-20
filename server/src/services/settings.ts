@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
-import type { GlobalSettings } from '@/types'
-import { db, settings } from '@/db'
+import { db, settings } from '../db'
+import type { GlobalSettings } from '../types'
 
 let cache: GlobalSettings = load()
 

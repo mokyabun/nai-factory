@@ -1,13 +1,32 @@
-import fs from 'fs/promises'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import fs from 'node:fs/promises'
 import { dirname, extname, join } from 'node:path'
 import { asc, desc, eq } from 'drizzle-orm'
-import { generateKeyBetween } from 'fractional-indexing-jittered'
-import { db } from '@/db'
-import { vibeTransfers } from '@/db/schema'
-import { invalidateVibe } from '@/services/vibe-image'
+import { status } from 'elysia'
+import { VIBES_DIR } from '../../config'
+import { db, projects, vibeTransfers } from '../../db'
+import { invalidateVibe } from '../../services'
+import { displayOrderBetween, nextDisplayOrder, requireEntity, withUpdatedAt } from '../../shared'
 
-const VIBES_DIR = './data/vibes'
+async function getProject(projectId: number) {
+    const [project] = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+    return requireEntity(project, 'Project not found')
+}
+
+async function getSiblingOrder(id: number, projectId: number, label: string) {
+    const [vibe] = await db
+        .select({ projectId: vibeTransfers.projectId, displayOrder: vibeTransfers.displayOrder })
+        .from(vibeTransfers)
+        .where(eq(vibeTransfers.id, id))
+
+    const sibling = requireEntity(vibe, `${label} vibe transfer not found`)
+    if (sibling.projectId !== projectId)
+        throw status(400, `${label} vibe transfer belongs to another project`)
+
+    return sibling.displayOrder
+}
 
 export async function list(projectId: number) {
     return db
@@ -27,14 +46,16 @@ export async function list(projectId: number) {
 }
 
 export async function upload(projectId: number, imageFile: File) {
+    await getProject(projectId)
+
     const ext = extname(imageFile.name) || '.png'
     const filename = `${Date.now()}${ext}`
     const filePath = join(VIBES_DIR, String(projectId), filename)
 
-    mkdirSync(dirname(filePath), { recursive: true })
+    await fs.mkdir(dirname(filePath), { recursive: true })
 
     const buffer = await imageFile.arrayBuffer()
-    writeFileSync(filePath, Buffer.from(buffer))
+    await fs.writeFile(filePath, Buffer.from(buffer))
 
     const [last] = await db
         .select({ displayOrder: vibeTransfers.displayOrder })
@@ -43,7 +64,7 @@ export async function upload(projectId: number, imageFile: File) {
         .orderBy(desc(vibeTransfers.displayOrder))
         .limit(1)
 
-    const displayOrder = generateKeyBetween(last?.displayOrder ?? null, null)
+    const displayOrder = nextDisplayOrder(last?.displayOrder)
 
     const [created] = await db
         .insert(vibeTransfers)
@@ -56,7 +77,8 @@ export async function upload(projectId: number, imageFile: File) {
         })
         .returning()
 
-    return created!
+    if (!created) throw new Error('Failed to create vibe transfer')
+    return created
 }
 
 export async function update(
@@ -75,7 +97,7 @@ export async function update(
 
     const [updated] = await db
         .update(vibeTransfers)
-        .set({ ...body, updatedAt: new Date().toISOString() })
+        .set(withUpdatedAt(body))
         .where(eq(vibeTransfers.id, id))
         .returning()
 
@@ -83,30 +105,19 @@ export async function update(
 }
 
 export async function reorder(id: number, prevId: number | null, nextId: number | null) {
-    let prevOrder: string | null = null
-    let nextOrder: string | null = null
+    const [existing] = await db
+        .select({ projectId: vibeTransfers.projectId })
+        .from(vibeTransfers)
+        .where(eq(vibeTransfers.id, id))
+    if (!existing) return null
 
-    if (prevId) {
-        const [prev] = await db
-            .select({ displayOrder: vibeTransfers.displayOrder })
-            .from(vibeTransfers)
-            .where(eq(vibeTransfers.id, prevId))
-        prevOrder = prev?.displayOrder ?? null
-    }
-
-    if (nextId) {
-        const [next] = await db
-            .select({ displayOrder: vibeTransfers.displayOrder })
-            .from(vibeTransfers)
-            .where(eq(vibeTransfers.id, nextId))
-        nextOrder = next?.displayOrder ?? null
-    }
-
-    const displayOrder = generateKeyBetween(prevOrder, nextOrder)
+    const prevOrder = prevId ? await getSiblingOrder(prevId, existing.projectId, 'Previous') : null
+    const nextOrder = nextId ? await getSiblingOrder(nextId, existing.projectId, 'Next') : null
+    const displayOrder = displayOrderBetween(prevOrder, nextOrder)
 
     const [updated] = await db
         .update(vibeTransfers)
-        .set({ displayOrder, updatedAt: new Date().toISOString() })
+        .set(withUpdatedAt({ displayOrder }))
         .where(eq(vibeTransfers.id, id))
         .returning()
 

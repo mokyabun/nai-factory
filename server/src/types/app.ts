@@ -1,5 +1,10 @@
 import { t } from 'elysia'
-import { NovelAICharacterPrompt, NovelAIModel, NovelAINoiseSchedule, NovelAISampler } from './novelai'
+import {
+    NovelAICharacterPrompt,
+    NovelAIModel,
+    NovelAINoiseSchedule,
+    NovelAISampler,
+} from './novelai'
 
 export const Parameters = t.Object({
     model: NovelAIModel,

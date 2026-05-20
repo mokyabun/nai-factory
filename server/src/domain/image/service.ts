@@ -1,8 +1,20 @@
 import { desc, eq } from 'drizzle-orm'
 import { status } from 'elysia'
-import { generateKeyBetween } from 'fractional-indexing-jittered'
-import { db, images, scenes } from '@/db'
-import * as imageService from '@/services/image'
+import { db, images, scenes } from '../../db'
+import { remove as removeFile } from '../../services'
+import { displayOrderBetween, requireEntity } from '../../shared'
+
+async function getSiblingOrder(id: number, sceneId: number, label: string) {
+    const [image] = await db
+        .select({ sceneId: images.sceneId, displayOrder: images.displayOrder })
+        .from(images)
+        .where(eq(images.id, id))
+
+    const sibling = requireEntity(image, `${label} image not found`)
+    if (sibling.sceneId !== sceneId) throw status(400, `${label} image belongs to another scene`)
+
+    return sibling.displayOrder
+}
 
 export async function getAllBySceneId(sceneId: number) {
     const [scene] = await db.select().from(scenes).where(eq(scenes.id, sceneId))
@@ -26,35 +38,27 @@ export async function remove(id: number) {
     }
 
     await db.delete(images).where(eq(images.id, id))
-    await imageService.remove(image.filePath, image.thumbnailPath ?? null)
+    await removeFile(image.filePath, image.thumbnailPath ?? null)
 
     return true
 }
 
-// Images are displayed in DESC displayOrder, so:
-//   prevId = visually before = higher displayOrder
-//   nextId = visually after  = lower displayOrder
-// generateKeyBetween(a, b) requires a < b  →  swap args: (nextOrder, prevOrder)
+// Images are displayed in DESC displayOrder (newest first), so:
+//   prevId = lower displayOrder value (fractional position before)
+//   nextId = higher displayOrder value (fractional position after)
+// generateKeyBetween(a, b) requires a < b  →  standard order: (prevOrder, nextOrder)
 export async function reorder(id: number, prevId: number | null, nextId: number | null) {
     const [img] = await db.select({ sceneId: images.sceneId }).from(images).where(eq(images.id, id))
     if (!img) throw status(404, 'Image not found')
 
-    let prevOrder: string | null = null
-    let nextOrder: string | null = null
+    const prevOrder = prevId ? await getSiblingOrder(prevId, img.sceneId, 'Previous') : null
+    const nextOrder = nextId ? await getSiblingOrder(nextId, img.sceneId, 'Next') : null
 
-    if (prevId) {
-        const [prev] = await db.select({ displayOrder: images.displayOrder }).from(images).where(eq(images.id, prevId))
-        if (!prev) throw status(404, 'Previous image not found')
-        prevOrder = prev.displayOrder
-    }
-
-    if (nextId) {
-        const [next] = await db.select({ displayOrder: images.displayOrder }).from(images).where(eq(images.id, nextId))
-        if (!next) throw status(404, 'Next image not found')
-        nextOrder = next.displayOrder
-    }
-
-    const displayOrder = generateKeyBetween(nextOrder, prevOrder)
-    const [updated] = await db.update(images).set({ displayOrder }).where(eq(images.id, id)).returning()
+    const displayOrder = displayOrderBetween(prevOrder, nextOrder)
+    const [updated] = await db
+        .update(images)
+        .set({ displayOrder })
+        .where(eq(images.id, id))
+        .returning()
     return updated
 }

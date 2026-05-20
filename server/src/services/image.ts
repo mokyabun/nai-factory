@@ -1,21 +1,19 @@
 import fs from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import sharp from 'sharp'
-import type { ImageSaveType, ImageSettings } from '@/types'
+import { IMAGES_DIR, THUMBNAILS_DIR } from '../config'
 import baseLogger from '../logger'
+import type { ImageSaveType, ImageSettings } from '../types'
 
 const logger = baseLogger.child({ module: 'image-service' })
 
-export const IMAGES_DIR = './data/images'
-export const THUMBNAILS_DIR = './data/thumbnails'
+export { IMAGES_DIR, THUMBNAILS_DIR }
 
-async function ensureDirectories(path: string) {
-    const dirPath = dirname(path)
-
-    return fs.mkdir(dirPath, { recursive: true })
+async function ensureDir(path: string) {
+    return fs.mkdir(dirname(path), { recursive: true })
 }
 
-async function generateImage(
+async function processImage(
     data: Uint8Array,
     filePath: string,
     saveType: ImageSaveType,
@@ -23,9 +21,7 @@ async function generateImage(
 ) {
     let image = sharp(data)
 
-    if (size) {
-        image = image.resize(size, size, { fit: 'inside' })
-    }
+    if (size) image = image.resize(size, size, { fit: 'inside' })
 
     switch (saveType.type) {
         case 'png':
@@ -49,25 +45,21 @@ export async function save(
     imageData: Uint8Array,
     imageSettings: ImageSettings,
 ) {
-    const imageBasePath = join(String(projectId), String(sceneId), String(imageId))
+    const base = join(String(projectId), String(sceneId), String(imageId))
+    const filePath = join(IMAGES_DIR, `${base}.${imageSettings.sourceType.type}`)
+    const thumbnailPath = join(THUMBNAILS_DIR, `${base}.${imageSettings.thumbnailType.type}`)
 
-    const filePath = join(IMAGES_DIR, `${imageBasePath}.${imageSettings.sourceType.type}`)
-    const thumbnailPath = join(
-        THUMBNAILS_DIR,
-        `${imageBasePath}.${imageSettings.thumbnailType.type}`,
-    )
+    await Promise.all([ensureDir(filePath), ensureDir(thumbnailPath)])
 
-    await Promise.all([ensureDirectories(filePath), ensureDirectories(thumbnailPath)])
-
-    const writeFilePromise = generateImage(imageData, filePath, imageSettings.sourceType)
-    const thumbnailPromise = generateImage(
-        imageData,
-        thumbnailPath,
-        imageSettings.thumbnailType,
-        imageSettings.thumbnailSize,
-    )
-
-    await Promise.all([writeFilePromise, thumbnailPromise])
+    await Promise.all([
+        processImage(imageData, filePath, imageSettings.sourceType),
+        processImage(
+            imageData,
+            thumbnailPath,
+            imageSettings.thumbnailType,
+            imageSettings.thumbnailSize,
+        ),
+    ])
 
     logger.info({ filePath, sizeBytes: imageData.byteLength }, 'Image saved')
 

@@ -1,8 +1,7 @@
 import { asc, eq, inArray } from 'drizzle-orm'
 import { status } from 'elysia'
-import { db } from '@/db'
-import { projects, queueItems, scenes } from '@/db/schema'
-import { queueManager, type EnqueuePosition } from '@/services/queue-manager'
+import { db, projects, queueItems, scenes } from '../../db'
+import { type EnqueuePosition, queueManager } from '../../services'
 
 export async function get(projectId?: number) {
     const rows = projectId
@@ -58,7 +57,7 @@ export async function cancel(id: number) {
     const [item] = await db.select().from(queueItems).where(eq(queueItems.id, id))
     if (!item) throw status(404, 'Queue item not found')
 
-    queueManager.cancel([id])
+    await queueManager.cancel([id])
     return { success: true }
 }
 
@@ -68,6 +67,6 @@ export async function clearAll(sceneId?: number) {
         : await db.select().from(queueItems)
 
     const ids = rows.map((r) => r.id)
-    if (ids.length > 0) queueManager.cancel(ids)
+    await queueManager.cancel(ids)
     return { cancelled: ids.length }
 }

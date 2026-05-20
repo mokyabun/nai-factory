@@ -1,1 +1,1 @@
-export { get, update, reset } from '@/services/settings'
+export { get, reset, update } from '../../services'

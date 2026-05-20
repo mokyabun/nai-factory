@@ -1,0 +1,19 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.4.5/schema.json",
+    "extends": ["../biome.json"],
+    "files": {
+        "includes": ["src/**/*", "test/**/*"]
+    },
+    "overrides": [
+        {
+            "includes": ["test/**/*"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "noNonNullAssertion": "off"
+                    }
+                }
+            }
+        }
+    ]
+}

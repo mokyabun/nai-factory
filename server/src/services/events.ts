@@ -14,7 +14,7 @@ class DomainEventService extends EventEmitter {
     invalidate(domain: EventDomain): void {
         this.pending.add(domain)
         if (this.timer === null) {
-            this.timer = setTimeout(() => this.flush(), 20)
+            this.timer = setTimeout(() => this.flush(), 0)
         }
     }
 

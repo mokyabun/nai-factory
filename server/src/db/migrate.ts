@@ -1,13 +1,31 @@
 import type { Database } from 'bun:sqlite'
-// @ts-ignore
+import logger from '../logger'
+// @ts-expect-error Bun imports SQL migrations as text at runtime
 import trueAnitaBlake from './migrations/0000_true_anita_blake.sql' with { type: 'text' }
+// @ts-expect-error Bun imports SQL migrations as text at runtime
+import removeThumbnailImageId from './migrations/0001_remove_thumbnail_image_id.sql' with {
+    type: 'text',
+}
+// @ts-expect-error Bun imports SQL migrations as text at runtime
+import addQueueItemsSceneIdIdx from './migrations/0002_add_queue_items_scene_id_idx.sql' with {
+    type: 'text',
+}
+// @ts-expect-error Bun imports SQL migrations as text at runtime
+import fixVibeTransfersIndex from './migrations/0003_fix_vibe_transfers_index.sql' with {
+    type: 'text',
+}
+
+const log = logger.child({ module: 'migrate' })
 
 const migrations: { tag: string; sql: string }[] = [
     { tag: '0000_true_anita_blake', sql: trueAnitaBlake },
+    { tag: '0001_remove_thumbnail_image_id', sql: removeThumbnailImageId },
+    { tag: '0002_add_queue_items_scene_id_idx', sql: addQueueItemsSceneIdIdx },
+    { tag: '0003_fix_vibe_transfers_index', sql: fixVibeTransfersIndex },
 ]
 
 export function migrate(db: Database) {
-    console.log('Running migrations...')
+    log.info('Running migrations')
 
     db.run(`
         CREATE TABLE IF NOT EXISTS _migration_history (
@@ -26,7 +44,7 @@ export function migrate(db: Database) {
     for (const migration of migrations) {
         if (applied.has(migration.tag)) continue
 
-        console.log(`Applying migration: ${migration.tag}`)
+        log.info({ tag: migration.tag }, 'Applying migration')
 
         const statements = migration.sql
             .split('--> statement-breakpoint')
@@ -43,5 +61,5 @@ export function migrate(db: Database) {
         ])
     }
 
-    console.log('Migrations complete.')
+    log.info('Migrations complete')
 }

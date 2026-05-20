@@ -1,6 +1,23 @@
-import devtoolsJson from 'vite-plugin-devtools-json'
 import tailwindcss from '@tailwindcss/vite'
-import { sveltekit } from '@sveltejs/kit/vite'
+import { devtools } from '@tanstack/devtools-vite'
+
+import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+
+import viteReact from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-export default defineConfig({ plugins: [tailwindcss(), sveltekit(), devtoolsJson()] })
+const config = defineConfig({
+    resolve: { tsconfigPaths: true },
+    plugins: [
+        devtools(),
+        tailwindcss(),
+        tanstackStart(),
+        viteReact({
+            babel: {
+                plugins: ['babel-plugin-react-compiler'],
+            },
+        }),
+    ],
+})
+
+export default config

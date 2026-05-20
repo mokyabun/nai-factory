@@ -1,6 +1,5 @@
 import { Elysia } from 'elysia'
-import { domainEvents } from '@/services/events'
-import { queueManager } from '@/services/queue-manager'
+import { domainEvents, queueManager } from '../../services'
 import { QueueModel } from './model'
 import * as service from './service'
 

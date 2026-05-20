@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
-import { db, vibeTransfers } from '@/db'
-import logger from '@/logger'
-import type { NovelAIModel, NovelAIVibeImage } from '@/types'
+import { db, vibeTransfers } from '../db'
+import logger from '../logger'
+import type { NovelAIModel, NovelAIVibeImage } from '../types'
 import { encodeVibe } from './novelai'
 
 const log = logger.child({ module: 'vibe-image' })
@@ -20,8 +20,11 @@ export async function checkVibe(
 
     if (!needsEncoding) {
         log.debug({ vibeTransferId }, 'Vibe cache hit')
+        const encodedData = vibe.encodedData
+        if (!encodedData) throw new Error(`Vibe transfer ${vibeTransferId} has no cached encoding`)
+
         return {
-            encodedData: vibe.encodedData!,
+            encodedData,
             referenceStrength: vibe.referenceStrength,
         }
     }

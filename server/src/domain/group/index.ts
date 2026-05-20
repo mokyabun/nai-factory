@@ -4,7 +4,7 @@ import { GroupModel, IdParams } from './model'
 import * as groupService from './service'
 
 export const group = new Elysia({ prefix: '/groups' })
-    .get('/', () => groupService.getAll())
+    .get('/', () => groupService.getAllWithProjects())
     .get(
         '/:id',
         async ({ params }) => {

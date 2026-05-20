@@ -3,14 +3,9 @@ import { IdParams, ProjectModel } from './model'
 import * as projectService from './service'
 
 export const project = new Elysia({ prefix: '/projects' })
-    .get(
-        '/',
-        async ({ query }) => {
-            if (query.groupId === undefined) throw status(400, 'groupId is required')
-            return projectService.getAllByGroupId(query.groupId)
-        },
-        { query: t.Object({ groupId: t.Optional(t.Numeric()) }) },
-    )
+    .get('/', ({ query }) => projectService.getAllByGroupId(query.groupId), {
+        query: t.Object({ groupId: t.Numeric() }),
+    })
     .get(
         '/:projectId',
         async ({ params }) => {

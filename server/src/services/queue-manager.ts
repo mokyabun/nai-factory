@@ -1,6 +1,6 @@
 import { asc, count, eq, inArray, sql } from 'drizzle-orm'
-import { db, queueItems, scenes } from '@/db'
-import logger from '@/logger'
+import { db, queueItems, scenes } from '../db'
+import logger from '../logger'
 import { domainEvents } from './events'
 import { runJob } from './queue-runner'
 
@@ -60,16 +60,18 @@ class QueueManager {
         this.log.info('Queue stopped')
     }
 
-    cancel(jobIds: number[]) {
-        db.delete(queueItems).where(inArray(queueItems.id, jobIds)).catch(console.error)
+    async cancel(jobIds: number[]) {
+        if (jobIds.length === 0) return
 
+        await db.delete(queueItems).where(inArray(queueItems.id, jobIds))
         this.log.warn({ jobIds }, 'Jobs cancelled')
     }
 
     async status() {
         const { jobCount, totalVariations } = await this.fetchQueueStats()
-        const avg = this.avgDuration()
-        const estimatedSeconds = avg !== null ? Math.round((avg * totalVariations) / 1000) : null
+        const avgDurationMs = this.avgDurationMs()
+        const estimatedSeconds =
+            avgDurationMs !== null ? Math.round((avgDurationMs * totalVariations) / 1000) : null
 
         return {
             running: this.running,
@@ -107,8 +109,8 @@ class QueueManager {
 
             this.currentSceneId = next.sceneId
             try {
-                for await (const variationDuration of runJob(next.id)) {
-                    this.recordDuration(variationDuration)
+                for await (const variationDurationMs of runJob(next.id)) {
+                    this.recordDurationMs(variationDurationMs)
                     domainEvents.invalidate('queue')
                 }
             } catch (error) {
@@ -117,6 +119,7 @@ class QueueManager {
                 break
             } finally {
                 this.currentSceneId = null
+                domainEvents.invalidate('queue')
             }
         }
 
@@ -126,13 +129,13 @@ class QueueManager {
         domainEvents.invalidate('queue')
     }
 
-    private recordDuration(seconds: number) {
-        this.recentDurations.push(seconds)
+    private recordDurationMs(milliseconds: number) {
+        this.recentDurations.push(milliseconds)
 
         if (this.recentDurations.length > DURATION_BUFFER_SIZE) this.recentDurations.shift()
     }
 
-    private avgDuration() {
+    private avgDurationMs() {
         if (this.recentDurations.length === 0) return null
 
         return this.recentDurations.reduce((a, b) => a + b, 0) / this.recentDurations.length
