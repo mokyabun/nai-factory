@@ -41,7 +41,7 @@ export function CodeEditor({
             keymap.of([...defaultKeymap, ...historyKeymap]),
             EditorView.lineWrapping,
             cmPlaceholder(placeholder),
-            autocompletion(completionSource ? { override: [completionSource] } : {}),
+            autocompletion(completionSource ? { override: [completionSource], activateOnTyping: true } : {}),
             shadcnTheme,
             EditorView.updateListener.of((update) => {
                 if (update.docChanged) {

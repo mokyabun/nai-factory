@@ -9,6 +9,7 @@ import {
     sdStudio,
     setting,
     sse,
+    tag,
     vibeTransfer,
 } from './domain'
 import logger from './logger'
@@ -42,5 +43,6 @@ export function createApp() {
         .use(sdStudio)
         .use(setting)
         .use(sse)
+        .use(tag)
         .get('/data/*', ({ params }) => Bun.file(`./data/${params['*']}`))
 }

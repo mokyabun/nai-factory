@@ -1,5 +1,6 @@
 import { CodeEditor } from '#/components/app/code-editor/code-editor'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
+import { tagCompletionSource } from '#/lib/tag-autocomplete'
 import { cn } from '#/lib/utils'
 
 interface PromptEditorProps {
@@ -36,6 +37,7 @@ export function PromptEditor({
                     placeholder="프롬프트를 입력하세요..."
                     minLines={6}
                     className="h-full"
+                    completionSource={tagCompletionSource}
                     onChange={onPromptChange}
                 />
             </TabsContent>
@@ -45,6 +47,7 @@ export function PromptEditor({
                     placeholder="부정 프롬프트를 입력하세요..."
                     minLines={6}
                     className="h-full"
+                    completionSource={tagCompletionSource}
                     onChange={onNegativePromptChange}
                 />
             </TabsContent>

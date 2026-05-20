@@ -17,11 +17,14 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, GripVertical, Plus, Trash2, X } from 'lucide-react'
+import { useRef } from 'react'
 import { CodeEditor } from '#/components/app/code-editor/code-editor'
 import { Button } from '#/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { api } from '#/lib/api'
 import { qk } from '#/lib/queries'
+import { tagCompletionSource } from '#/lib/tag-autocomplete'
+import { debounce } from '#/lib/utils'
 
 type CharacterPrompt = {
     enabled: boolean
@@ -97,6 +100,7 @@ function SortableItem({ id, cp, onUpdate, onRemove }: SortableItemProps) {
                         placeholder="프롬프트를 입력하세요..."
                         minLines={6}
                         className="h-full"
+                        completionSource={tagCompletionSource}
                         onChange={(value) => onUpdate({ prompt: value })}
                     />
                 </TabsContent>
@@ -106,6 +110,7 @@ function SortableItem({ id, cp, onUpdate, onRemove }: SortableItemProps) {
                         placeholder="부정 프롬프트를 입력하세요..."
                         minLines={6}
                         className="h-full"
+                        completionSource={tagCompletionSource}
                         onChange={(value) => onUpdate({ uc: value })}
                     />
                 </TabsContent>
@@ -122,6 +127,10 @@ interface CharacterPromptEditorProps {
 export function CharacterPromptEditor({ projectId, characterPrompts }: CharacterPromptEditorProps) {
     const queryClient = useQueryClient()
 
+    // Keep a ref to latest characterPrompts for use inside the debounced save
+    const characterPromptsRef = useRef(characterPrompts)
+    characterPromptsRef.current = characterPrompts
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -132,15 +141,21 @@ export function CharacterPromptEditor({ projectId, characterPrompts }: Character
         queryClient.invalidateQueries({ queryKey: qk.project(projectId) })
     }
 
+    const saveDebounced = useRef(debounce((newPrompts: CharacterPrompt[]) => save(newPrompts), 600))
+
     async function addCharacter() {
         await save([...characterPrompts, { enabled: true, center: { x: 0, y: 0 }, prompt: '', uc: '' }])
     }
 
-    async function updateCharacter(index: number, updated: Partial<CharacterPrompt>) {
-        await save(characterPrompts.map((cp, i) => (i === index ? { ...cp, ...updated } : cp)))
+    function updateCharacter(index: number, updated: Partial<CharacterPrompt>) {
+        const newPrompts = characterPromptsRef.current.map((cp, i) =>
+            i === index ? { ...cp, ...updated } : cp,
+        )
+        saveDebounced.current(newPrompts)
     }
 
     async function removeCharacter(index: number) {
+        saveDebounced.current.cancel()
         await save(characterPrompts.filter((_, i) => i !== index))
     }
 

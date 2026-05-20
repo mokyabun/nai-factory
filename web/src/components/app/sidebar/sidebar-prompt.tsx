@@ -11,6 +11,7 @@ import { SidebarHeader } from '#/components/ui/sidebar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { api } from '#/lib/api'
 import { qk } from '#/lib/queries'
+import { tagCompletionSource } from '#/lib/tag-autocomplete'
 import { debounce } from '#/lib/utils'
 
 interface SidebarPromptProps {
@@ -180,6 +181,7 @@ export function SidebarPrompt({ projectId }: SidebarPromptProps) {
                                             value={value}
                                             placeholder="값 (태그, 프롬프트 등)..."
                                             minLines={2}
+                                            completionSource={tagCompletionSource}
                                             onChange={(v) => updateVarValue(i, v)}
                                         />
                                     </div>
