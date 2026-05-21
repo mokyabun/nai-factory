@@ -1,7 +1,7 @@
-import { autocompletion, type CompletionSource } from '@codemirror/autocomplete'
+import { acceptCompletion, autocompletion, type CompletionSource } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { EditorState, type Extension } from '@codemirror/state'
-import { placeholder as cmPlaceholder, EditorView, keymap } from '@codemirror/view'
+import { placeholder as cmPlaceholder, EditorView, keymap, tooltips } from '@codemirror/view'
 import { useEffect, useRef } from 'react'
 import { cn } from '#/lib/utils'
 import { shadcnTheme } from './theme'
@@ -28,20 +28,41 @@ export function CodeEditor({
 }: CodeEditorProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const viewRef = useRef<EditorView | null>(null)
+
+    // Keep mutable callbacks/sources in refs so the editor closure never goes stale,
+    // and the React Compiler cannot add them as effect dependencies.
     const onChangeRef = useRef(onChange)
     onChangeRef.current = onChange
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentional one-time editor initialization
+    const completionSourceRef = useRef(completionSource)
+    completionSourceRef.current = completionSource
+
+    // Capture the initial value so the React Compiler does not track the `value`
+    // prop as a dependency of the setup effect (which would recreate the editor
+    // on every keystroke and prevent autocompletion from ever triggering).
+    const initialValueRef = useRef(value)
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: one-time editor initialization
     useEffect(() => {
         if (!containerRef.current) return
 
         const extensions: Extension[] = [
             history(),
-            // @ts-ignore
-            keymap.of([...defaultKeymap, ...historyKeymap]),
+            keymap.of([
+                { key: 'Tab', run: acceptCompletion },
+                ...defaultKeymap,
+                ...historyKeymap,
+            ]),
             EditorView.lineWrapping,
             cmPlaceholder(placeholder),
-            autocompletion(completionSource ? { override: [completionSource], activateOnTyping: true } : {}),
+            autocompletion({
+                // Wrap in a stable closure so the React Compiler never sees
+                // `completionSource` as a captured reactive value in this effect.
+                override: [(ctx) => completionSourceRef.current?.(ctx) ?? null],
+                activateOnTyping: true,
+            }),
+            // Render tooltips in document.body to avoid overflow/z-index clipping.
+            tooltips({ parent: document.body }),
             shadcnTheme,
             EditorView.updateListener.of((update) => {
                 if (update.docChanged) {
@@ -51,7 +72,7 @@ export function CodeEditor({
         ]
 
         const view = new EditorView({
-            state: EditorState.create({ doc: value, extensions }),
+            state: EditorState.create({ doc: initialValueRef.current, extensions }),
             parent: containerRef.current,
         })
         viewRef.current = view
@@ -60,15 +81,17 @@ export function CodeEditor({
             view.destroy()
             viewRef.current = null
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Sync external value changes without triggering infinite loops
+    // Sync external value changes (skip when the editor has focus to avoid
+    // overwriting content mid-edit and resetting the cursor position).
     useEffect(() => {
         const view = viewRef.current
-        if (view && view.state.doc.toString() !== value) {
+        if (!view || view.hasFocus) return
+        const current = view.state.doc.toString()
+        if (current !== value) {
             view.dispatch({
-                changes: { from: 0, to: view.state.doc.length, insert: value },
+                changes: { from: 0, to: current.length, insert: value },
             })
         }
     }, [value])

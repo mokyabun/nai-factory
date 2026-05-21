@@ -1,0 +1,26 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.4.5/schema.json",
+    "extends": "//",
+    "files": {
+        "includes": [
+            "src/**/*",
+            "svelte.config.js",
+            "vite.config.ts",
+            "biome.json",
+            "!src/lib/components/ui/**/*"
+        ]
+    },
+    "css": {
+        "parser": {
+            "tailwindDirectives": true
+        }
+    },
+    "overrides": [
+        {
+            "includes": ["src/**/*.svelte"],
+            "html": {
+                "experimentalFullSupportEnabled": true
+            }
+        }
+    ]
+}

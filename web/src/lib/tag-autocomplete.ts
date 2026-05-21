@@ -19,8 +19,6 @@ export async function tagCompletionSource(
     const line = state.doc.lineAt(pos)
     const textBefore = line.text.slice(0, pos - line.from)
 
-    console.log('Triggering tag autocomplete with context:', { textBefore, pos, lineStart: line.from })
-
     // Find the start of the current token by scanning backwards for a delimiter
     let tokenStart = 0
     for (let i = textBefore.length - 1; i >= 0; i--) {
