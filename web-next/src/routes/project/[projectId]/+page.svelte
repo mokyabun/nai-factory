@@ -1,11 +1,13 @@
 <script lang="ts">
-import { DragDropProvider } from '@dnd-kit/svelte'
+import { DragDropProvider, DragOverlay } from '@dnd-kit/svelte'
+import { isSortable } from '@dnd-kit/svelte/sortable'
 import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query'
 import { ListPlus, Plus, SlidersHorizontal } from 'phosphor-svelte'
 import { page } from '$app/state'
 import { api } from '$lib/api'
 import CreateNameDialog from '$lib/components/app/dialogs/create-name-dialog.svelte'
 import ParametersPanel from '$lib/components/app/project/parameters-panel.svelte'
+import SceneCard from '$lib/components/app/project/scene-card.svelte'
 import SortableSceneItem from '$lib/components/app/project/sortable-scene-item.svelte'
 import { Button } from '$lib/components/ui/button'
 import { qk } from '$lib/query-keys'
@@ -40,6 +42,7 @@ const queueStatusQuery = createQuery(() => ({
 }))
 
 let items = $state<Scene[]>([])
+let snapshot: Scene[] = []
 $effect(() => {
     if (scenesQuery.data) items = scenesQuery.data
 })
@@ -85,26 +88,40 @@ const bulkEnqueue = createMutation(() => ({
     },
 }))
 
+function handleDragStart() {
+    snapshot = [...items]
+}
+
+function handleDragOver(event: unknown) {
+    const { source, target } = event.operation
+
+    if (isSortable(source) && isSortable(target)) {
+        const fromIndex = source.index
+        const toIndex = target.index
+
+        if (fromIndex !== toIndex) {
+            const newItems = [...items]
+            const [removed] = newItems.splice(fromIndex, 1)
+            newItems.splice(toIndex, 0, removed)
+            items = newItems
+        }
+    }
+}
+
 function handleDragEnd(event: {
     canceled: boolean
     operation: { source?: { id: unknown } | null; target?: { id: unknown } | null }
 }) {
-    if (event.canceled) return
+    if (event.canceled) {
+        items = snapshot
+        return
+    }
     const sourceId = Number(event.operation.source?.id)
-    const targetId = Number(event.operation.target?.id)
-    const moved = movedIds(items, sourceId, targetId)
-    if (!moved) return
-    const snapshot = [...items]
-    items = moved.items
-    reorderScene.mutate({ id: sourceId, prevId: moved.prevId, nextId: moved.nextId, snapshot })
-}
-
-function handleDragOver(event: {
-    operation: { source?: { id: unknown } | null; target?: { id: unknown } | null }
-}) {
-    const sourceId = Number(event.operation.source?.id)
-    const targetId = Number(event.operation.target?.id)
-    items = movedIds(items, sourceId, targetId)?.items ?? items
+    const idx = items.findIndex((item) => item.id === sourceId)
+    if (idx < 0) return
+    const prevId = idx > 0 ? items[idx - 1].id : null
+    const nextId = idx < items.length - 1 ? items[idx + 1].id : null
+    reorderScene.mutate({ id: sourceId, prevId, nextId, snapshot })
 }
 
 function toggleSelect(id: number) {
@@ -112,6 +129,10 @@ function toggleSelect(id: number) {
     if (next.has(id)) next.delete(id)
     else next.add(id)
     selectedIds = next
+}
+
+function getSceneById(id: unknown) {
+    return items.find((scene) => scene.id === id)
 }
 
 const selectMode = $derived(selectedIds.size > 0)
@@ -156,7 +177,7 @@ const currentSceneId = $derived(queueStatusQuery.data?.currentSceneId ?? null)
 			<p class="text-sm">씬이 없습니다. 새 씬을 추가하세요.</p>
 		</div>
 	{:else}
-		<DragDropProvider onDragEnd={handleDragEnd} onDragOver={handleDragOver}>
+		<DragDropProvider onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragOver={handleDragOver}>
 			<div class="flex flex-wrap gap-4 pb-4">
 				{#each items as scene, index (scene.id)}
 					<SortableSceneItem

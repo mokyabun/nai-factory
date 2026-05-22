@@ -16,7 +16,9 @@
     "workspaces": [
         "web",
         "web-next",
-        "server"
+        "server",
+        "server-next",
+        "types"
     ],
     "devDependencies": {
         "concurrently": "^9.2.1",

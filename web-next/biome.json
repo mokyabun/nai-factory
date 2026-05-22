@@ -17,7 +17,19 @@
     },
     "overrides": [
         {
-            "includes": ["src/**/*.svelte"],
+            "includes": ["**/*.svelte"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "useConst": "off",
+                        "useImportType": "off"
+                    },
+                    "correctness": {
+                        "noUnusedVariables": "off",
+                        "noUnusedImports": "off"
+                    }
+                }
+            },
             "html": {
                 "experimentalFullSupportEnabled": true
             }

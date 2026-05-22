@@ -20,9 +20,13 @@ let {
 
 // svelte-ignore state_referenced_locally
 const sortable = createSortable({
-	get id() { return img.id },
-	get index() { return index },
-	group: 'images'
+    get id() {
+        return img.id
+    },
+    get index() {
+        return index
+    },
+    group: 'images',
 })
 </script>
 
