@@ -1,4 +1,5 @@
 import { useRouterState } from '@tanstack/react-router'
+import { Fragment } from 'react'
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -14,11 +15,20 @@ export function Header() {
 
     const parts =
         pathname === '/'
-            ? ['Home']
+            ? [{ key: '/', label: 'Home' }]
             : pathname
                   .slice(1)
                   .split('/')
-                  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                  .reduce<Array<{ key: string; label: string }>>((items, part) => {
+                      const parentKey = items.at(-1)?.key ?? ''
+
+                      items.push({
+                          key: `${parentKey}/${part}`,
+                          label: part.charAt(0).toUpperCase() + part.slice(1),
+                      })
+
+                      return items
+                  }, [])
 
     return (
         <header className="sticky top-0 flex shrink-0 items-center gap-2 border-b bg-background p-4">
@@ -27,10 +37,12 @@ export function Header() {
             <Breadcrumb>
                 <BreadcrumbList>
                     {parts.map((part, index) => (
-                        <BreadcrumbItem key={index}>
-                            <BreadcrumbLink href="#">{part}</BreadcrumbLink>
+                        <Fragment key={part.key}>
+                            <BreadcrumbItem>
+                                <BreadcrumbLink href="#">{part.label}</BreadcrumbLink>
+                            </BreadcrumbItem>
                             {index < parts.length - 1 && <BreadcrumbSeparator />}
-                        </BreadcrumbItem>
+                        </Fragment>
                     ))}
                 </BreadcrumbList>
             </Breadcrumb>

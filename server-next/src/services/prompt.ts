@@ -1,4 +1,4 @@
-import type { CharacterPrompt, Prompt, PromptVariable } from '../types'
+import type { CharacterPrompt, Prompt, PromptVariable } from '@nai-factory/types'
 
 // regex to match [[variableName]] in prompt templates
 const TEMPLATE_VAR_RE = /\[\[([a-zA-Z_$][a-zA-Z0-9_$]*)\]\]/g

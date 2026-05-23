@@ -1,6 +1,6 @@
+import type { GlobalSettings } from '@nai-factory/types'
 import { eq } from 'drizzle-orm'
 import { db, settings } from '../db'
-import type { GlobalSettings } from '../types'
 
 let cache: GlobalSettings = load()
 

@@ -1,42 +1,31 @@
-# sv
+# NAI Factory Web
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+`web-next` is the React SPA frontend for NAI Factory. It uses Vite, TanStack Router file routes,
+TanStack Query, and the Hono API served by `server-next`.
 
-## Creating a project
+## Development
 
-If you're seeing this, you've probably already done this step. Congrats!
+From the repository root:
 
-```sh
-# create a new project
-npx sv create my-app
+```bash
+bun dev
 ```
 
-To recreate this project with the same configuration:
+The web app runs on port `5173` by default and waits for the API server before starting through
+the root workspace script. Set `VITE_API_URL` when the API is hosted somewhere other than
+`http://localhost:3000`.
 
-```sh
-# recreate this project
-bun x sv@0.15.3 create --template minimal --types ts --add tailwindcss="plugins:none" sveltekit-adapter="adapter:static" --install bun web-next
+## Workspace Commands
+
+```bash
+bun build:web
+bun check:web
+bun lint:web
+bun test:web
 ```
 
-## Developing
+## Routing
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+TanStack Router generates the route tree from `src/routes` during Vite startup and build. The root
+route renders the shared application shell; project, scene, image, and settings views are split into
+their own file routes by the Router Vite plugin.

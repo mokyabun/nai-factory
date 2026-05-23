@@ -1,9 +1,9 @@
 import fs from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import type { ImageSaveType, ImageSettings } from '@nai-factory/types'
 import sharp from 'sharp'
 import { IMAGES_DIR, THUMBNAILS_DIR } from '../config'
 import baseLogger from '../logger'
-import type { ImageSaveType, ImageSettings } from '../types'
 
 const logger = baseLogger.child({ module: 'image-service' })
 

@@ -2,37 +2,14 @@
     "$schema": "https://biomejs.dev/schemas/2.4.5/schema.json",
     "extends": "//",
     "files": {
+        "ignoreUnknown": false,
         "includes": [
-            "src/**/*",
-            "svelte.config.js",
-            "vite.config.ts",
-            "biome.json",
-            "!src/lib/components/ui/**/*"
+            "**/src/**/*",
+            "**/.vscode/**/*",
+            "**/index.html",
+            "**/vite.config.ts",
+            "!**/src/routeTree.gen.ts",
+            "!**/src/styles.css"
         ]
-    },
-    "css": {
-        "parser": {
-            "tailwindDirectives": true
-        }
-    },
-    "overrides": [
-        {
-            "includes": ["**/*.svelte"],
-            "linter": {
-                "rules": {
-                    "style": {
-                        "useConst": "off",
-                        "useImportType": "off"
-                    },
-                    "correctness": {
-                        "noUnusedVariables": "off",
-                        "noUnusedImports": "off"
-                    }
-                }
-            },
-            "html": {
-                "experimentalFullSupportEnabled": true
-            }
-        }
-    ]
+    }
 }

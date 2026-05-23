@@ -1,7 +1,7 @@
+import type { NovelAIModel, NovelAIVibeImage } from '@nai-factory/types'
 import { eq } from 'drizzle-orm'
 import { db, vibeTransfers } from '../db'
 import logger from '../logger'
-import type { NovelAIModel, NovelAIVibeImage } from '../types'
 import { encodeVibe } from './novelai'
 
 const log = logger.child({ module: 'vibe-image' })
