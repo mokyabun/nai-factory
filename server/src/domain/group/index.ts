@@ -15,9 +15,7 @@ export const group = new Elysia({ prefix: '/groups' })
 
             return { ...grp, projects }
         },
-        {
-            params: IdParams,
-        },
+        { params: IdParams },
     )
     .post('/', ({ body }) => groupService.create(body), { body: GroupModel.createBody })
     .patch(

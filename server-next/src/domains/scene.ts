@@ -1,4 +1,25 @@
 import { zValidator } from '@hono/zod-validator'
+<<<<<<< HEAD
+import {
+    IdParams,
+    SceneGetQuery,
+    SceneOrderPatchBody,
+    ScenePatchBody,
+    ScenePostBody,
+    ScenePreviewGetQuery,
+} from '@nai-factory/types'
+import { asc, desc, eq, sql } from 'drizzle-orm'
+import { Hono } from 'hono'
+import { db, images, projects, scenes, vibeTransfers } from '#/db'
+import { compilePrompts, compileVariables, get as getSettings, removeByScene } from '#/services'
+import {
+    displayOrderBetween,
+    httpError,
+    nextDisplayOrder,
+    requireEntity,
+    withUpdatedAt,
+} from '#/shared'
+=======
 import type { PromptVariable } from '@nai-factory/types'
 import {
     CreateSceneBody,
@@ -15,6 +36,7 @@ import { HTTPException } from 'hono/http-exception'
 import { db, images, projects, scenes, vibeTransfers } from '#/db'
 import { compilePrompts, compileVariables, get as getSettings, removeByScene } from '#/services'
 import { displayOrderBetween, nextDisplayOrder, requireEntity, withUpdatedAt } from '#/shared'
+>>>>>>> refs/remotes/origin/main
 
 type LatestImage = {
     id: number
@@ -22,7 +44,11 @@ type LatestImage = {
     thumbnailPath: string | null
 }
 
+<<<<<<< HEAD
+const summaryColumns = {
+=======
 const sceneSummaryColumns = {
+>>>>>>> refs/remotes/origin/main
     id: scenes.id,
     projectId: scenes.projectId,
     displayOrder: scenes.displayOrder,
@@ -48,11 +74,16 @@ const sceneSummaryColumns = {
     )`,
 } as const
 
+<<<<<<< HEAD
+function parseSummary<T extends { latestImages: string | null }>(row: T) {
+    return { ...row, latestImages: JSON.parse(row.latestImages ?? '[]') as LatestImage[] }
+=======
 function parseRow<T extends { latestImages: string | null }>(row: T) {
     return {
         ...row,
         latestImages: JSON.parse(row.latestImages ?? '[]') as LatestImage[],
     }
+>>>>>>> refs/remotes/origin/main
 }
 
 async function getProject(projectId: number) {
@@ -65,7 +96,11 @@ async function getScene(id: number) {
     return requireEntity(scene, 'Scene not found')
 }
 
+<<<<<<< HEAD
+async function getLastOrder(projectId: number) {
+=======
 async function getLastSceneOrder(projectId: number) {
+>>>>>>> refs/remotes/origin/main
     const [last] = await db
         .select({ displayOrder: scenes.displayOrder })
         .from(scenes)
@@ -83,9 +118,14 @@ async function getSiblingOrder(id: number, projectId: number, label: string) {
         .where(eq(scenes.id, id))
 
     const sibling = requireEntity(scene, `${label} scene not found`)
+<<<<<<< HEAD
+    if (sibling.projectId !== projectId)
+        throw httpError(400, `${label} scene belongs to another project`)
+=======
     if (sibling.projectId !== projectId) {
         throw new HTTPException(400, { message: `${label} scene belongs to another project` })
     }
+>>>>>>> refs/remotes/origin/main
 
     return sibling.displayOrder
 }
@@ -93,6 +133,19 @@ async function getSiblingOrder(id: number, projectId: number, label: string) {
 async function list(projectId: number) {
     await getProject(projectId)
     const rows = await db
+<<<<<<< HEAD
+        .select(summaryColumns)
+        .from(scenes)
+        .where(eq(scenes.projectId, projectId))
+        .orderBy(asc(scenes.displayOrder), asc(scenes.id))
+
+    return rows.map(parseSummary)
+}
+
+async function getSummary(id: number) {
+    const [scene] = await db.select(summaryColumns).from(scenes).where(eq(scenes.id, id))
+    return parseSummary(requireEntity(scene, 'Scene not found'))
+=======
         .select(sceneSummaryColumns)
         .from(scenes)
         .where(eq(scenes.projectId, projectId))
@@ -103,6 +156,7 @@ async function list(projectId: number) {
 async function getSummary(id: number) {
     const [scene] = await db.select(sceneSummaryColumns).from(scenes).where(eq(scenes.id, id))
     return parseRow(requireEntity(scene, 'Scene not found'))
+>>>>>>> refs/remotes/origin/main
 }
 
 async function getById(id: number) {
@@ -116,10 +170,17 @@ async function getById(id: number) {
     return { ...scene, images: sceneImages }
 }
 
+<<<<<<< HEAD
+async function getWorkspaceData(id: number) {
+    const { projectId } = await getScene(id)
+    const project = await getProject(projectId)
+    const projectVibes = await db
+=======
 async function getWorkspaceData(sceneId: number) {
     const { projectId } = await getScene(sceneId)
     const proj = await getProject(projectId)
     const vibes = await db
+>>>>>>> refs/remotes/origin/main
         .select({
             id: vibeTransfers.id,
             projectId: vibeTransfers.projectId,
@@ -134,12 +195,27 @@ async function getWorkspaceData(sceneId: number) {
         .where(eq(vibeTransfers.projectId, projectId))
         .orderBy(asc(vibeTransfers.displayOrder), asc(vibeTransfers.id))
 
+<<<<<<< HEAD
+    return { ...project, vibeTransfers: projectVibes }
+=======
     return { ...proj, vibeTransfers: vibes }
+>>>>>>> refs/remotes/origin/main
 }
 
 async function getPreviewPrompts(id: number, variationId?: number) {
     const scene = await getScene(id)
     const project = await getProject(scene.projectId)
+<<<<<<< HEAD
+    const globalSettings = getSettings()
+
+    let variations = scene.variations
+    if (variationId !== undefined) {
+        const variation = variations[variationId]
+        if (!variation) throw httpError(404, 'Variation not found')
+        variations = [variation]
+    }
+
+=======
     let variationList = scene.variations
 
     if (variationId !== undefined) {
@@ -149,13 +225,18 @@ async function getPreviewPrompts(id: number, variationId?: number) {
     }
 
     const settings = getSettings()
+>>>>>>> refs/remotes/origin/main
     return compilePrompts(
         {
             prompt: project.prompt,
             negativePrompt: project.negativePrompt,
             characterPrompts: project.characterPrompts,
         },
+<<<<<<< HEAD
+        compileVariables(globalSettings.globalVariables, project.variables, variations),
+=======
         compileVariables(settings.globalVariables, project.variables, variationList),
+>>>>>>> refs/remotes/origin/main
     )
 }
 
@@ -163,6 +244,22 @@ async function create(projectId: number, name: string) {
     await getProject(projectId)
     const [created] = await db
         .insert(scenes)
+<<<<<<< HEAD
+        .values({ projectId, name, displayOrder: nextDisplayOrder(await getLastOrder(projectId)) })
+        .returning()
+
+    return created
+}
+
+async function update(id: number, body: ScenePatchBody) {
+    await getScene(id)
+    const [updated] = await db
+        .update(scenes)
+        .set(withUpdatedAt(body))
+        .where(eq(scenes.id, id))
+        .returning()
+
+=======
         .values({
             projectId,
             name,
@@ -179,6 +276,7 @@ async function update(id: number, body: UpdateSceneBody) {
         .set(withUpdatedAt(body as { name?: string; variations?: PromptVariable[] }))
         .where(eq(scenes.id, id))
         .returning()
+>>>>>>> refs/remotes/origin/main
     return updated
 }
 
@@ -191,6 +289,10 @@ async function reorder(id: number, prevId: number | null, nextId: number | null)
         .set(withUpdatedAt({ displayOrder: displayOrderBetween(prevOrder, nextOrder) }))
         .where(eq(scenes.id, id))
         .returning()
+<<<<<<< HEAD
+
+=======
+>>>>>>> refs/remotes/origin/main
     return updated
 }
 
@@ -198,6 +300,10 @@ async function remove(id: number) {
     const scene = await getScene(id)
     await db.delete(scenes).where(eq(scenes.id, id))
     await removeByScene(scene.projectId, scene.id)
+<<<<<<< HEAD
+
+=======
+>>>>>>> refs/remotes/origin/main
     return { success: true }
 }
 
@@ -208,14 +314,67 @@ async function duplicate(id: number) {
         .values({
             projectId: scene.projectId,
             name: `${scene.name} (copy)`,
+<<<<<<< HEAD
+            displayOrder: nextDisplayOrder(await getLastOrder(scene.projectId)),
+            variations: scene.variations,
+        })
+        .returning()
+
+=======
             displayOrder: nextDisplayOrder(await getLastSceneOrder(scene.projectId)),
             variations: scene.variations,
         })
         .returning()
+>>>>>>> refs/remotes/origin/main
     return created
 }
 
 export const scene = new Hono()
+<<<<<<< HEAD
+    .get('/', zValidator('query', SceneGetQuery), async (c) => {
+        return c.json(await list(c.req.valid('query').projectId))
+    })
+    .get('/:id', zValidator('param', IdParams), async (c) =>
+        c.json(await getById(c.req.valid('param').id)),
+    )
+    .get('/:id/summary', zValidator('param', IdParams), async (c) => {
+        return c.json(await getSummary(c.req.valid('param').id))
+    })
+    .get('/:id/workspace', zValidator('param', IdParams), async (c) => {
+        return c.json(await getWorkspaceData(c.req.valid('param').id))
+    })
+    .get(
+        '/:id/preview-prompt',
+        zValidator('param', IdParams),
+        zValidator('query', ScenePreviewGetQuery),
+        async (c) =>
+            c.json(
+                await getPreviewPrompts(c.req.valid('param').id, c.req.valid('query').variationId),
+            ),
+    )
+    .post('/', zValidator('json', ScenePostBody), async (c) => {
+        const { projectId, name } = c.req.valid('json')
+        return c.json(await create(projectId, name), 201)
+    })
+    .patch('/:id', zValidator('param', IdParams), zValidator('json', ScenePatchBody), async (c) => {
+        return c.json(await update(c.req.valid('param').id, c.req.valid('json')))
+    })
+    .patch(
+        '/:id/order',
+        zValidator('param', IdParams),
+        zValidator('json', SceneOrderPatchBody),
+        async (c) => {
+            const { prevId, nextId } = c.req.valid('json')
+            return c.json(await reorder(c.req.valid('param').id, prevId, nextId))
+        },
+    )
+    .delete('/:id', zValidator('param', IdParams), async (c) =>
+        c.json(await remove(c.req.valid('param').id)),
+    )
+    .post('/:id/duplicate', zValidator('param', IdParams), async (c) => {
+        return c.json(await duplicate(c.req.valid('param').id), 201)
+    })
+=======
     .get('/', zValidator('query', SceneListQuery), async (c) =>
         c.json(await list(c.req.valid('query').projectId)),
     )
@@ -264,3 +423,4 @@ export const scene = new Hono()
     .post('/:id/duplicate', zValidator('param', SceneIdParams), async (c) =>
         c.json(await duplicate(c.req.valid('param').id)),
     )
+>>>>>>> refs/remotes/origin/main

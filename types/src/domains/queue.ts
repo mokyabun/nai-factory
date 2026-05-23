@@ -1,36 +1,57 @@
 import * as z from 'zod'
-import { IdParams } from './shared'
-
-export { IdParams as QueueIdParams }
-
-export const QueueListQuery = z.object({
-    projectId: z.coerce.number().optional(),
-})
-
-export const ClearQueueQuery = z.object({
-    sceneId: z.coerce.number().optional(),
-})
+import { IdParams } from './common'
 
 export const EnqueuePosition = z.enum(['back', 'front'])
 
-export const EnqueueBody = z.object({
-    sceneId: z.number(),
-    position: EnqueuePosition.optional().default('back'),
-})
-
-export const EnqueueAllBody = z.object({
+export const QueueItem = z.object({
+    id: z.number(),
     projectId: z.number(),
-    position: EnqueuePosition.optional().default('back'),
+    sceneId: z.number(),
+
+    variationCount: z.number(),
+    sortIndex: z.number(),
 })
 
-export const EnqueueBulkBody = z.object({
-    sceneIds: z.array(z.number()).min(1),
-    position: EnqueuePosition.optional().default('back'),
+export const QueueGetQuery = z.object({
+    projectId: z.coerce.number().int().positive().optional(),
 })
 
-export type QueueListQuery = z.infer<typeof QueueListQuery>
-export type ClearQueueQuery = z.infer<typeof ClearQueueQuery>
+export const QueueClearQuery = z.object({
+    sceneId: z.coerce.number().int().positive().optional(),
+})
+
+export const QueueEnqueueBody = z.object({
+    sceneId: z.number().int().positive(),
+    position: EnqueuePosition.optional(),
+})
+
+export const QueueEnqueueAllBody = z.object({
+    projectId: z.number().int().positive(),
+    position: EnqueuePosition.optional(),
+})
+
+export const QueueEnqueueBulkBody = z.object({
+    sceneIds: z.array(z.number().int().positive()).min(1),
+    position: EnqueuePosition.optional(),
+})
+
+export const QueueIdParams = IdParams
+export const QueueListQuery = QueueGetQuery
+export const ClearQueueQuery = QueueClearQuery
+export const EnqueueBody = QueueEnqueueBody
+export const EnqueueAllBody = QueueEnqueueAllBody
+export const EnqueueBulkBody = QueueEnqueueBulkBody
+
 export type EnqueuePosition = z.infer<typeof EnqueuePosition>
-export type EnqueueBody = z.infer<typeof EnqueueBody>
-export type EnqueueAllBody = z.infer<typeof EnqueueAllBody>
-export type EnqueueBulkBody = z.infer<typeof EnqueueBulkBody>
+export type QueueItem = z.infer<typeof QueueItem>
+export type QueueGetQuery = z.infer<typeof QueueGetQuery>
+export type QueueClearQuery = z.infer<typeof QueueClearQuery>
+export type QueueEnqueueBody = z.infer<typeof QueueEnqueueBody>
+export type QueueEnqueueAllBody = z.infer<typeof QueueEnqueueAllBody>
+export type QueueEnqueueBulkBody = z.infer<typeof QueueEnqueueBulkBody>
+export type QueueIdParams = z.infer<typeof QueueIdParams>
+export type QueueListQuery = QueueGetQuery
+export type ClearQueueQuery = QueueClearQuery
+export type EnqueueBody = QueueEnqueueBody
+export type EnqueueAllBody = QueueEnqueueAllBody
+export type EnqueueBulkBody = QueueEnqueueBulkBody

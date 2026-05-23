@@ -1,33 +1,57 @@
 import * as z from 'zod'
-import { IdParams } from './shared'
+import { IdParams, OptionalOrderBody } from './common'
 
-export { IdParams as SceneIdParams }
+export const PromptVariation = z.record(z.string(), z.string())
 
-export const SceneListQuery = z.object({
-    projectId: z.coerce.number(),
-})
-
-export const ScenePreviewQuery = z.object({
-    variationId: z.coerce.number().optional(),
-})
-
-export const CreateSceneBody = z.object({
+export const Scene = z.object({
+    id: z.number(),
     projectId: z.number(),
+
+    displayOrder: z.string(),
+    name: z.string(),
+    variations: z.array(PromptVariation),
+
+    createdAt: z.string(),
+    updatedAt: z.string(),
+})
+
+export const SceneGetQuery = z.object({
+    projectId: z.coerce.number().int().positive(),
+})
+
+export const ScenePostBody = z.object({
+    projectId: z.number().int().positive(),
     name: z.string().min(1),
 })
 
-export const UpdateSceneBody = z.object({
+export const ScenePatchBody = z.object({
     name: z.string().min(1).optional(),
-    variations: z.array(z.record(z.string(), z.string())).optional(),
+    variations: z.array(PromptVariation).optional(),
 })
 
-export const ReorderSceneBody = z.object({
-    prevId: z.number().nullable(),
-    nextId: z.number().nullable(),
+export const SceneOrderPatchBody = OptionalOrderBody
+
+export const ScenePreviewGetQuery = z.object({
+    variationId: z.coerce.number().int().nonnegative().optional(),
 })
 
-export type SceneListQuery = z.infer<typeof SceneListQuery>
-export type ScenePreviewQuery = z.infer<typeof ScenePreviewQuery>
-export type CreateSceneBody = z.infer<typeof CreateSceneBody>
-export type UpdateSceneBody = z.infer<typeof UpdateSceneBody>
-export type ReorderSceneBody = z.infer<typeof ReorderSceneBody>
+export const SceneIdParams = IdParams
+export const SceneListQuery = SceneGetQuery
+export const CreateSceneBody = ScenePostBody
+export const UpdateSceneBody = ScenePatchBody
+export const ReorderSceneBody = SceneOrderPatchBody
+export const ScenePreviewQuery = ScenePreviewGetQuery
+
+export type PromptVariation = z.infer<typeof PromptVariation>
+export type Scene = z.infer<typeof Scene>
+export type SceneGetQuery = z.infer<typeof SceneGetQuery>
+export type ScenePostBody = z.infer<typeof ScenePostBody>
+export type ScenePatchBody = z.infer<typeof ScenePatchBody>
+export type SceneOrderPatchBody = z.infer<typeof SceneOrderPatchBody>
+export type ScenePreviewGetQuery = z.infer<typeof ScenePreviewGetQuery>
+export type SceneIdParams = z.infer<typeof SceneIdParams>
+export type SceneListQuery = SceneGetQuery
+export type CreateSceneBody = ScenePostBody
+export type UpdateSceneBody = ScenePatchBody
+export type ReorderSceneBody = SceneOrderPatchBody
+export type ScenePreviewQuery = ScenePreviewGetQuery

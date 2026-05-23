@@ -1,4 +1,11 @@
 import { zValidator } from '@hono/zod-validator'
+<<<<<<< HEAD
+import { IdParams, ImageGetQuery, ImagePatchBody } from '@nai-factory/types'
+import { desc, eq } from 'drizzle-orm'
+import { Hono } from 'hono'
+import { db, images, scenes } from '#/db'
+import { remove as removeFile } from '#/services'
+=======
 import { ImageIdParams, ImageListQuery, ReorderImageBody } from '@nai-factory/types'
 import { desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
@@ -20,6 +27,7 @@ async function getSiblingOrder(id: number, sceneId: number, label: string) {
 
     return sibling.displayOrder
 }
+>>>>>>> refs/remotes/origin/main
 
 async function getAllBySceneId(sceneId: number) {
     const [scene] = await db.select().from(scenes).where(eq(scenes.id, sceneId))
@@ -32,6 +40,47 @@ async function getAllBySceneId(sceneId: number) {
         .orderBy(desc(images.displayOrder))
 }
 
+<<<<<<< HEAD
+async function update(id: number, data: ImagePatchBody) {
+    const [updated] = await db.update(images).set(data).where(eq(images.id, id)).returning()
+
+    return updated
+}
+
+async function remove(id: number) {
+    const [image] = await db.select().from(images).where(eq(images.id, id))
+    if (!image) return false
+
+    await db.delete(images).where(eq(images.id, id))
+    await removeFile(image.filePath, image.thumbnailPath ?? null)
+
+    return true
+}
+
+export const image = new Hono()
+    .get('/', zValidator('query', ImageGetQuery), async (c) => {
+        const sceneId = c.req.valid('query').sceneId
+
+        const result = await getAllBySceneId(sceneId)
+        if (!result) return c.text('Scene not found', 404)
+
+        return c.json(result)
+    })
+    .patch('/:id', zValidator('param', IdParams), zValidator('json', ImagePatchBody), async (c) => {
+        const id = c.req.valid('param').id
+        const body = c.req.valid('json')
+
+        const updated = await update(id, body)
+        if (!updated) return c.text('Image not found', 404)
+
+        return c.json(updated)
+    })
+    .delete('/:id', zValidator('param', IdParams), async (c) => {
+        const id = c.req.valid('param').id
+
+        if (!(await remove(id))) return c.text('Image not found', 404)
+
+=======
 async function remove(id: number) {
     const [image] = await db.select().from(images).where(eq(images.id, id))
     if (!image) return null
@@ -76,5 +125,6 @@ export const image = new Hono()
     .delete('/:id', zValidator('param', ImageIdParams), async (c) => {
         const success = await remove(c.req.valid('param').id)
         if (!success) throw new HTTPException(404, { message: 'Image not found' })
+>>>>>>> refs/remotes/origin/main
         return c.body(null, 204)
     })

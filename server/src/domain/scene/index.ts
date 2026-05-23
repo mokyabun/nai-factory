@@ -18,7 +18,10 @@ export const scene = new Elysia({ prefix: '/scenes' })
     .get(
         '/:id/preview-prompt',
         ({ params, query }) => service.getPreviewPrompts(params.id, query.variationId),
-        { params: SceneModel.getParams, query: SceneModel.previewQuery },
+        {
+            params: SceneModel.getParams,
+            query: SceneModel.previewQuery,
+        },
     )
     .post('/', ({ body }) => service.create(body.projectId, body.name), {
         body: SceneModel.createBody,

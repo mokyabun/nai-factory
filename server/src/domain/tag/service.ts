@@ -1,5 +1,5 @@
-import FlexSearch from 'flexsearch'
 import { join } from 'node:path'
+import FlexSearch from 'flexsearch'
 
 export interface TagEntry {
     id: number

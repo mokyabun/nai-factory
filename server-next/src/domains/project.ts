@@ -1,5 +1,14 @@
 import { zValidator } from '@hono/zod-validator'
 import {
+<<<<<<< HEAD
+    ProjectGetQuery,
+    ProjectIdParams,
+    ProjectPatchBody,
+    ProjectPostBody,
+} from '@nai-factory/types'
+import { asc, eq } from 'drizzle-orm'
+import { Hono } from 'hono'
+=======
     CreateProjectBody,
     ProjectIdParams,
     ProjectListQuery,
@@ -8,12 +17,17 @@ import {
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
+>>>>>>> refs/remotes/origin/main
 import { db, projects, scenes } from '#/db'
 import { removeByProject } from '#/services'
 import { nextDisplayOrder, withUpdatedAt } from '#/shared'
 
 async function getById(id: number) {
     const [project] = await db.select().from(projects).where(eq(projects.id, id))
+<<<<<<< HEAD
+
+=======
+>>>>>>> refs/remotes/origin/main
     return project ?? null
 }
 
@@ -25,12 +39,22 @@ async function getAllByGroupId(groupId: number) {
         .orderBy(asc(projects.name))
 }
 
+<<<<<<< HEAD
+async function create(data: ProjectPostBody) {
+    const [created] = await db.insert(projects).values(data).returning()
+
+    return created ?? null
+}
+
+async function update(id: number, data: ProjectPatchBody) {
+=======
 async function create(data: CreateProjectBody) {
     const [created] = await db.insert(projects).values(data).returning()
     return created ?? null
 }
 
 async function update(id: number, data: UpdateProjectBody) {
+>>>>>>> refs/remotes/origin/main
     const [updated] = await db
         .update(projects)
         .set(withUpdatedAt(data))
@@ -84,6 +108,22 @@ async function duplicate(id: number) {
 }
 
 export const project = new Hono()
+<<<<<<< HEAD
+    .get('/', zValidator('query', ProjectGetQuery), async (c) => {
+        return c.json(await getAllByGroupId(c.req.valid('query').groupId))
+    })
+    .get('/:projectId', zValidator('param', ProjectIdParams), async (c) => {
+        const result = await getById(c.req.valid('param').projectId)
+        if (!result) return c.text('Project not found', 404)
+
+        return c.json(result)
+    })
+    .post('/', zValidator('json', ProjectPostBody), async (c) => {
+        const result = await create(c.req.valid('json'))
+        if (!result) return c.text('Failed to create project', 500)
+
+        return c.json(result, 201)
+=======
     .get('/', zValidator('query', ProjectListQuery), async (c) =>
         c.json(await getAllByGroupId(c.req.valid('query').groupId)),
     )
@@ -96,24 +136,43 @@ export const project = new Hono()
         const result = await create(c.req.valid('json'))
         if (!result) throw new HTTPException(500, { message: 'Failed to create project' })
         return c.json(result)
+>>>>>>> refs/remotes/origin/main
     })
     .patch(
         '/:projectId',
         zValidator('param', ProjectIdParams),
+<<<<<<< HEAD
+        zValidator('json', ProjectPatchBody),
+        async (c) => {
+            const result = await update(c.req.valid('param').projectId, c.req.valid('json'))
+            if (!result) return c.text('Project not found', 404)
+
+=======
         zValidator('json', UpdateProjectBody),
         async (c) => {
             const result = await update(c.req.valid('param').projectId, c.req.valid('json'))
             if (!result) throw new HTTPException(404, { message: 'Project not found' })
+>>>>>>> refs/remotes/origin/main
             return c.json(result)
         },
     )
     .delete('/:projectId', zValidator('param', ProjectIdParams), async (c) => {
+<<<<<<< HEAD
+        if (!(await remove(c.req.valid('param').projectId))) return c.text('Project not found', 404)
+
+=======
         const success = await remove(c.req.valid('param').projectId)
         if (!success) throw new HTTPException(404, { message: 'Project not found' })
+>>>>>>> refs/remotes/origin/main
         return c.body(null, 204)
     })
     .post('/:projectId/duplicate', zValidator('param', ProjectIdParams), async (c) => {
         const result = await duplicate(c.req.valid('param').projectId)
+<<<<<<< HEAD
+        if (!result) return c.text('Project not found', 404)
+
+=======
         if (!result) throw new HTTPException(404, { message: 'Project not found' })
+>>>>>>> refs/remotes/origin/main
         return c.json(result)
     })

@@ -2,6 +2,27 @@ import fs from 'node:fs/promises'
 import { dirname, extname, join } from 'node:path'
 import { zValidator } from '@hono/zod-validator'
 import {
+<<<<<<< HEAD
+    type ImageUpload,
+    ProjectIdParams,
+    VibeTransferItemParams,
+    VibeTransferOrderPatchBody,
+    VibeTransferPatchBody,
+    VibeTransferUploadBody,
+} from '@nai-factory/types'
+import { asc, desc, eq } from 'drizzle-orm'
+import { Hono } from 'hono'
+import { VIBES_DIR } from '#/config'
+import { db, projects, vibeTransfers } from '#/db'
+import { invalidateVibe } from '#/services'
+import {
+    displayOrderBetween,
+    httpError,
+    nextDisplayOrder,
+    requireEntity,
+    withUpdatedAt,
+} from '#/shared'
+=======
     type ImageUploadFile,
     ProjectIdParams,
     ReorderVibeTransferBody,
@@ -16,6 +37,7 @@ import { VIBES_DIR } from '#/config'
 import { db, projects, vibeTransfers } from '#/db'
 import { invalidateVibe } from '#/services'
 import { displayOrderBetween, nextDisplayOrder, requireEntity, withUpdatedAt } from '#/shared'
+>>>>>>> refs/remotes/origin/main
 
 async function getProject(projectId: number) {
     const [project] = await db
@@ -32,11 +54,16 @@ async function getSiblingOrder(id: number, projectId: number, label: string) {
         .where(eq(vibeTransfers.id, id))
 
     const sibling = requireEntity(vibe, `${label} vibe transfer not found`)
+<<<<<<< HEAD
+    if (sibling.projectId !== projectId)
+        throw httpError(400, `${label} vibe transfer belongs to another project`)
+=======
     if (sibling.projectId !== projectId) {
         throw new HTTPException(400, {
             message: `${label} vibe transfer belongs to another project`,
         })
     }
+>>>>>>> refs/remotes/origin/main
 
     return sibling.displayOrder
 }
@@ -58,12 +85,20 @@ async function list(projectId: number) {
         .orderBy(asc(vibeTransfers.displayOrder), asc(vibeTransfers.id))
 }
 
+<<<<<<< HEAD
+async function upload(projectId: number, imageFile: ImageUpload) {
+    await getProject(projectId)
+
+    const ext = extname(imageFile.name) || '.png'
+    const filePath = join(VIBES_DIR, String(projectId), `${Date.now()}${ext}`)
+=======
 async function upload(projectId: number, imageFile: ImageUploadFile) {
     await getProject(projectId)
 
     const ext = extname(imageFile.name) || '.png'
     const filename = `${Date.now()}${ext}`
     const filePath = join(VIBES_DIR, String(projectId), filename)
+>>>>>>> refs/remotes/origin/main
     await fs.mkdir(dirname(filePath), { recursive: true })
     await fs.writeFile(filePath, Buffer.from(await imageFile.arrayBuffer()))
 
@@ -81,6 +116,17 @@ async function upload(projectId: number, imageFile: ImageUploadFile) {
             displayOrder: nextDisplayOrder(last?.displayOrder),
             sourceImagePath: filePath.replaceAll('\\', '/'),
             referenceStrength: 0.6,
+<<<<<<< HEAD
+            informationExtracted: 1,
+        })
+        .returning()
+    if (!created) throw httpError(500, 'Failed to create vibe transfer')
+
+    return created
+}
+
+async function update(id: number, body: VibeTransferPatchBody) {
+=======
             informationExtracted: 1.0,
         })
         .returning()
@@ -90,6 +136,7 @@ async function upload(projectId: number, imageFile: ImageUploadFile) {
 }
 
 async function update(id: number, body: UpdateVibeTransferBody) {
+>>>>>>> refs/remotes/origin/main
     const [existing] = await db.select().from(vibeTransfers).where(eq(vibeTransfers.id, id))
     if (!existing) return null
 
@@ -105,6 +152,10 @@ async function update(id: number, body: UpdateVibeTransferBody) {
         .set(withUpdatedAt(body))
         .where(eq(vibeTransfers.id, id))
         .returning()
+<<<<<<< HEAD
+
+=======
+>>>>>>> refs/remotes/origin/main
     return updated ?? null
 }
 
@@ -117,9 +168,16 @@ async function reorder(id: number, prevId: number | null, nextId: number | null)
 
     const prevOrder = prevId ? await getSiblingOrder(prevId, existing.projectId, 'Previous') : null
     const nextOrder = nextId ? await getSiblingOrder(nextId, existing.projectId, 'Next') : null
+<<<<<<< HEAD
+    const displayOrder = displayOrderBetween(prevOrder, nextOrder)
+    const [updated] = await db
+        .update(vibeTransfers)
+        .set(withUpdatedAt({ displayOrder }))
+=======
     const [updated] = await db
         .update(vibeTransfers)
         .set(withUpdatedAt({ displayOrder: displayOrderBetween(prevOrder, nextOrder) }))
+>>>>>>> refs/remotes/origin/main
         .where(eq(vibeTransfers.id, id))
         .returning()
 
@@ -132,10 +190,63 @@ async function remove(id: number) {
 
     await db.delete(vibeTransfers).where(eq(vibeTransfers.id, id))
     await fs.rm(existing.sourceImagePath, { force: true })
+<<<<<<< HEAD
+
+=======
+>>>>>>> refs/remotes/origin/main
     return true
 }
 
 export const vibeTransfer = new Hono()
+<<<<<<< HEAD
+    .get('/:projectId/vibe-transfers', zValidator('param', ProjectIdParams), async (c) => {
+        return c.json(await list(c.req.valid('param').projectId))
+    })
+    .post(
+        '/:projectId/vibe-transfers/upload',
+        zValidator('param', ProjectIdParams),
+        zValidator('form', VibeTransferUploadBody),
+        async (c) => {
+            return c.json(
+                await upload(c.req.valid('param').projectId, c.req.valid('form').image),
+                201,
+            )
+        },
+    )
+    .patch(
+        '/:projectId/vibe-transfers/reorder',
+        zValidator('param', ProjectIdParams),
+        zValidator('json', VibeTransferOrderPatchBody),
+        async (c) => {
+            const { id, prevId, nextId } = c.req.valid('json')
+            const result = await reorder(id, prevId, nextId)
+            if (!result) return c.text('Vibe transfer not found', 404)
+
+            return c.json(result)
+        },
+    )
+    .patch(
+        '/:projectId/vibe-transfers/:id',
+        zValidator('param', VibeTransferItemParams),
+        zValidator('json', VibeTransferPatchBody),
+        async (c) => {
+            const result = await update(c.req.valid('param').id, c.req.valid('json'))
+            if (!result) return c.text('Vibe transfer not found', 404)
+
+            return c.json(result)
+        },
+    )
+    .delete(
+        '/:projectId/vibe-transfers/:id',
+        zValidator('param', VibeTransferItemParams),
+        async (c) => {
+            if (!(await remove(c.req.valid('param').id)))
+                return c.text('Vibe transfer not found', 404)
+
+            return c.body(null, 204)
+        },
+    )
+=======
     .get('/', zValidator('param', ProjectIdParams), async (c) =>
         c.json(await list(c.req.valid('param').projectId)),
     )
@@ -170,3 +281,4 @@ export const vibeTransfer = new Hono()
         if (!success) throw new HTTPException(404, { message: 'Vibe transfer not found' })
         return c.body(null, 204)
     })
+>>>>>>> refs/remotes/origin/main

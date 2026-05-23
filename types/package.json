@@ -3,10 +3,17 @@
     "module": "src/index.ts",
     "types": "src/index.ts",
     "type": "module",
+    "scripts": {
+        "format": "biome format --write .",
+        "lint": "biome lint .",
+        "lint:fix": "biome lint --fix .",
+        "check": "biome check --write ."
+    },
     "dependencies": {
         "zod": "^4.4.3"
     },
     "devDependencies": {
+        "@biomejs/biome": "^2.4.15",
         "@tsconfig/bun": "^1.0.10"
     }
 }
