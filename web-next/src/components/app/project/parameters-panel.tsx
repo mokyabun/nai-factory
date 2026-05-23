@@ -1,3 +1,4 @@
+import type { Project, Parameters as ProjectParams } from '@nai-factory/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -25,27 +26,7 @@ import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { VibeTransferEditor } from '../sidebar/sidebar-prompt/vibe-transfer-editor'
 
-type ProjectParams = {
-    model: string
-    qualityToggle: boolean
-    width: number
-    height: number
-    steps: number
-    promptGuidance: number
-    varietyPlus: boolean
-    seed: number
-    sampler: string
-    promptGuidanceRescale: number
-    noiseSchedule: string
-    normalizeReferenceStrengthValues: boolean
-    useCharacterPositions: boolean
-}
-
-type ProjectData = {
-    id: number
-    parameters: ProjectParams
-    characterPrompts: CharacterPrompt[] | null
-}
+type ProjectData = Pick<Project, 'id' | 'parameters' | 'characterPrompts'>
 
 const MODELS = [
     { value: 'nai-diffusion-4-5-full', label: 'NAI Diffusion 4.5 Full' },
@@ -75,13 +56,6 @@ interface ParametersPanelProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     project: ProjectData
-}
-
-type CharacterPrompt = {
-    enabled: boolean
-    center: { x: number; y: number }
-    prompt: string
-    uc: string
 }
 
 export function ParametersPanel({ open, onOpenChange, project }: ParametersPanelProps) {
@@ -140,7 +114,9 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
                                 <Label>모델</Label>
                                 <Select
                                     value={params.model}
-                                    onValueChange={(v) => v && set('model', v)}
+                                    onValueChange={(v) =>
+                                        v && set('model', v as ProjectParams['model'])
+                                    }
                                 >
                                     <SelectTrigger className="w-full">
                                         <SelectValue />
@@ -263,7 +239,9 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
                                 <Label>샘플러</Label>
                                 <Select
                                     value={params.sampler}
-                                    onValueChange={(v) => v && set('sampler', v)}
+                                    onValueChange={(v) =>
+                                        v && set('sampler', v as ProjectParams['sampler'])
+                                    }
                                 >
                                     <SelectTrigger className="w-full">
                                         <SelectValue />
@@ -283,7 +261,10 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
                                 <Label>노이즈 스케줄</Label>
                                 <Select
                                     value={params.noiseSchedule}
-                                    onValueChange={(v) => v && set('noiseSchedule', v)}
+                                    onValueChange={(v) =>
+                                        v &&
+                                        set('noiseSchedule', v as ProjectParams['noiseSchedule'])
+                                    }
                                 >
                                     <SelectTrigger className="w-full">
                                         <SelectValue />

@@ -15,25 +15,8 @@ import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
 import { ParametersPanel } from '@/components/app/project/parameters-panel'
 import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
 import { Button } from '@/components/ui/button'
-import { api } from '@/lib/api'
+import { api, type SceneSummary } from '@/lib/api'
 import { qk } from '@/lib/queries'
-
-type SceneImage = {
-    id: number
-    filePath: string
-    thumbnailPath?: string | null
-}
-
-type Scene = {
-    id: number
-    projectId: number
-    name: string
-    displayOrder: string
-    queueCount?: number | null
-    imageCount?: number | null
-    latestImages?: SceneImage[] | null
-    variations?: Record<string, string>[] | null
-}
 
 export const Route = createFileRoute('/project/$projectId/')({ component: ProjectPage })
 
@@ -46,7 +29,7 @@ function ProjectPage() {
         queryKey: qk.project(projId),
         queryFn: async () => {
             const { data } = await api.projects({ projectId: projId }).get()
-            return (data ?? null) as { id: number; parameters: Record<string, unknown> } | null
+            return data ?? null
         },
     })
 
@@ -54,7 +37,7 @@ function ProjectPage() {
         queryKey: qk.scenes(projId),
         queryFn: async () => {
             const { data } = await api.scenes.get({ query: { projectId: projId } })
-            return (data ?? []) as Scene[]
+            return data ?? []
         },
     })
 
@@ -62,11 +45,11 @@ function ProjectPage() {
         queryKey: qk.queueStatus(),
         queryFn: async () => {
             const { data } = await api.queue.status.get()
-            return data as { running: boolean; count: number; currentSceneId: number | null } | null
+            return data
         },
     })
 
-    const [items, setItems] = useState<Scene[]>([])
+    const [items, setItems] = useState<SceneSummary[]>([])
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
     const [paramsOpen, setParamsOpen] = useState(false)
     const [createSceneOpen, setCreateSceneOpen] = useState(false)
@@ -218,7 +201,7 @@ function ProjectPage() {
                 <ParametersPanel
                     open={paramsOpen}
                     onOpenChange={setParamsOpen}
-                    project={projectQuery.data as Parameters<typeof ParametersPanel>[0]['project']}
+                    project={projectQuery.data}
                 />
             )}
         </div>

@@ -1,82 +1,69 @@
 import type {
-    CreateGroupBody,
-    CreateProjectBody,
-    CreateSceneBody,
-    ReorderImageBody,
-    ReorderSceneBody,
-    ReorderVibeTransferBody,
-    UpdateGroupBody,
-    UpdateVibeTransferBody,
-    UploadVibeTransferBody,
+    GlobalSettings,
+    Group,
+    GroupPatchBody,
+    GroupPostBody,
+    Image,
+    ImageGetQuery,
+    ImageOrderPatchBody,
+    Project,
+    ProjectGetQuery,
+    ProjectPatchBody,
+    ProjectPostBody,
+    QueueClearQuery,
+    QueueEnqueueAllBody,
+    QueueEnqueueBody,
+    QueueEnqueueBulkBody,
+    QueueItem,
+    Scene,
+    SceneGetQuery,
+    SceneOrderPatchBody,
+    ScenePatchBody,
+    ScenePostBody,
+    SdStudioImportBody,
+    SettingsPatchBody,
+    Tag,
+    TagAutocompleteGetQuery,
+    VibeTransfer,
+    VibeTransferOrderPatchBody,
+    VibeTransferPatchBody,
+    VibeTransferUploadBody,
 } from '@nai-factory/types'
+import ky, { HTTPError, type Options } from 'ky'
 
 export const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 
-type ApiError = {
+export const apiClient = ky.create({
+    prefix: BASE_URL,
+})
+
+export type ApiError = {
     status: number
     value: unknown
 }
 
-type ApiResult<T> = Promise<{
+export type ApiResult<T> = Promise<{
     data: T | null
     error: ApiError | null
 }>
 
-type RequestOptions = {
-    body?: unknown
-    query?: Record<string, string | number | boolean | null | undefined>
+export type EntityId = { id: number }
+export type ProjectId = { projectId: number }
+
+export type GroupWithProjects = Group & {
+    projects: Array<Pick<Project, 'id' | 'name'>>
 }
 
-type EntityId = { id: number }
-type ProjectId = { projectId: number }
+export type SceneImage = Pick<Image, 'id' | 'filePath' | 'thumbnailPath'>
 
-export type GroupWithProjects = {
-    id: number
-    name: string
-    projects: Array<{ id: number; name: string }>
+export type SceneSummary = Scene & {
+    imageCount: number
+    queueCount: number
+    latestImages: SceneImage[]
 }
 
-export type Project = {
-    id: number
-    groupId: number | null
-    name: string
-    prompt?: string | null
-    negativePrompt?: string | null
-    parameters: Record<string, unknown>
-    variables?: Record<string, string> | null
-    characterPrompts?: unknown[] | null
-}
-
-export type SceneSummary = {
-    id: number
-    projectId: number
-    name: string
-    displayOrder: string
-    variations?: Record<string, string>[] | null
-    queueCount?: number | null
-    imageCount?: number | null
-    latestImages?: ImageRecord[] | null
-}
-
-export type Scene = SceneSummary & {
-    images?: ImageRecord[]
-}
-
-export type ImageRecord = {
-    id: number
-    sceneId?: number
-    filePath: string
-    thumbnailPath?: string | null
-    displayOrder?: string
-}
-
-export type VibeTransfer = {
-    id: number
-    projectId: number
-    displayOrder: string
-    sourceImagePath: string
-    referenceStrength: number
-    informationExtracted: number
+export type SceneDetail = Scene & {
+    images: Image[]
 }
 
 export type QueueStatus = {
@@ -87,76 +74,110 @@ export type QueueStatus = {
     currentSceneId: number | null
 }
 
-function withQuery(path: string, query?: RequestOptions['query']) {
-    if (!query) return path
+type SearchParams = Record<string, string | number | boolean | null | undefined>
+
+type ApiRequestOptions = Omit<Options, 'json' | 'body' | 'searchParams'> & {
+    json?: unknown
+    body?: BodyInit
+    searchParams?: SearchParams
+}
+
+function apiPath(path: string) {
+    return path.replace(/^\/+/, '')
+}
+
+function searchParams(query?: SearchParams) {
+    if (!query) return undefined
 
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(query)) {
         if (value !== null && value !== undefined) params.set(key, String(value))
     }
 
-    const search = params.toString()
-    return search ? `${path}?${search}` : path
+    return params
 }
 
-async function request<T>(
-    path: string,
-    method = 'GET',
-    { body, query }: RequestOptions = {},
-): ApiResult<T> {
+function parseText(text: string) {
+    if (!text) return null
+
     try {
-        const isFormBody = body instanceof FormData
-        const response = await fetch(`${BASE_URL}${withQuery(path, query)}`, {
-            method,
-            headers:
-                body === undefined || isFormBody
-                    ? undefined
-                    : { 'Content-Type': 'application/json' },
-            body: body === undefined ? undefined : isFormBody ? body : JSON.stringify(body),
-        })
-        const text = response.status === 204 ? '' : await response.text()
-        const value = text ? (JSON.parse(text) as unknown) : null
-
-        if (!response.ok) {
-            return { data: null, error: { status: response.status, value } }
-        }
-
-        return { data: value as T, error: null }
-    } catch (value) {
-        return { data: null, error: { status: 0, value } }
+        return JSON.parse(text) as unknown
+    } catch {
+        return text
     }
 }
 
-function postForm<T>(path: string, body: UploadVibeTransferBody) {
+async function readError(error: HTTPError): Promise<ApiError> {
+    const text = await error.response.text()
+    return {
+        status: error.response.status,
+        value: parseText(text),
+    }
+}
+
+async function request<T>(path: string, options: ApiRequestOptions = {}): ApiResult<T> {
+    try {
+        const response = await apiClient(apiPath(path), {
+            ...options,
+            searchParams: searchParams(options.searchParams),
+        })
+
+        if (response.status === 204) return { data: null, error: null }
+
+        const value = parseText(await response.text())
+        return { data: value as T, error: null }
+    } catch (error) {
+        if (error instanceof HTTPError) return { data: null, error: await readError(error) }
+
+        return { data: null, error: { status: 0, value: error } }
+    }
+}
+
+async function formDataFromUpload(body: VibeTransferUploadBody) {
     const formData = new FormData()
-    formData.set('image', body.image as File)
-    return request<T>(path, 'POST', { body: formData })
+
+    if (body.image instanceof Blob) {
+        formData.set('image', body.image, body.image.name)
+        return formData
+    }
+
+    const blob = new Blob([await body.image.arrayBuffer()], { type: body.image.type })
+    formData.set('image', blob, body.image.name)
+    return formData
+}
+
+async function postUpload<T>(path: string, body: VibeTransferUploadBody) {
+    return request<T>(path, {
+        method: 'post',
+        body: await formDataFromUpload(body),
+    })
 }
 
 function vibeTransfers(projectId: number) {
     return Object.assign(
         ({ id }: EntityId) => ({
-            patch: (body: UpdateVibeTransferBody) =>
-                request<VibeTransfer>(`/projects/${projectId}/vibe-transfers/${id}`, 'PATCH', {
-                    body,
+            patch: (json: VibeTransferPatchBody) =>
+                request<VibeTransfer>(`/projects/${projectId}/vibe-transfers/${id}`, {
+                    method: 'patch',
+                    json,
                 }),
-            delete: () => request<void>(`/projects/${projectId}/vibe-transfers/${id}`, 'DELETE'),
+            delete: () =>
+                request<void>(`/projects/${projectId}/vibe-transfers/${id}`, {
+                    method: 'delete',
+                }),
         }),
         {
             get: () => request<VibeTransfer[]>(`/projects/${projectId}/vibe-transfers`),
             upload: {
-                post: (body: UploadVibeTransferBody) =>
-                    postForm<VibeTransfer>(`/projects/${projectId}/vibe-transfers/upload`, body),
+                post: (body: VibeTransferUploadBody) =>
+                    postUpload<VibeTransfer>(`/projects/${projectId}/vibe-transfers/upload`, body),
             },
             reorder: {
-                patch: (body: ReorderVibeTransferBody) =>
-                    request<VibeTransfer>(
-                        `/projects/${projectId}/vibe-transfers/reorder`,
-                        'PATCH',
-                        {
-                            body,
-                        },
-                    ),
+                patch: (json: VibeTransferOrderPatchBody) =>
+                    request<VibeTransfer>(`/projects/${projectId}/vibe-transfers/reorder`, {
+                        method: 'patch',
+                        json,
+                    }),
             },
         },
     )
@@ -164,66 +185,70 @@ function vibeTransfers(projectId: number) {
 
 const groups = Object.assign(
     ({ id }: EntityId) => ({
-        patch: (body: UpdateGroupBody) => request(`/groups/${id}`, 'PATCH', { body }),
-        delete: () => request<void>(`/groups/${id}`, 'DELETE'),
+        get: () => request<GroupWithProjects>(`/groups/${id}`),
+        patch: (json: GroupPatchBody) => request<Group>(`/groups/${id}`, { method: 'patch', json }),
+        delete: () => request<void>(`/groups/${id}`, { method: 'delete' }),
     }),
     {
         get: () => request<GroupWithProjects[]>('/groups'),
-        post: (body: CreateGroupBody) => request('/groups', 'POST', { body }),
+        post: (json: GroupPostBody) => request<Group>('/groups', { method: 'post', json }),
     },
 )
 
 const projects = Object.assign(
     ({ projectId }: ProjectId) => ({
         get: () => request<Project>(`/projects/${projectId}`),
-        patch: (body: unknown) => request<Project>(`/projects/${projectId}`, 'PATCH', { body }),
-        delete: () => request<void>(`/projects/${projectId}`, 'DELETE'),
+        patch: (json: ProjectPatchBody) =>
+            request<Project>(`/projects/${projectId}`, { method: 'patch', json }),
+        delete: () => request<void>(`/projects/${projectId}`, { method: 'delete' }),
         duplicate: {
-            post: () => request<Project>(`/projects/${projectId}/duplicate`, 'POST'),
+            post: () => request<Project>(`/projects/${projectId}/duplicate`, { method: 'post' }),
         },
         'vibe-transfers': vibeTransfers(projectId),
     }),
     {
-        get: ({ query }: { query: { groupId: number } }) =>
-            request<Project[]>('/projects', 'GET', { query }),
-        post: (body: CreateProjectBody) => request<Project>('/projects', 'POST', { body }),
+        get: ({ query }: { query: ProjectGetQuery }) =>
+            request<Project[]>('/projects', { searchParams: query }),
+        post: (json: ProjectPostBody) => request<Project>('/projects', { method: 'post', json }),
     },
 )
 
 const scenes = Object.assign(
     ({ id }: EntityId) => ({
-        get: () => request<Scene>(`/scenes/${id}`),
-        patch: (body: unknown) => request<Scene>(`/scenes/${id}`, 'PATCH', { body }),
-        delete: () => request<{ success: boolean }>(`/scenes/${id}`, 'DELETE'),
+        get: () => request<SceneDetail>(`/scenes/${id}`),
+        patch: (json: ScenePatchBody) => request<Scene>(`/scenes/${id}`, { method: 'patch', json }),
+        delete: () => request<{ success: boolean }>(`/scenes/${id}`, { method: 'delete' }),
         summary: {
             get: () => request<SceneSummary>(`/scenes/${id}/summary`),
         },
         order: {
-            patch: (body: ReorderSceneBody) =>
-                request<Scene>(`/scenes/${id}/order`, 'PATCH', { body }),
+            patch: (json: SceneOrderPatchBody) =>
+                request<Scene>(`/scenes/${id}/order`, { method: 'patch', json }),
         },
         duplicate: {
-            post: () => request<Scene>(`/scenes/${id}/duplicate`, 'POST'),
+            post: () => request<Scene>(`/scenes/${id}/duplicate`, { method: 'post' }),
         },
     }),
     {
-        get: ({ query }: { query: { projectId: number } }) =>
-            request<SceneSummary[]>('/scenes', 'GET', { query }),
-        post: (body: CreateSceneBody) => request<Scene>('/scenes', 'POST', { body }),
+        get: ({ query }: { query: SceneGetQuery }) =>
+            request<SceneSummary[]>('/scenes', { searchParams: query }),
+        post: (json: ScenePostBody) => request<Scene>('/scenes', { method: 'post', json }),
     },
 )
 
 const images = Object.assign(
     ({ id }: EntityId) => ({
-        delete: () => request<void>(`/images/${id}`, 'DELETE'),
+        patch: (json: Partial<Pick<Image, 'displayOrder' | 'metadata'>>) =>
+            request<Image>(`/images/${id}`, { method: 'patch', json }),
+        delete: () => request<void>(`/images/${id}`, { method: 'delete' }),
         order: {
-            patch: (body: ReorderImageBody) =>
-                request<ImageRecord>(`/images/${id}/order`, 'PATCH', { body }),
+            patch: (json: ImageOrderPatchBody) =>
+                request<Image>(`/images/${id}/order`, { method: 'patch', json }),
         },
     }),
     {
-        get: ({ query }: { query: { sceneId: number } }) =>
-            request<ImageRecord[]>('/images', 'GET', { query }),
+        get: ({ query }: { query: ImageGetQuery }) =>
+            request<Image[]>('/images', { searchParams: query }),
     },
 )
 
@@ -233,35 +258,57 @@ export const api = {
     scenes,
     images,
     queue: {
+        get: ({ query }: { query?: { projectId?: number } } = {}) =>
+            request<QueueItem[]>('/queue', { searchParams: query }),
         status: {
             get: () => request<QueueStatus>('/queue/status'),
         },
         enqueue: {
-            post: (body: { sceneId: number; position?: 'back' | 'front' }) =>
-                request('/queue/enqueue', 'POST', { body }),
+            post: (json: QueueEnqueueBody) =>
+                request<QueueItem>('/queue/enqueue', { method: 'post', json }),
+        },
+        'enqueue-all': {
+            post: (json: QueueEnqueueAllBody) =>
+                request<{ queued: number; items: QueueItem[] }>('/queue/enqueue-all', {
+                    method: 'post',
+                    json,
+                }),
         },
         'enqueue-bulk': {
-            post: (body: { sceneIds: number[]; position?: 'back' | 'front' }) =>
-                request('/queue/enqueue-bulk', 'POST', { body }),
+            post: (json: QueueEnqueueBulkBody) =>
+                request<{ queued: number; items: QueueItem[] }>('/queue/enqueue-bulk', {
+                    method: 'post',
+                    json,
+                }),
         },
         start: {
-            post: () => request<QueueStatus>('/queue/start', 'POST'),
+            post: () => request<QueueStatus>('/queue/start', { method: 'post' }),
         },
         stop: {
-            post: () => request<QueueStatus>('/queue/stop', 'POST'),
+            post: () => request<QueueStatus>('/queue/stop', { method: 'post' }),
         },
-        delete: ({ query }: { query?: { sceneId?: number } } = {}) =>
-            request('/queue', 'DELETE', { query }),
+        delete: ({ query }: { query?: QueueClearQuery } = {}) =>
+            request<{ cancelled: number }>('/queue', { method: 'delete', searchParams: query }),
     },
     'sd-studio': {
         import: {
-            post: (body: { projectId: number; data: unknown; options: unknown }) =>
-                request('/sd-studio/import', 'POST', { body }),
+            post: (json: SdStudioImportBody) =>
+                request<{ imported: number; scenes: Scene[] }>('/sd-studio/import', {
+                    method: 'post',
+                    json,
+                }),
         },
     },
     settings: {
-        get: () => request('/settings'),
-        patch: (body: unknown) => request('/settings', 'PATCH', { body }),
+        get: () => request<GlobalSettings>('/settings'),
+        patch: (json: SettingsPatchBody) =>
+            request<GlobalSettings>('/settings', { method: 'patch', json }),
+    },
+    tags: {
+        autocomplete: {
+            get: ({ query }: { query: TagAutocompleteGetQuery }) =>
+                request<Tag[]>('/tags/autocomplete', { searchParams: query }),
+        },
     },
 }
 

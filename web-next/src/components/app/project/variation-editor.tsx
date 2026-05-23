@@ -1,13 +1,12 @@
+import type { PromptVariation } from '@nai-factory/types'
 import { Plus, Trash2, X } from 'lucide-react'
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-type Variation = Record<string, string>
-
 interface VariationEditorProps {
-    variations: Variation[]
-    onChange: (variations: Variation[]) => void
+    variations: PromptVariation[]
+    onChange: (variations: PromptVariation[]) => void
     layout?: 'col' | 'row'
 }
 

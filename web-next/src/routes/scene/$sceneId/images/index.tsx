@@ -7,6 +7,7 @@ import {
     useSensors,
 } from '@dnd-kit/core'
 import { arrayMove, rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
+import type { Image } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
@@ -16,12 +17,6 @@ import { SortableImageItem } from '@/components/app/project/sortable-image-item'
 import { Button } from '@/components/ui/button'
 import { api, imageUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
-
-type Image = {
-    id: number
-    filePath: string
-    thumbnailPath?: string | null
-}
 
 export const Route = createFileRoute('/scene/$sceneId/images/')({ component: ImagesPage })
 
@@ -35,7 +30,7 @@ function ImagesPage() {
         queryKey: qk.images(scenId),
         queryFn: async () => {
             const { data } = await api.images.get({ query: { sceneId: scenId } })
-            return (data ?? []) as Image[]
+            return data ?? []
         },
     })
 

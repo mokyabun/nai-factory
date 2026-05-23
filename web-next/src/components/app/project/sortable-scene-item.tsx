@@ -1,26 +1,11 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripHorizontal } from 'lucide-react'
+import type { SceneSummary } from '@/lib/api'
 import { SceneCard } from './scene-card'
 
-type SceneImage = {
-    id: number
-    filePath: string
-    thumbnailPath?: string | null
-}
-
-type Scene = {
-    id: number
-    projectId: number
-    name: string
-    queueCount?: number | null
-    imageCount?: number | null
-    latestImages?: SceneImage[] | null
-    variations?: Record<string, string>[] | null
-}
-
 interface SortableSceneItemProps {
-    scene: Scene
+    scene: SceneSummary
     selected: boolean
     selectMode: boolean
     isProcessing: boolean

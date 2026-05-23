@@ -13,6 +13,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import type { VibeTransfer, VibeTransferPatchBody } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { GripVertical, Trash2, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -23,21 +24,9 @@ import { api, imageUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
 
-type VibeTransfer = {
-    id: number
-    projectId: number
-    displayOrder: string
-    sourceImagePath: string
-    referenceStrength: number
-    informationExtracted: number
-}
-
 interface SortableVibeItemProps {
     vibe: VibeTransfer
-    onUpdate: (
-        id: number,
-        patch: { referenceStrength?: number; informationExtracted?: number },
-    ) => void
+    onUpdate: (id: number, patch: VibeTransferPatchBody) => void
     onDelete: (id: number) => void
 }
 
@@ -59,12 +48,9 @@ function SortableVibeItem({ vibe, onUpdate, onDelete }: SortableVibeItemProps) {
     onUpdateRef.current = onUpdate
 
     const debouncedUpdate = useRef(
-        debounce(
-            (id: number, patch: { referenceStrength?: number; informationExtracted?: number }) => {
-                onUpdateRef.current(id, patch)
-            },
-            400,
-        ),
+        debounce((id: number, patch: VibeTransferPatchBody) => {
+            onUpdateRef.current(id, patch)
+        }, 400),
     )
 
     useEffect(() => {
@@ -171,7 +157,7 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
         queryKey: qk.vibeTransfers(projectId),
         queryFn: async () => {
             const { data } = await api.projects({ projectId })['vibe-transfers'].get()
-            return (data ?? []) as VibeTransfer[]
+            return data ?? []
         },
     })
 
@@ -190,13 +176,8 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
     })
 
     const updateMutation = useMutation({
-        mutationFn: ({
-            id,
-            patch,
-        }: {
-            id: number
-            patch: { referenceStrength?: number; informationExtracted?: number }
-        }) => api.projects({ projectId })['vibe-transfers']({ id }).patch(patch),
+        mutationFn: ({ id, patch }: { id: number; patch: VibeTransferPatchBody }) =>
+            api.projects({ projectId })['vibe-transfers']({ id }).patch(patch),
     })
 
     const deleteMutation = useMutation({
@@ -216,10 +197,7 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
         }) => api.projects({ projectId })['vibe-transfers'].reorder.patch({ id, prevId, nextId }),
     })
 
-    function handleUpdate(
-        id: number,
-        patch: { referenceStrength?: number; informationExtracted?: number },
-    ) {
+    function handleUpdate(id: number, patch: VibeTransferPatchBody) {
         updateMutation.mutate({ id, patch })
     }
 

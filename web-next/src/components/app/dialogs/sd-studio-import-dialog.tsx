@@ -1,3 +1,4 @@
+import type { ImportOptions as SdStudioImportOptions } from '@nai-factory/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, FileJson } from 'lucide-react'
@@ -22,13 +23,7 @@ import { cn } from '@/lib/utils'
 
 type Step = 'choose' | 'options' | 'project-name'
 
-interface ImportOptions {
-    importPrompt: boolean
-    importNegativePrompt: boolean
-    importScenes: boolean
-    importCharacterPrompts: boolean
-    importParameters: boolean
-}
+type ImportOptions = Required<SdStudioImportOptions>
 
 interface ParsedFile {
     raw: unknown

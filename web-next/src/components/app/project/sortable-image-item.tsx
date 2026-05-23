@@ -1,13 +1,8 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import type { Image } from '@nai-factory/types'
 import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-
-type Image = {
-    id: number
-    filePath: string
-    thumbnailPath?: string | null
-}
 
 interface SortableImageItemProps {
     img: Image

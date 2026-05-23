@@ -1,3 +1,4 @@
+import type { ImageSaveType } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Eye, EyeOff, Plus, Save, X } from 'lucide-react'
@@ -17,21 +18,6 @@ import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
 
 export const Route = createFileRoute('/settings')({ component: SettingsPage })
-
-type Settings = {
-    novelai?: { apiKey?: string }
-    globalVariables?: Record<string, string>
-    image?: {
-        sourceType?: ImageSaveType
-        thumbnailType?: ImageSaveType
-        thumbnailSize?: number
-    }
-}
-
-type ImageSaveType =
-    | { type: 'png' }
-    | { type: 'webp'; quality: number }
-    | { type: 'avif'; quality: number }
 
 const IMAGE_FORMATS = [
     { value: 'png', label: 'PNG' },
@@ -61,7 +47,7 @@ function SettingsPage() {
     const [loaded, setLoaded] = useState(false)
 
     useEffect(() => {
-        const data = settingsQuery.data as Settings | null | undefined
+        const data = settingsQuery.data
         if (data && !loaded) {
             setLoaded(true)
             setApiKey(data.novelai?.apiKey ?? '')

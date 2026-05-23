@@ -11,28 +11,13 @@ import {
     ContextMenuSeparator,
     ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import type { SceneSummary } from '@/lib/api'
 import { api, imageUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
-type SceneImage = {
-    id: number
-    filePath: string
-    thumbnailPath?: string | null
-}
-
-type Scene = {
-    id: number
-    projectId: number
-    name: string
-    queueCount?: number | null
-    imageCount?: number | null
-    latestImages?: SceneImage[] | null
-    variations?: Record<string, string>[] | null
-}
-
 interface SceneCardProps {
-    scene: Scene
+    scene: SceneSummary
     selected?: boolean
     selectMode?: boolean
     isProcessing?: boolean

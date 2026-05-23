@@ -16,10 +16,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import * as Base from '@/components/ui/sidebar'
+import type { GroupWithProjects } from '@/lib/api'
 import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
-
-type GroupData = { id: number; name: string; projects: { id: number; name: string }[] }
 
 export function SidebarProject() {
     const navigate = useNavigate()
@@ -30,7 +29,7 @@ export function SidebarProject() {
         queryKey: qk.groupsWithProjects(),
         queryFn: async () => {
             const { data } = await api.groups.get()
-            return (data ?? []) as GroupData[]
+            return data ?? []
         },
     })
 
@@ -79,7 +78,7 @@ export function SidebarProject() {
     const [createGroupOpen, setCreateGroupOpen] = useState(false)
     const [createProjectOpen, setCreateProjectOpen] = useState(false)
     const [deleteOpen, setDeleteOpen] = useState(false)
-    const [targetGroup, setTargetGroup] = useState<GroupData | null>(null)
+    const [targetGroup, setTargetGroup] = useState<GroupWithProjects | null>(null)
     const [targetProject, setTargetProject] = useState<{ id: number; name: string } | null>(null)
     const [deleteTarget, setDeleteTarget] = useState<{
         type: 'group' | 'project'
@@ -93,7 +92,7 @@ export function SidebarProject() {
         ? Number(pathname.split('/')[2])
         : null
 
-    async function handleDeleteGroup(group: GroupData) {
+    async function handleDeleteGroup(group: GroupWithProjects) {
         await deleteGroup.mutateAsync(group.id)
         if (currentProjectId && group.projects.some((p) => p.id === currentProjectId)) {
             navigate({ to: '/' })

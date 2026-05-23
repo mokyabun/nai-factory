@@ -125,14 +125,7 @@ export function SidebarPrompt({ projectId }: SidebarPromptProps) {
                         <span className="text-lg mt-4">캐릭터 프롬프트</span>
                         <CharacterPromptEditor
                             projectId={project.id}
-                            characterPrompts={
-                                (project.characterPrompts as {
-                                    enabled: boolean
-                                    center: { x: number; y: number }
-                                    prompt: string
-                                    uc: string
-                                }[]) ?? []
-                            }
+                            characterPrompts={project.characterPrompts ?? []}
                         />
 
                         <span className="text-lg mt-4">변수</span>
