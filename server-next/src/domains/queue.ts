@@ -1,7 +1,5 @@
 import { zValidator } from '@hono/zod-validator'
 import {
-<<<<<<< HEAD
-    type EnqueuePosition,
     IdParams,
     QueueClearQuery,
     QueueEnqueueAllBody,
@@ -9,151 +7,90 @@ import {
     QueueEnqueueBulkBody,
     QueueGetQuery,
 } from '@nai-factory/types'
-import { asc, eq, inArray } from 'drizzle-orm'
-import { Hono } from 'hono'
-import { db, projects, queueItems, scenes } from '#/db'
-import { domainEvents, queueManager } from '#/services'
-import { httpError } from '#/shared'
-
-async function get(projectId?: number) {
-=======
-    ClearQueueQuery,
-    EnqueueAllBody,
-    EnqueueBody,
-    EnqueueBulkBody,
-    type EnqueuePosition,
-    QueueIdParams,
-    QueueListQuery,
-} from '@nai-factory/types'
-import { asc, eq, inArray } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { db, projects, queueItems, scenes } from '#/db'
-import { domainEvents, queueManager } from '#/services'
+import { db, projects, queueItems, scenes } from '../db'
+import { domainEvents, queueManager } from '../services'
 
-async function list(projectId?: number) {
->>>>>>> refs/remotes/origin/main
-    const rows = projectId
-        ? await db
-              .select()
-              .from(queueItems)
-              .where(eq(queueItems.projectId, projectId))
-              .orderBy(asc(queueItems.sortIndex))
-        : await db.select().from(queueItems).orderBy(asc(queueItems.sortIndex))
+async function get(projectId?: number) {
+    const rows = await db
+        .select({
+            id: queueItems.id,
+            projectId: queueItems.projectId,
+            sceneId: queueItems.sceneId,
+            sceneName: scenes.name,
+            variationCount: queueItems.variationCount,
+            sortIndex: queueItems.sortIndex,
+        })
+        .from(queueItems)
+        .innerJoin(scenes, eq(queueItems.sceneId, scenes.id))
+        .where(projectId ? eq(queueItems.projectId, projectId) : undefined)
+        .orderBy(asc(queueItems.sortIndex))
 
-    const sceneIds = [...new Set(rows.map((row) => row.sceneId))]
-    const sceneRows =
-        sceneIds.length > 0
-            ? await db
-                  .select({ id: scenes.id, name: scenes.name })
-                  .from(scenes)
-                  .where(inArray(scenes.id, sceneIds))
-            : []
-<<<<<<< HEAD
-    const sceneNames = new Map(sceneRows.map((scene) => [scene.id, scene.name]))
-
-    return rows.map((row) => ({ ...row, sceneName: sceneNames.get(row.sceneId) ?? null }))
+    return rows
 }
 
-async function enqueueAll(projectId: number, position: EnqueuePosition = 'back') {
-    const [project] = await db.select().from(projects).where(eq(projects.id, projectId))
-    if (!project) throw httpError(404, 'Project not found')
-=======
-    const sceneNameMap = new Map(sceneRows.map((scene) => [scene.id, scene.name]))
-
-    return rows.map((row) => ({ ...row, sceneName: sceneNameMap.get(row.sceneId) ?? null }))
+async function enqueue(sceneId: number, position: QueueEnqueueBody['position'] = 'back') {
+    try {
+        return await queueManager.add(sceneId, position)
+    } catch (error) {
+        throw new HTTPException(404, {
+            message: error instanceof Error ? error.message : 'Scene not found',
+        })
+    }
 }
 
-async function enqueueAll(projectId: number, position: EnqueuePosition) {
-    const [project] = await db.select().from(projects).where(eq(projects.id, projectId))
+async function enqueueAll(projectId: number, position: QueueEnqueueAllBody['position'] = 'back') {
+    const [project] = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, projectId))
     if (!project) throw new HTTPException(404, { message: 'Project not found' })
->>>>>>> refs/remotes/origin/main
 
-    const projectScenes = await db
-        .select()
+    const rows = await db
+        .select({ id: scenes.id })
         .from(scenes)
         .where(eq(scenes.projectId, projectId))
-        .orderBy(asc(scenes.displayOrder), asc(scenes.id))
-<<<<<<< HEAD
-    const created = []
-    for (const scene of projectScenes) created.push(await queueManager.add(scene.id, position))
+        .orderBy(asc(scenes.displayOrder))
 
-    return { queued: created.length, items: created }
+    const items = []
+    for (const scene of rows) {
+        items.push(await enqueue(scene.id, position))
+    }
+
+    return items
 }
 
-async function enqueueBulk(sceneIds: number[], position: EnqueuePosition = 'back') {
-    const created = []
-    for (const sceneId of sceneIds) created.push(await queueManager.add(sceneId, position))
-
-    return { queued: created.length, items: created }
-=======
+async function enqueueBulk(
+    sceneIds: number[],
+    position: QueueEnqueueBulkBody['position'] = 'back',
+) {
     const items = []
-    for (const scene of projectScenes) items.push(await queueManager.add(scene.id, position))
-    return { queued: items.length, items }
-}
-
-async function enqueueBulk(sceneIds: number[], position: EnqueuePosition) {
-    const items = []
-    for (const sceneId of sceneIds) items.push(await queueManager.add(sceneId, position))
-    return { queued: items.length, items }
->>>>>>> refs/remotes/origin/main
+    for (const sceneId of sceneIds) {
+        items.push(await enqueue(sceneId, position))
+    }
+    return items
 }
 
 async function cancel(id: number) {
-    const [item] = await db.select().from(queueItems).where(eq(queueItems.id, id))
-<<<<<<< HEAD
-    if (!item) throw httpError(404, 'Queue item not found')
-
-=======
+    const [item] = await db
+        .select({ id: queueItems.id })
+        .from(queueItems)
+        .where(eq(queueItems.id, id))
     if (!item) throw new HTTPException(404, { message: 'Queue item not found' })
->>>>>>> refs/remotes/origin/main
+
     await queueManager.cancel([id])
-    return { success: true }
 }
 
-async function clearAll(sceneId?: number) {
-    const rows = sceneId
-        ? await db.select().from(queueItems).where(eq(queueItems.sceneId, sceneId))
-        : await db.select().from(queueItems)
-<<<<<<< HEAD
+async function clear(sceneId?: number) {
+    const rows = await db
+        .select({ id: queueItems.id })
+        .from(queueItems)
+        .where(sceneId ? eq(queueItems.sceneId, sceneId) : undefined)
+
     await queueManager.cancel(rows.map((row) => row.id))
-
     return { cancelled: rows.length }
-}
-
-export const queue = new Hono()
-    .get('/', zValidator('query', QueueGetQuery), async (c) =>
-        c.json(await get(c.req.valid('query').projectId)),
-    )
-    .get('/status', async (c) => c.json(await queueManager.status()))
-    .post('/enqueue', zValidator('json', QueueEnqueueBody), async (c) => {
-        const { sceneId, position } = c.req.valid('json')
-        const item = await queueManager.add(sceneId, position ?? 'back')
-        domainEvents.invalidate('queue')
-
-        return c.json(item, 201)
-    })
-    .post('/enqueue-all', zValidator('json', QueueEnqueueAllBody), async (c) => {
-        const { projectId, position } = c.req.valid('json')
-        const result = await enqueueAll(projectId, position ?? 'back')
-        domainEvents.invalidate('queue')
-
-        return c.json(result, 201)
-    })
-    .post('/enqueue-bulk', zValidator('json', QueueEnqueueBulkBody), async (c) => {
-        const { sceneIds, position } = c.req.valid('json')
-        const result = await enqueueBulk(sceneIds, position ?? 'back')
-        domainEvents.invalidate('queue')
-
-        return c.json(result, 201)
-    })
-    .post('/start', async (c) => {
-        queueManager.start()
-        domainEvents.invalidate('queue')
-=======
-    const ids = rows.map((row) => row.id)
-    await queueManager.cancel(ids)
-    return { cancelled: ids.length }
 }
 
 function invalidateQueue() {
@@ -161,60 +98,48 @@ function invalidateQueue() {
 }
 
 export const queue = new Hono()
-    .get('/', zValidator('query', QueueListQuery), async (c) =>
-        c.json(await list(c.req.valid('query').projectId)),
-    )
+    .get('/', zValidator('query', QueueGetQuery), async (c) => {
+        const query = c.req.valid('query')
+        return c.json(await get(query.projectId))
+    })
     .get('/status', async (c) => c.json(await queueManager.status()))
-    .post('/enqueue', zValidator('json', EnqueueBody), async (c) => {
-        const { sceneId, position } = c.req.valid('json')
-        const item = await queueManager.add(sceneId, position)
+    .post('/enqueue', zValidator('json', QueueEnqueueBody), async (c) => {
+        const body = c.req.valid('json')
+        const item = await enqueue(body.sceneId, body.position)
         invalidateQueue()
-        return c.json(item)
+        return c.json(item, 201)
     })
-    .post('/enqueue-all', zValidator('json', EnqueueAllBody), async (c) => {
-        const { projectId, position } = c.req.valid('json')
-        const result = await enqueueAll(projectId, position)
+    .post('/enqueue-all', zValidator('json', QueueEnqueueAllBody), async (c) => {
+        const body = c.req.valid('json')
+        const items = await enqueueAll(body.projectId, body.position)
         invalidateQueue()
-        return c.json(result)
+        return c.json(items, 201)
     })
-    .post('/enqueue-bulk', zValidator('json', EnqueueBulkBody), async (c) => {
-        const { sceneIds, position } = c.req.valid('json')
-        const result = await enqueueBulk(sceneIds, position)
+    .post('/enqueue-bulk', zValidator('json', QueueEnqueueBulkBody), async (c) => {
+        const body = c.req.valid('json')
+        const items = await enqueueBulk(body.sceneIds, body.position)
         invalidateQueue()
-        return c.json(result)
+        return c.json(items, 201)
     })
     .post('/start', async (c) => {
         queueManager.start()
         invalidateQueue()
->>>>>>> refs/remotes/origin/main
         return c.json(await queueManager.status())
     })
     .post('/stop', async (c) => {
         queueManager.stop()
-<<<<<<< HEAD
-        domainEvents.invalidate('queue')
+        invalidateQueue()
         return c.json(await queueManager.status())
     })
     .delete('/', zValidator('query', QueueClearQuery), async (c) => {
-        const result = await clearAll(c.req.valid('query').sceneId)
-        domainEvents.invalidate('queue')
+        const query = c.req.valid('query')
+        const result = await clear(query.sceneId)
+        invalidateQueue()
         return c.json(result)
     })
     .delete('/:id', zValidator('param', IdParams), async (c) => {
-        const result = await cancel(c.req.valid('param').id)
-        domainEvents.invalidate('queue')
-=======
+        const { id } = c.req.valid('param')
+        await cancel(id)
         invalidateQueue()
-        return c.json(await queueManager.status())
-    })
-    .delete('/', zValidator('query', ClearQueueQuery), async (c) => {
-        const result = await clearAll(c.req.valid('query').sceneId)
-        invalidateQueue()
-        return c.json(result)
-    })
-    .delete('/:id', zValidator('param', QueueIdParams), async (c) => {
-        const result = await cancel(c.req.valid('param').id)
-        invalidateQueue()
->>>>>>> refs/remotes/origin/main
-        return c.json(result)
+        return c.body(null, 204)
     })

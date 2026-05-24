@@ -1,6 +1,5 @@
 import { zValidator } from '@hono/zod-validator'
 import {
-<<<<<<< HEAD
     ProjectGetQuery,
     ProjectIdParams,
     ProjectPatchBody,
@@ -8,171 +7,102 @@ import {
 } from '@nai-factory/types'
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
-=======
-    CreateProjectBody,
-    ProjectIdParams,
-    ProjectListQuery,
-    UpdateProjectBody,
-} from '@nai-factory/types'
-import { asc, eq } from 'drizzle-orm'
-import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
->>>>>>> refs/remotes/origin/main
-import { db, projects, scenes } from '#/db'
-import { removeByProject } from '#/services'
-import { nextDisplayOrder, withUpdatedAt } from '#/shared'
-
-async function getById(id: number) {
-    const [project] = await db.select().from(projects).where(eq(projects.id, id))
-<<<<<<< HEAD
-
-=======
->>>>>>> refs/remotes/origin/main
-    return project ?? null
-}
+import { db, projects, scenes } from '../db'
+import { removeByProject } from '../services'
+import { requireEntity, withUpdatedAt } from '../shared'
 
 async function getAllByGroupId(groupId: number) {
-    return db
-        .select()
-        .from(projects)
-        .where(eq(projects.groupId, groupId))
-        .orderBy(asc(projects.name))
+    return db.select().from(projects).where(eq(projects.groupId, groupId)).orderBy(asc(projects.id))
 }
 
-<<<<<<< HEAD
-async function create(data: ProjectPostBody) {
-    const [created] = await db.insert(projects).values(data).returning()
-
-    return created ?? null
+async function getById(projectId: number) {
+    const [project] = await db.select().from(projects).where(eq(projects.id, projectId))
+    return requireEntity(project, 'Project not found')
 }
 
-async function update(id: number, data: ProjectPatchBody) {
-=======
-async function create(data: CreateProjectBody) {
-    const [created] = await db.insert(projects).values(data).returning()
-    return created ?? null
+async function create(body: ProjectPostBody) {
+    const [project] = await db.insert(projects).values(body).returning()
+    if (!project) throw new HTTPException(500, { message: 'Failed to create project' })
+    return project
 }
 
-async function update(id: number, data: UpdateProjectBody) {
->>>>>>> refs/remotes/origin/main
-    const [updated] = await db
+async function update(projectId: number, body: ProjectPatchBody) {
+    const [project] = await db
         .update(projects)
-        .set(withUpdatedAt(data))
-        .where(eq(projects.id, id))
+        .set(withUpdatedAt(body))
+        .where(eq(projects.id, projectId))
         .returning()
 
-    return updated ?? null
+    return requireEntity(project, 'Project not found')
 }
 
-async function remove(id: number) {
-    const [existing] = await db.select().from(projects).where(eq(projects.id, id))
-    if (!existing) return false
-
-    await db.delete(projects).where(eq(projects.id, id))
-    await removeByProject(id)
-
-    return true
+async function remove(projectId: number) {
+    await getById(projectId)
+    await removeByProject(projectId)
+    await db.delete(projects).where(eq(projects.id, projectId))
 }
 
-async function duplicate(id: number) {
-    const [existing] = await db.select().from(projects).where(eq(projects.id, id))
-    if (!existing) return null
-
-    const { id: _projectId, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = existing
-    const [created] = await db
-        .insert(projects)
-        .values({ ...rest, name: `${existing.name} (copy)` })
-        .returning()
-    if (!created) return null
-
-    const projectScenes = await db
+async function duplicate(projectId: number) {
+    const source = await getById(projectId)
+    const sourceScenes = await db
         .select()
         .from(scenes)
-        .where(eq(scenes.projectId, id))
-        .orderBy(asc(scenes.displayOrder), asc(scenes.id))
+        .where(eq(scenes.projectId, projectId))
+        .orderBy(asc(scenes.displayOrder))
 
-    let previousOrder: string | null = null
-    for (const scene of projectScenes) {
-        const {
-            id: _sceneId,
-            createdAt: _sceneCreatedAt,
-            updatedAt: _sceneUpdatedAt,
-            ...sceneRest
-        } = scene
-        const displayOrder = nextDisplayOrder(previousOrder)
-        await db.insert(scenes).values({ ...sceneRest, projectId: created.id, displayOrder })
-        previousOrder = displayOrder
+    const [project] = await db
+        .insert(projects)
+        .values({
+            groupId: source.groupId,
+            name: `${source.name} Copy`,
+            prompt: source.prompt,
+            negativePrompt: source.negativePrompt,
+            variables: source.variables,
+            parameters: source.parameters,
+            characterPrompts: source.characterPrompts,
+        })
+        .returning()
+    if (!project) throw new HTTPException(500, { message: 'Failed to duplicate project' })
+
+    if (sourceScenes.length > 0) {
+        await db.insert(scenes).values(
+            sourceScenes.map((scene) => ({
+                projectId: project.id,
+                displayOrder: scene.displayOrder,
+                name: scene.name,
+                variations: scene.variations,
+            })),
+        )
     }
 
-    return created
+    return project
 }
 
 export const project = new Hono()
-<<<<<<< HEAD
     .get('/', zValidator('query', ProjectGetQuery), async (c) => {
-        return c.json(await getAllByGroupId(c.req.valid('query').groupId))
+        const query = c.req.valid('query')
+        return c.json(await getAllByGroupId(query.groupId))
     })
     .get('/:projectId', zValidator('param', ProjectIdParams), async (c) => {
-        const result = await getById(c.req.valid('param').projectId)
-        if (!result) return c.text('Project not found', 404)
-
-        return c.json(result)
+        return c.json(await getById(c.req.valid('param').projectId))
     })
     .post('/', zValidator('json', ProjectPostBody), async (c) => {
-        const result = await create(c.req.valid('json'))
-        if (!result) return c.text('Failed to create project', 500)
-
-        return c.json(result, 201)
-=======
-    .get('/', zValidator('query', ProjectListQuery), async (c) =>
-        c.json(await getAllByGroupId(c.req.valid('query').groupId)),
-    )
-    .get('/:projectId', zValidator('param', ProjectIdParams), async (c) => {
-        const result = await getById(c.req.valid('param').projectId)
-        if (!result) throw new HTTPException(404, { message: 'Project not found' })
-        return c.json(result)
-    })
-    .post('/', zValidator('json', CreateProjectBody), async (c) => {
-        const result = await create(c.req.valid('json'))
-        if (!result) throw new HTTPException(500, { message: 'Failed to create project' })
-        return c.json(result)
->>>>>>> refs/remotes/origin/main
+        const body = c.req.valid('json')
+        return c.json(await create(body), 201)
     })
     .patch(
         '/:projectId',
         zValidator('param', ProjectIdParams),
-<<<<<<< HEAD
         zValidator('json', ProjectPatchBody),
         async (c) => {
-            const result = await update(c.req.valid('param').projectId, c.req.valid('json'))
-            if (!result) return c.text('Project not found', 404)
-
-=======
-        zValidator('json', UpdateProjectBody),
-        async (c) => {
-            const result = await update(c.req.valid('param').projectId, c.req.valid('json'))
-            if (!result) throw new HTTPException(404, { message: 'Project not found' })
->>>>>>> refs/remotes/origin/main
-            return c.json(result)
+            return c.json(await update(c.req.valid('param').projectId, c.req.valid('json')))
         },
     )
     .delete('/:projectId', zValidator('param', ProjectIdParams), async (c) => {
-<<<<<<< HEAD
-        if (!(await remove(c.req.valid('param').projectId))) return c.text('Project not found', 404)
-
-=======
-        const success = await remove(c.req.valid('param').projectId)
-        if (!success) throw new HTTPException(404, { message: 'Project not found' })
->>>>>>> refs/remotes/origin/main
+        await remove(c.req.valid('param').projectId)
         return c.body(null, 204)
     })
     .post('/:projectId/duplicate', zValidator('param', ProjectIdParams), async (c) => {
-        const result = await duplicate(c.req.valid('param').projectId)
-<<<<<<< HEAD
-        if (!result) return c.text('Project not found', 404)
-
-=======
-        if (!result) throw new HTTPException(404, { message: 'Project not found' })
->>>>>>> refs/remotes/origin/main
-        return c.json(result)
+        return c.json(await duplicate(c.req.valid('param').projectId), 201)
     })

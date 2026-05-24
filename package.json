@@ -11,7 +11,9 @@
         "lint:web": "bun --filter web-next lint",
         "check:web": "bun --filter web-next check",
         "test:web": "bun --filter web-next test",
-        "build:web": "bun --filter web-next build"
+        "build:web": "bun --filter web-next build",
+
+        "dev:next": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"bun --filter @nai-factory/server-next dev\" \"bun --filter web-next dev\""
     },
     "workspaces": [
         "web",
