@@ -14,7 +14,7 @@ interface ConfirmDeleteDialogProps {
     onOpenChange: (open: boolean) => void
     title: string
     description: string
-    onConfirm: () => void
+    onConfirm: () => Promise<void> | void
 }
 
 export function ConfirmDeleteDialog({
@@ -35,7 +35,10 @@ export function ConfirmDeleteDialog({
                     <AlertDialogCancel>취소</AlertDialogCancel>
                     <AlertDialogAction
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        onClick={onConfirm}
+                        onClick={async () => {
+                            await onConfirm()
+                            onOpenChange(false)
+                        }}
                     >
                         삭제
                     </AlertDialogAction>

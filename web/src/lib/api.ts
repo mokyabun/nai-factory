@@ -5,6 +5,7 @@ import type {
     CharacterReferenceUploadBody,
     GlobalSettings,
     Group,
+    GroupListItem,
     GroupPatchBody,
     GroupPostBody,
     Image,
@@ -54,9 +55,9 @@ export type ApiResult<T> = Promise<{
 export type EntityId = { id: number }
 export type ProjectId = { projectId: number }
 
-export type GroupWithProjects = Group & {
-    projects: Array<Pick<Project, 'id' | 'name'>>
-}
+export type GroupWithProjects = Extract<GroupListItem, { type: 'group' }>
+export type ProjectGroupItem = GroupListItem
+export type ProjectGroupId = Project['groupId']
 
 export type SceneImage = Pick<Image, 'id' | 'filePath' | 'thumbnailPath'>
 
@@ -232,7 +233,7 @@ const groups = Object.assign(
         delete: () => request<void>(`/groups/${id}`, { method: 'delete' }),
     }),
     {
-        get: () => request<GroupWithProjects[]>('/groups'),
+        get: () => request<ProjectGroupItem[]>('/groups'),
         post: (json: GroupPostBody) => request<Group>('/groups', { method: 'post', json }),
     },
 )
@@ -250,7 +251,7 @@ const projects = Object.assign(
         'character-references': characterReferences(projectId),
     }),
     {
-        get: ({ query }: { query: ProjectGetQuery }) =>
+        get: ({ query }: { query?: ProjectGetQuery } = {}) =>
             request<Project[]>('/projects', { searchParams: query }),
         post: (json: ProjectPostBody) => request<Project>('/projects', { method: 'post', json }),
     },

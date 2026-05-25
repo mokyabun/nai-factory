@@ -5,7 +5,7 @@ import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dia
 import { CreateGroupDialog } from '@/components/app/dialogs/create-group-dialog'
 import { CreateProjectDialog } from '@/components/app/dialogs/create-project-dialog'
 import * as Base from '@/components/ui/sidebar'
-import type { GroupWithProjects } from '@/lib/api'
+import type { GroupWithProjects, ProjectGroupId } from '@/lib/api'
 import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import {
@@ -70,6 +70,12 @@ export function SidebarProject() {
         onSuccess: invalidateGroups,
     })
 
+    const moveProject = useMutation({
+        mutationFn: ({ projectId, groupId }: { projectId: number; groupId: ProjectGroupId }) =>
+            api.projects({ projectId }).patch({ groupId }),
+        onSuccess: invalidateGroups,
+    })
+
     const duplicateProject = useMutation({
         mutationFn: (projectId: number) => api.projects({ projectId }).duplicate.post(),
         onSuccess: invalidateGroups,
@@ -131,11 +137,11 @@ export function SidebarProject() {
         }
     }
 
-    function confirmDeleteTarget() {
+    async function confirmDeleteTarget() {
         if (deleteTarget?.type === 'group') {
-            handleDeleteGroup(deleteTarget.group)
+            await handleDeleteGroup(deleteTarget.group)
         } else if (deleteTarget?.type === 'project') {
-            handleDeleteProject(deleteTarget.project)
+            await handleDeleteProject(deleteTarget.project)
         }
     }
 
@@ -166,6 +172,10 @@ export function SidebarProject() {
                         renameProject: (project) =>
                             startRename({ type: 'project', id: project.id }, project.name),
                         duplicateProject: (project) => duplicateProject.mutate(project.id),
+                        moveProject: (project, groupId) => {
+                            if (project.groupId === groupId) return
+                            moveProject.mutate({ projectId: project.id, groupId })
+                        },
                         deleteProject: (project) => {
                             setDeleteTarget({ type: 'project', project })
                             setDeleteOpen(true)
@@ -204,7 +214,7 @@ interface ProjectDialogsProps {
     onDeleteOpenChange: (open: boolean) => void
     onCreateGroup: (name: string) => void
     onCreateProject: (name: string) => void
-    onConfirmDelete: () => void
+    onConfirmDelete: () => Promise<void> | void
 }
 
 function ProjectDialogs({

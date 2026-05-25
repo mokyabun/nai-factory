@@ -13,6 +13,19 @@ const [{ createApp }, dbModule] = await Promise.all([
 
 const { characterReferences, db, groups, projects } = dbModule
 
+beforeAll(async () => {
+    await rm(tempImagePath, { force: true })
+})
+
+afterAll(async () => {
+    await Promise.all([
+        rm(tempImagePath, { force: true }),
+        rm(tempDbPath, { force: true }),
+        rm(`${tempDbPath}-shm`, { force: true }),
+        rm(`${tempDbPath}-wal`, { force: true }),
+    ])
+})
+
 async function seedProject() {
     const [group] = await db.insert(groups).values({ name: 'group' }).returning()
     if (!group) throw new Error('Failed to seed group')
@@ -47,19 +60,6 @@ async function seedCharacterReference(projectId: number) {
 
 describe('character reference domain', () => {
     const app = createApp()
-
-    beforeAll(async () => {
-        await rm(tempImagePath, { force: true })
-    })
-
-    afterAll(async () => {
-        await Promise.all([
-            rm(tempImagePath, { force: true }),
-            rm(tempDbPath, { force: true }),
-            rm(`${tempDbPath}-shm`, { force: true }),
-            rm(`${tempDbPath}-wal`, { force: true }),
-        ])
-    })
 
     it('lists, updates, reorders, and deletes character references', async () => {
         const project = await seedProject()
@@ -105,5 +105,68 @@ describe('character reference domain', () => {
             `/projects/${project.id}/character-references`,
         )
         expect(await afterDeleteResponse.json()).toEqual([])
+    })
+})
+
+describe('group domain', () => {
+    const app = createApp()
+
+    it('includes ungrouped projects in the project tree response', async () => {
+        const [group] = await db.insert(groups).values({ name: 'group tree' }).returning()
+        if (!group) throw new Error('Failed to seed group')
+
+        const [groupedProject] = await db
+            .insert(projects)
+            .values({ groupId: group.id, name: 'grouped tree' })
+            .returning()
+        const [ungroupedProject] = await db
+            .insert(projects)
+            .values({ groupId: null, name: 'ungrouped tree' })
+            .returning()
+        if (!groupedProject || !ungroupedProject) throw new Error('Failed to seed projects')
+
+        const response = await app.request('/groups')
+        expect(response.status).toBe(200)
+
+        const body = await response.json()
+        const ungrouped = body.find((item: { type: string }) => item.type === 'ungrouped')
+        expect(ungrouped).toMatchObject({
+            type: 'ungrouped',
+            id: null,
+            name: '그룹 없음',
+        })
+        expect(ungrouped.projects).toContainEqual(
+            expect.objectContaining({
+                id: ungroupedProject.id,
+                groupId: null,
+                name: 'ungrouped tree',
+            }),
+        )
+
+        const groupItem = body.find(
+            (item: { id: number | null; type: string }) =>
+                item.type === 'group' && item.id === group.id,
+        )
+        expect(groupItem).toMatchObject({
+            type: 'group',
+            id: group.id,
+            projects: [{ id: groupedProject.id, groupId: group.id, name: 'grouped tree' }],
+        })
+    })
+
+    it('lists ungrouped projects through the project domain query', async () => {
+        const [project] = await db
+            .insert(projects)
+            .values({ groupId: null, name: 'ungrouped query' })
+            .returning()
+        if (!project) throw new Error('Failed to seed project')
+
+        const response = await app.request('/projects?groupId=ungrouped')
+        expect(response.status).toBe(200)
+
+        const body = await response.json()
+        expect(body).toContainEqual(
+            expect.objectContaining({ id: project.id, groupId: null, name: 'ungrouped query' }),
+        )
     })
 })

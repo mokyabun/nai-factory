@@ -1,5 +1,11 @@
 import { zValidator } from '@hono/zod-validator'
-import { GroupPatchBody, GroupPostBody, IdParams } from '@nai-factory/types'
+import {
+    type GroupListItem,
+    type GroupProjectSummary,
+    GroupPatchBody,
+    GroupPostBody,
+    IdParams,
+} from '@nai-factory/types'
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
@@ -16,15 +22,35 @@ async function getAllWithProjects() {
             .orderBy(asc(projects.name)),
     ])
 
-    const byGroup = new Map<number, { id: number; name: string }[]>()
+    const byGroup = new Map<number, GroupProjectSummary[]>()
+    const ungroupedProjects: GroupProjectSummary[] = []
     for (const project of allProjects) {
-        if (project.groupId === null) continue
+        if (project.groupId === null) {
+            ungroupedProjects.push(project)
+            continue
+        }
         const collection = byGroup.get(project.groupId) ?? []
-        collection.push({ id: project.id, name: project.name })
+        collection.push(project)
         byGroup.set(project.groupId, collection)
     }
 
-    return allGroups.map((group) => ({ ...group, projects: byGroup.get(group.id) ?? [] }))
+    const groupItems: GroupListItem[] = allGroups.map((group) => ({
+        ...group,
+        type: 'group',
+        projects: byGroup.get(group.id) ?? [],
+    }))
+
+    if (ungroupedProjects.length === 0) return groupItems
+
+    return [
+        {
+            type: 'ungrouped',
+            id: null,
+            name: '그룹 없음',
+            projects: ungroupedProjects,
+        },
+        ...groupItems,
+    ]
 }
 
 async function getById(id: number) {
@@ -66,12 +92,12 @@ export const group = new Hono()
         if (!group) throw new HTTPException(404, { message: 'Group not found' })
 
         const childProjects = await db
-            .select({ id: projects.id, name: projects.name })
+            .select({ id: projects.id, groupId: projects.groupId, name: projects.name })
             .from(projects)
             .where(eq(projects.groupId, group.id))
             .orderBy(asc(projects.name))
 
-        return c.json({ ...group, projects: childProjects })
+        return c.json({ ...group, type: 'group', projects: childProjects })
     })
     .post('/', zValidator('json', GroupPostBody), async (c) => {
         const created = await create(c.req.valid('json'))

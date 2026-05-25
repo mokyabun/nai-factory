@@ -18,7 +18,9 @@ export const Project = z.object({
 })
 
 export const ProjectGetQuery = z.object({
-    groupId: z.coerce.number().int().positive(),
+    groupId: z
+        .union([z.coerce.number().int().positive(), z.literal('null'), z.literal('ungrouped')])
+        .optional(),
 })
 
 export const ProjectPostBody = z.object({

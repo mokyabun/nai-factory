@@ -5,15 +5,25 @@ import {
     ProjectPatchBody,
     ProjectPostBody,
 } from '@nai-factory/types'
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, projects, scenes } from '../db'
 import { removeByProject, removeCharacterReferencesByProject } from '../services'
 import { requireEntity, withUpdatedAt } from '../shared'
 
-async function getAllByGroupId(groupId: number) {
-    return db.select().from(projects).where(eq(projects.groupId, groupId)).orderBy(asc(projects.id))
+async function getAllByGroupId(groupId?: number | 'null' | 'ungrouped') {
+    return db
+        .select()
+        .from(projects)
+        .where(
+            groupId === undefined
+                ? undefined
+                : groupId === 'null' || groupId === 'ungrouped'
+                  ? isNull(projects.groupId)
+                  : eq(projects.groupId, groupId),
+        )
+        .orderBy(asc(projects.id))
 }
 
 async function getById(projectId: number) {
