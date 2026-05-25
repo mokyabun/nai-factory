@@ -1,16 +1,36 @@
 import type {
     EncodeVibeRequest,
+    NovelAICharacterReferenceImage,
     NovelAIParameters,
     NovelAIRequest,
+    NovelAIVibeImage,
     SimpleNovelAIParameters,
 } from '@nai-factory/types'
 import { unzipSync } from 'fflate'
 import ky from 'ky'
 
 export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Promise<string> {
+    const form = new FormData()
+    const imageBytes = Buffer.from(request.image, 'base64')
+
+    form.append('image', new Blob([imageBytes], { type: 'image/png' }), 'blob')
+    form.append(
+        'request',
+        new Blob(
+            [
+                JSON.stringify({
+                    information_extracted: request.information_extracted,
+                    model: request.model,
+                }),
+            ],
+            { type: 'application/json' },
+        ),
+        'blob',
+    )
+
     const binary = await ky
         .post('https://image.novelai.net/ai/encode-vibe', {
-            json: request,
+            body: form,
             timeout: 60_000,
             retry: 0,
             headers: {
@@ -19,15 +39,56 @@ export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Pr
         })
         .arrayBuffer()
 
-    const base64 = Buffer.from(binary).toString('base64')
+    return Buffer.from(binary).toString('base64')
+}
 
-    return base64
+function getMimeType(path: string) {
+    const lower = path.toLowerCase()
+    if (lower.endsWith('.png')) return 'image/png'
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+    if (lower.endsWith('.webp')) return 'image/webp'
+    return 'application/octet-stream'
+}
+
+function cachedRef(cacheSecretKey: string, uploadFieldName?: string) {
+    return uploadFieldName
+        ? { cache_secret_key: cacheSecretKey, data: uploadFieldName }
+        : { cache_secret_key: cacheSecretKey }
+}
+
+async function appendUploadPart(form: FormData, fieldName: string, filePath: string) {
+    const file = Bun.file(filePath)
+    if (!(await file.exists())) throw new Error(`Reference image not found: ${filePath}`)
+
+    form.append(
+        fieldName,
+        new Blob([await file.arrayBuffer()], {
+            type: file.type || getMimeType(filePath),
+        }),
+        'blob',
+    )
+}
+
+function getUploadRefs(params: SimpleNovelAIParameters) {
+    const vibes = (params.vibeTransfers ?? []).filter(
+        (ref): ref is NovelAIVibeImage & { uploadFieldName: string; filePath: string } =>
+            !!ref.uploadFieldName && !!ref.filePath,
+    )
+    const characterReferences = (params.characterReferences ?? []).filter(
+        (
+            ref,
+        ): ref is NovelAICharacterReferenceImage & { uploadFieldName: string; filePath: string } =>
+            !!ref.uploadFieldName && !!ref.filePath,
+    )
+
+    return { vibes, characterReferences }
 }
 
 export async function generateImage(apiKey: string, params: SimpleNovelAIParameters) {
     const seed = params.seed ?? Math.floor(Math.random() * 2 ** 32)
-
     const enabledChars = params.characterPrompts.filter((c) => c.enabled)
+    const vibeTransfers = params.vibeTransfers ?? []
+    const characterReferences = params.characterReferences ?? []
 
     const parameters: NovelAIParameters = {
         params_version: 3,
@@ -80,8 +141,6 @@ export async function generateImage(apiKey: string, params: SimpleNovelAIParamet
 
         // Vibe Transfer
         normalize_reference_strength_multiple: params.normalizeReferenceStrengthValues,
-        reference_image_multiple: params.vibeTransfers.map((v) => v.encodedImage),
-        reference_strength_multiple: params.vibeTransfers.map((v) => v.strength),
 
         // Misc
         autoSmea: false,
@@ -97,27 +156,93 @@ export async function generateImage(apiKey: string, params: SimpleNovelAIParamet
         legacy_uc: false,
     }
 
+    if (vibeTransfers.length > 0) {
+        parameters.reference_image_multiple_cached = vibeTransfers.map((ref) =>
+            cachedRef(ref.cacheSecretKey, ref.uploadFieldName),
+        )
+        parameters.reference_strength_multiple = vibeTransfers.map((ref) => ref.strength)
+    }
+
+    if (characterReferences.length > 0) {
+        parameters.director_reference_images_cached = characterReferences.map((ref) =>
+            cachedRef(ref.cacheSecretKey, ref.uploadFieldName),
+        )
+        parameters.director_reference_descriptions = characterReferences.map((ref) => ({
+            caption: {
+                base_caption: ref.mode,
+                char_captions: [],
+            },
+            legacy_uc: false,
+        }))
+        parameters.director_reference_information_extracted = characterReferences.map(() => 1)
+        parameters.director_reference_strength_values = characterReferences.map(
+            (ref) => ref.strength,
+        )
+        parameters.director_reference_secondary_strength_values = characterReferences.map(
+            (ref) => 1 - ref.fidelity,
+        )
+        parameters.skip_cfg_above_sigma = null
+    }
+
     const body: NovelAIRequest = {
         input: params.prompt,
         model: params.model,
         action: 'generate',
         parameters: parameters,
+        use_new_shared_trial: true,
     }
 
-    // retry 5 times with exponential backoff starting at 1s
-    const zipData = await ky
-        .post('https://image.novelai.net/ai/generate-image', {
-            json: body,
-            timeout: 120_000,
-            retry: {
-                limit: 5,
-                delay: (attempt) => 1000 * 2 ** (attempt - 1),
-            },
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-            },
-        })
-        .arrayBuffer()
+    const uploadRefs = getUploadRefs(params)
+    const shouldUseMultipart = vibeTransfers.length > 0 || characterReferences.length > 0
+    let zipData: ArrayBuffer
+
+    if (shouldUseMultipart) {
+        const form = new FormData()
+
+        for (const ref of uploadRefs.characterReferences) {
+            await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
+        }
+        for (const ref of uploadRefs.vibes) {
+            await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
+        }
+
+        form.append(
+            'request',
+            new Blob([JSON.stringify(body)], { type: 'application/json' }),
+            'blob',
+        )
+
+        zipData = await ky
+            .post('https://image.novelai.net/ai/generate-image', {
+                body: form,
+                timeout: 120_000,
+                retry: {
+                    limit: 5,
+                    delay: (attempt) => 1000 * 2 ** (attempt - 1),
+                },
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                    Accept: '*/*',
+                    'Cache-Control': 'no-cache',
+                    Pragma: 'no-cache',
+                },
+            })
+            .arrayBuffer()
+    } else {
+        zipData = await ky
+            .post('https://image.novelai.net/ai/generate-image', {
+                json: body,
+                timeout: 120_000,
+                retry: {
+                    limit: 5,
+                    delay: (attempt) => 1000 * 2 ** (attempt - 1),
+                },
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                },
+            })
+            .arrayBuffer()
+    }
 
     const zipUint8 = new Uint8Array(zipData)
     const files = unzipSync(zipUint8)

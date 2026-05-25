@@ -32,6 +32,9 @@ export const VibeTransfer = z.object({
     encodedData: z.string().nullable(),
     encodedInformationExtracted: z.number().nullable(),
 
+    cacheSecretKey: z.string().nullable(),
+    cacheCreatedAt: z.string().nullable(),
+
     createdAt: z.string(),
     updatedAt: z.string(),
 })

@@ -60,6 +60,7 @@ export interface SimpleNovelAIParameters {
     characterPrompts: NovelAICharacterPrompt[]
 
     vibeTransfers: NovelAIVibeImage[]
+    characterReferences: NovelAICharacterReferenceImage[]
 
     model: NovelAIModel
 
@@ -104,8 +105,23 @@ export interface NovelAIParameters {
 
     /** Vibe Transfer */
     normalize_reference_strength_multiple: boolean
-    reference_image_multiple: string[]
-    reference_strength_multiple: number[]
+    reference_image_multiple?: string[]
+    reference_image_multiple_cached?: NovelAICachedImage[]
+    reference_strength_multiple?: number[]
+    reference_information_extracted_multiple?: number[]
+
+    /** Character Reference */
+    director_reference_images_cached?: NovelAICachedImage[]
+    director_reference_descriptions?: Array<{
+        caption: {
+            base_caption: string
+            char_captions: []
+        }
+        legacy_uc: false
+    }>
+    director_reference_information_extracted?: number[]
+    director_reference_strength_values?: number[]
+    director_reference_secondary_strength_values?: number[]
 
     /** miscellaneous */
     autoSmea: boolean
@@ -135,11 +151,30 @@ export interface NovelAIRequest {
     model: NovelAIModel
     input: string
     parameters: NovelAIParameters
+    use_new_shared_trial?: boolean
+}
+
+export interface NovelAICachedImage {
+    cache_secret_key: string
+    data?: string
 }
 
 export interface NovelAIVibeImage {
-    encodedImage: string
+    id?: number
+    cacheSecretKey: string
+    uploadFieldName?: string
+    filePath?: string
     strength: number
+}
+
+export interface NovelAICharacterReferenceImage {
+    id?: number
+    cacheSecretKey: string
+    uploadFieldName?: string
+    filePath?: string
+    strength: number
+    fidelity: number
+    mode: string
 }
 
 export interface EncodeVibeRequest {

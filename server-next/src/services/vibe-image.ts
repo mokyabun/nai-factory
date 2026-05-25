@@ -1,82 +1,77 @@
 import type { NovelAIModel, NovelAIVibeImage } from '@nai-factory/types'
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { db, vibeTransfers } from '../db'
 import logger from '../logger'
-import { encodeVibe } from './novelai'
+import { nowIso } from '../shared'
+import { createUniqueReferenceCacheKey, isReferenceCacheFresh } from './reference-cache'
 
 const log = logger.child({ module: 'vibe-image' })
 
 export async function checkVibe(
     vibeTransferId: number,
-    apiKey: string,
-    model: NovelAIModel,
-): Promise<{ encodedData: string; referenceStrength: number }> {
+    _apiKey?: string,
+    _model?: NovelAIModel,
+): Promise<NovelAIVibeImage> {
     const [vibe] = await db.select().from(vibeTransfers).where(eq(vibeTransfers.id, vibeTransferId))
 
     if (!vibe) throw new Error(`Vibe transfer ${vibeTransferId} not found`)
-
-    const needsEncoding =
-        !vibe.encodedData || vibe.encodedInformationExtracted !== vibe.informationExtracted
-
-    if (!needsEncoding) {
-        log.debug({ vibeTransferId }, 'Vibe cache hit')
-        const encodedData = vibe.encodedData
-        if (!encodedData) throw new Error(`Vibe transfer ${vibeTransferId} has no cached encoding`)
-
-        return {
-            encodedData,
-            referenceStrength: vibe.referenceStrength,
-        }
-    }
-
-    log.info({ vibeTransferId, reason: !vibe.encodedData ? 'missing' : 'stale' }, 'Encoding vibe')
 
     const sourceFile = Bun.file(vibe.sourceImagePath)
     if (!(await sourceFile.exists())) {
         throw new Error(`Vibe source image not found: ${vibe.sourceImagePath}`)
     }
-    const imageBase64 = Buffer.from(await sourceFile.arrayBuffer()).toString('base64')
 
-    const encodedData = await encodeVibe(apiKey, {
-        image: imageBase64,
-        information_extracted: vibe.informationExtracted,
-        model,
-    })
+    let cacheSecretKey = vibe.cacheSecretKey
+    let uploadFieldName: string | undefined
+    let filePath: string | undefined
 
-    await db
-        .update(vibeTransfers)
-        .set({
-            encodedData,
-            encodedInformationExtracted: vibe.informationExtracted,
-            updatedAt: new Date().toISOString(),
-        })
-        .where(eq(vibeTransfers.id, vibeTransferId))
+    if (!isReferenceCacheFresh(vibe.cacheSecretKey, vibe.cacheCreatedAt)) {
+        cacheSecretKey = await createUniqueReferenceCacheKey()
+        uploadFieldName = 'ref_multiple_0'
+        filePath = vibe.sourceImagePath
 
-    log.info({ vibeTransferId }, 'Vibe encoded and cached')
+        await db
+            .update(vibeTransfers)
+            .set({
+                cacheSecretKey,
+                cacheCreatedAt: null,
+                updatedAt: nowIso(),
+            })
+            .where(eq(vibeTransfers.id, vibeTransferId))
+    } else {
+        log.debug({ vibeTransferId }, 'Vibe reference cache hit')
+    }
+
+    if (!cacheSecretKey) throw new Error(`Vibe transfer ${vibeTransferId} has no cache key`)
 
     return {
-        encodedData,
-        referenceStrength: vibe.referenceStrength,
+        id: vibe.id,
+        cacheSecretKey,
+        uploadFieldName,
+        filePath,
+        strength: vibe.referenceStrength,
     }
 }
 
 export async function checkVibesForProject(
     projectId: number,
-    apiKey: string,
-    model: NovelAIModel,
+    apiKey?: string,
+    model?: NovelAIModel,
 ): Promise<NovelAIVibeImage[]> {
     const vibes = await db
         .select()
         .from(vibeTransfers)
         .where(eq(vibeTransfers.projectId, projectId))
+        .orderBy(asc(vibeTransfers.displayOrder), asc(vibeTransfers.id))
 
     if (vibes.length === 0) return []
 
     const results: NovelAIVibeImage[] = []
 
-    for (const vibe of vibes) {
-        const { encodedData, referenceStrength } = await checkVibe(vibe.id, apiKey, model)
-        results.push({ encodedImage: encodedData, strength: referenceStrength })
+    for (const [index, vibe] of vibes.entries()) {
+        const result = await checkVibe(vibe.id, apiKey, model)
+        if (result.uploadFieldName) result.uploadFieldName = `ref_multiple_${index}`
+        results.push(result)
     }
 
     return results
@@ -88,9 +83,23 @@ export async function invalidateVibe(vibeTransferId: number): Promise<void> {
         .set({
             encodedData: null,
             encodedInformationExtracted: null,
-            updatedAt: new Date().toISOString(),
+            cacheSecretKey: null,
+            cacheCreatedAt: null,
+            updatedAt: nowIso(),
         })
         .where(eq(vibeTransfers.id, vibeTransferId))
 
     log.info({ vibeTransferId }, 'Vibe encoding invalidated')
+}
+
+export async function markVibeCachesUploaded(ids: number[]) {
+    if (ids.length === 0) return
+
+    const cacheCreatedAt = nowIso()
+    for (const id of ids) {
+        await db
+            .update(vibeTransfers)
+            .set({ cacheCreatedAt, updatedAt: cacheCreatedAt })
+            .where(eq(vibeTransfers.id, id))
+    }
 }

@@ -9,10 +9,9 @@ import {
 import { arrayMove, rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { ListPlus, Plus, SlidersHorizontal } from 'lucide-react'
+import { ListPlus, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
-import { ParametersPanel } from '@/components/app/project/parameters-panel'
 import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
 import { Button } from '@/components/ui/button'
 import { api, type SceneSummary } from '@/lib/api'
@@ -24,14 +23,6 @@ function ProjectPage() {
     const { projectId } = Route.useParams()
     const queryClient = useQueryClient()
     const projId = Number(projectId)
-
-    const projectQuery = useQuery({
-        queryKey: qk.project(projId),
-        queryFn: async () => {
-            const { data } = await api.projects({ projectId: projId }).get()
-            return data ?? null
-        },
-    })
 
     const scenesQuery = useQuery({
         queryKey: qk.scenes(projId),
@@ -51,7 +42,6 @@ function ProjectPage() {
 
     const [items, setItems] = useState<SceneSummary[]>([])
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-    const [paramsOpen, setParamsOpen] = useState(false)
     const [createSceneOpen, setCreateSceneOpen] = useState(false)
 
     // Sync items from query
@@ -140,17 +130,6 @@ function ProjectPage() {
                     )}
                 </div>
                 <div className="flex items-center gap-2">
-                    {projectQuery.data && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5"
-                            onClick={() => setParamsOpen(true)}
-                        >
-                            <SlidersHorizontal className="h-4 w-4" />
-                            파라미터
-                        </Button>
-                    )}
                     <Button size="sm" className="gap-1.5" onClick={() => setCreateSceneOpen(true)}>
                         <Plus className="h-4 w-4" />새 씬
                     </Button>
@@ -196,14 +175,6 @@ function ProjectPage() {
                 onOpenChange={setCreateSceneOpen}
                 onCreate={(name) => createScene.mutate(name)}
             />
-
-            {projectQuery.data && (
-                <ParametersPanel
-                    open={paramsOpen}
-                    onOpenChange={setParamsOpen}
-                    project={projectQuery.data}
-                />
-            )}
         </div>
     )
 }

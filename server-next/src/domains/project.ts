@@ -9,7 +9,7 @@ import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, projects, scenes } from '../db'
-import { removeByProject } from '../services'
+import { removeByProject, removeCharacterReferencesByProject } from '../services'
 import { requireEntity, withUpdatedAt } from '../shared'
 
 async function getAllByGroupId(groupId: number) {
@@ -39,7 +39,7 @@ async function update(projectId: number, body: ProjectPatchBody) {
 
 async function remove(projectId: number) {
     await getById(projectId)
-    await removeByProject(projectId)
+    await Promise.all([removeByProject(projectId), removeCharacterReferencesByProject(projectId)])
     await db.delete(projects).where(eq(projects.id, projectId))
 }
 

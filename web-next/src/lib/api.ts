@@ -1,4 +1,8 @@
 import type {
+    CharacterReference,
+    CharacterReferenceOrderPatchBody,
+    CharacterReferencePatchBody,
+    CharacterReferenceUploadBody,
     GlobalSettings,
     Group,
     GroupPatchBody,
@@ -133,7 +137,9 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): ApiRes
     }
 }
 
-async function formDataFromUpload(body: VibeTransferUploadBody) {
+type ImageUploadBody = VibeTransferUploadBody | CharacterReferenceUploadBody
+
+async function formDataFromUpload(body: ImageUploadBody) {
     const formData = new FormData()
 
     if (body.image instanceof Blob) {
@@ -146,7 +152,7 @@ async function formDataFromUpload(body: VibeTransferUploadBody) {
     return formData
 }
 
-async function postUpload<T>(path: string, body: VibeTransferUploadBody) {
+async function postUpload<T>(path: string, body: ImageUploadBody) {
     return request<T>(path, {
         method: 'post',
         body: await formDataFromUpload(body),
@@ -183,6 +189,42 @@ function vibeTransfers(projectId: number) {
     )
 }
 
+function characterReferences(projectId: number) {
+    return Object.assign(
+        ({ id }: EntityId) => ({
+            patch: (json: CharacterReferencePatchBody) =>
+                request<CharacterReference>(`/projects/${projectId}/character-references/${id}`, {
+                    method: 'patch',
+                    json,
+                }),
+            delete: () =>
+                request<void>(`/projects/${projectId}/character-references/${id}`, {
+                    method: 'delete',
+                }),
+        }),
+        {
+            get: () => request<CharacterReference[]>(`/projects/${projectId}/character-references`),
+            upload: {
+                post: (body: CharacterReferenceUploadBody) =>
+                    postUpload<CharacterReference>(
+                        `/projects/${projectId}/character-references/upload`,
+                        body,
+                    ),
+            },
+            reorder: {
+                patch: (json: CharacterReferenceOrderPatchBody) =>
+                    request<CharacterReference>(
+                        `/projects/${projectId}/character-references/reorder`,
+                        {
+                            method: 'patch',
+                            json,
+                        },
+                    ),
+            },
+        },
+    )
+}
+
 const groups = Object.assign(
     ({ id }: EntityId) => ({
         get: () => request<GroupWithProjects>(`/groups/${id}`),
@@ -205,6 +247,7 @@ const projects = Object.assign(
             post: () => request<Project>(`/projects/${projectId}/duplicate`, { method: 'post' }),
         },
         'vibe-transfers': vibeTransfers(projectId),
+        'character-references': characterReferences(projectId),
     }),
     {
         get: ({ query }: { query: ProjectGetQuery }) =>

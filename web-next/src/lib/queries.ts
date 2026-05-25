@@ -8,4 +8,5 @@ export const qk = {
     settings: () => ['settings'] as const,
     queueStatus: () => ['queue', 'status'] as const,
     vibeTransfers: (projectId: number) => ['vibe-transfers', projectId] as const,
+    characterReferences: (projectId: number) => ['character-references', projectId] as const,
 }

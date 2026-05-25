@@ -1,4 +1,5 @@
 export * from './domains/common'
+export * from './domains/character-reference'
 export * from './domains/group'
 export * from './domains/image'
 export * from './domains/project'

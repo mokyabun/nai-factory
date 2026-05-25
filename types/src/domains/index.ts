@@ -1,3 +1,4 @@
+export * from './character-reference'
 export * from './group'
 export * from './image'
 export * from './project'

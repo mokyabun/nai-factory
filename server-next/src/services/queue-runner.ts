@@ -3,6 +3,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db, images, projects, queueItems, scenes } from '../db'
 import logger from '../logger'
 import { nextDisplayOrder } from '../shared'
+import * as characterReferenceService from './character-reference'
 import { domainEvents } from './events'
 import * as imageService from './image'
 import * as novelAIService from './novelai'
@@ -67,7 +68,17 @@ async function generateAndSaveImage(
             displayOrder: newDisplayOrder,
             filePath: '',
             thumbnailPath: '',
-            metadata: params,
+            metadata: {
+                ...params,
+                vibeTransfers: params.vibeTransfers.map((ref) => ({
+                    strength: ref.strength,
+                })),
+                characterReferences: params.characterReferences.map((ref) => ({
+                    strength: ref.strength,
+                    fidelity: ref.fidelity,
+                    mode: ref.mode,
+                })),
+            },
         })
         .returning({ id: images.id })
 
@@ -97,16 +108,43 @@ async function generateAndSaveImage(
     }
 }
 
+async function markUploadedReferenceCaches(params: SimpleNovelAIParameters) {
+    const uploadedVibeIds = params.vibeTransfers
+        .map((ref) => (ref.uploadFieldName && ref.filePath ? ref.id : undefined))
+        .filter((id): id is number => id !== undefined)
+    const uploadedCharacterReferenceIds = params.characterReferences
+        .map((ref) => (ref.uploadFieldName && ref.filePath ? ref.id : undefined))
+        .filter((id): id is number => id !== undefined)
+
+    await Promise.all([
+        vibeImageService.markVibeCachesUploaded(uploadedVibeIds),
+        characterReferenceService.markCharacterReferenceCachesUploaded(
+            uploadedCharacterReferenceIds,
+        ),
+    ])
+
+    for (const ref of [...params.vibeTransfers, ...params.characterReferences]) {
+        delete ref.uploadFieldName
+        delete ref.filePath
+    }
+}
+
 export async function* runJob(jobId: number) {
     const { job, project, scene, globalSettings } = await loadJobContext(jobId)
     const startedAt = Date.now()
     log.info({ jobId, sceneId: job.sceneId, projectId: job.projectId }, 'Processing job')
 
-    const vibeTransfers = await vibeImageService.checkVibesForProject(
-        project.id,
-        globalSettings.novelai.apiKey,
-        project.parameters.model,
-    )
+    const [vibeTransfers, characterReferences] = await Promise.all([
+        vibeImageService.checkVibesForProject(
+            project.id,
+            globalSettings.novelai.apiKey,
+            project.parameters.model,
+        ),
+        characterReferenceService.prepareCharacterReferencesForProject(
+            project.id,
+            project.parameters.model,
+        ),
+    ])
 
     const sourcePrompt: Prompt = {
         prompt: project.prompt,
@@ -133,6 +171,7 @@ export async function* runJob(jobId: number) {
             characterPrompts: prompt.characterPrompts,
 
             vibeTransfers,
+            characterReferences,
             seed: project.parameters.seed ?? Math.floor(Math.random() * 1_000_000_000),
         }
 
@@ -147,6 +186,7 @@ export async function* runJob(jobId: number) {
             globalSettings.novelai.apiKey,
             globalSettings.image,
         )
+        await markUploadedReferenceCaches(params)
         const variationDuration = Date.now() - variationStart
 
         remainingCount--

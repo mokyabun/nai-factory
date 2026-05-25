@@ -78,16 +78,26 @@ function SortableVibeItem({ vibe, onUpdate, onDelete }: SortableVibeItemProps) {
             style={style}
             className="flex items-start gap-2 rounded-md border p-2"
         >
-            <button
-                type="button"
-                {...attributes}
-                {...listeners}
-                className="mt-1 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
-            >
-                <GripVertical className="h-4 w-4" />
-            </button>
+            <div className="flex flex-col items-center gap-1 h-full justify-between">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => onDelete(vibe.id)}
+                >
+                    <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+                <button
+                    type="button"
+                    {...attributes}
+                    {...listeners}
+                    className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                >
+                    <GripVertical className="h-4 w-4" />
+                </button>
+            </div>
 
-            <div className="h-16 w-16 shrink-0 overflow-hidden rounded border bg-muted">
+            <div className="h-20 w-20 shrink-0 overflow-hidden rounded border bg-muted">
                 <img
                     src={imageUrl(vibe.sourceImagePath)}
                     alt=""
@@ -96,51 +106,44 @@ function SortableVibeItem({ vibe, onUpdate, onDelete }: SortableVibeItemProps) {
                 />
             </div>
 
-            <div className="flex flex-1 flex-col gap-2">
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-xs">레퍼런스 강도</Label>
-                        <span className="text-xs text-muted-foreground">
-                            {refStrength.toFixed(2)}
-                        </span>
+            <div className="flex flex-1 flex-col p-1 justify-center h-full">
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs">레퍼런스 강도</Label>
+                            <span className="text-xs text-muted-foreground">
+                                {refStrength.toFixed(2)}
+                            </span>
+                        </div>
+                        <Slider
+                            value={[refStrength]}
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            onValueChange={(value) =>
+                                handleRefStrengthChange(sliderValue(value, refStrength))
+                            }
+                        />
                     </div>
-                    <Slider
-                        value={[refStrength]}
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        onValueChange={(value) =>
-                            handleRefStrengthChange(sliderValue(value, refStrength))
-                        }
-                    />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-xs">정보 추출량</Label>
-                        <span className="text-xs text-muted-foreground">
-                            {infoExtracted.toFixed(2)}
-                        </span>
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs">정보 추출량</Label>
+                            <span className="text-xs text-muted-foreground">
+                                {infoExtracted.toFixed(2)}
+                            </span>
+                        </div>
+                        <Slider
+                            value={[infoExtracted]}
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            onValueChange={(value) =>
+                                handleInfoExtractedChange(sliderValue(value, infoExtracted))
+                            }
+                        />
                     </div>
-                    <Slider
-                        value={[infoExtracted]}
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        onValueChange={(value) =>
-                            handleInfoExtractedChange(sliderValue(value, infoExtracted))
-                        }
-                    />
                 </div>
             </div>
-
-            <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
-                onClick={() => onDelete(vibe.id)}
-            >
-                <Trash2 className="h-3.5 w-3.5" />
-            </Button>
         </div>
     )
 }

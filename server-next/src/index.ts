@@ -3,6 +3,7 @@ import { serveStatic } from 'hono/bun'
 import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import {
+    characterReference,
     group,
     image,
     project,
@@ -36,6 +37,7 @@ export function createApp() {
     return app
         .route('/groups', group)
         .route('/projects', project)
+        .route('/projects/:projectId/character-references', characterReference)
         .route('/projects/:projectId/vibe-transfers', vibeTransfer)
         .route('/scenes', scene)
         .route('/images', image)
