@@ -2,24 +2,13 @@
     "name": "nai-factory",
     "version": "1.0.0",
     "scripts": {
-        "dev:server": "bun --filter @nai-factory/server-next dev",
-        "dev:web": "wait-on tcp:localhost:3000 && bun --filter web-next dev",
-        "dev": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"bun dev:server\" \"bun dev:web\"",
-        "format:server": "bun --filter @nai-factory/server-next format",
-        "format:web": "bun --filter web-next format",
-        "format": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"bun format:server\" \"bun format:web\"",
-        "lint:web": "bun --filter web-next lint",
-        "check:web": "bun --filter web-next check",
-        "test:web": "bun --filter web-next test",
-        "build:web": "bun --filter web-next build",
-
-        "dev:next": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"bun --filter @nai-factory/server-next dev\" \"bun --filter web-next dev\""
+        "dev:server": "bun --filter @nai-factory/server dev",
+        "dev:web": "wait-on tcp:localhost:3000 && bun --filter @nai-factory/web dev",
+        "dev": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"bun dev:server\" \"bun dev:web\""
     },
     "workspaces": [
         "web",
-        "web-next",
         "server",
-        "server-next",
         "types"
     ],
     "devDependencies": {

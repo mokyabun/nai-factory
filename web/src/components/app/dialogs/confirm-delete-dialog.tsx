@@ -7,7 +7,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-} from '#/components/ui/alert-dialog'
+} from '@/components/ui/alert-dialog'
 
 interface ConfirmDeleteDialogProps {
     open: boolean
@@ -19,9 +19,9 @@ interface ConfirmDeleteDialogProps {
 
 export function ConfirmDeleteDialog({
     open,
-    onOpenChange,
     title,
     description,
+    onOpenChange,
     onConfirm,
 }: ConfirmDeleteDialogProps) {
     return (

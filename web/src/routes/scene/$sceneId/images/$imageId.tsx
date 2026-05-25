@@ -1,16 +1,11 @@
+import type { Image } from '@nai-factory/types'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { useCallback, useEffect } from 'react'
-import { Button } from '#/components/ui/button'
-import { api, imageUrl } from '#/lib/api'
-import { qk } from '#/lib/queries'
-
-type Image = {
-    id: number
-    filePath: string
-    thumbnailPath?: string | null
-}
+import { Button } from '@/components/ui/button'
+import { api, imageUrl } from '@/lib/api'
+import { qk } from '@/lib/queries'
 
 export const Route = createFileRoute('/scene/$sceneId/images/$imageId')({
     component: ImageViewerPage,
@@ -25,7 +20,7 @@ function ImageViewerPage() {
         queryKey: qk.images(scenId),
         queryFn: async () => {
             const { data } = await api.images.get({ query: { sceneId: scenId } })
-            return (data ?? []) as Image[]
+            return data ?? []
         },
     })
 

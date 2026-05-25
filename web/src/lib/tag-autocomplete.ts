@@ -1,13 +1,5 @@
 import type { CompletionContext, CompletionResult } from '@codemirror/autocomplete'
-import { BASE_URL } from './api'
-
-interface TagSuggestion {
-    id: number
-    alias: string
-    tag: string
-    category: number
-    priority: number
-}
+import { api } from './api'
 
 // Delimiters that separate tags in a NAI prompt
 const DELIMITERS = new Set([',', '{', '}', '[', ']', '|', '\n'])
@@ -36,12 +28,10 @@ export async function tagCompletionSource(
     const from = line.from + tokenStart + (tokenText.length - trimmed.length)
 
     try {
-        const res = await fetch(
-            `${BASE_URL}/tags/autocomplete?q=${encodeURIComponent(trimmed)}&limit=20`,
-        )
-        if (!res.ok) return null
-        const data: TagSuggestion[] = await res.json()
-        if (!data.length) return null
+        const { data, error } = await api.tags.autocomplete.get({
+            query: { q: trimmed, limit: 20 },
+        })
+        if (error || !data?.length) return null
 
         return {
             from,

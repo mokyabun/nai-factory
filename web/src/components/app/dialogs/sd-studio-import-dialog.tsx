@@ -1,8 +1,9 @@
+import type { ImportOptions as SdStudioImportOptions } from '@nai-factory/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, FileJson } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Button } from '#/components/ui/button'
+import { Button } from '@/components/ui/button'
 import {
     Dialog,
     DialogContent,
@@ -10,25 +11,19 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '#/components/ui/dialog'
-import { Input } from '#/components/ui/input'
-import { Label } from '#/components/ui/label'
-import { Switch } from '#/components/ui/switch'
-import { api } from '#/lib/api'
-import { qk } from '#/lib/queries'
-import { cn } from '#/lib/utils'
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { api } from '@/lib/api'
+import { qk } from '@/lib/queries'
+import { cn } from '@/lib/utils'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Step = 'choose' | 'options' | 'project-name'
 
-interface ImportOptions {
-    importPrompt: boolean
-    importNegativePrompt: boolean
-    importScenes: boolean
-    importCharacterPrompts: boolean
-    importParameters: boolean
-}
+type ImportOptions = Required<SdStudioImportOptions>
 
 interface ParsedFile {
     raw: unknown

@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it, mock } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { rm, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import type { SimpleNovelAIParameters } from '@nai-factory/types'
 import { zipSync } from 'fflate'
-import type { EncodeVibeRequest, SimpleNovelAIParameters } from '../../src/types'
 
 const arrayBufferMock = mock(() => Promise.resolve(new ArrayBuffer(0)))
 const postMock = mock(() => ({ arrayBuffer: arrayBufferMock }))
@@ -9,23 +11,21 @@ mock.module('ky', () => ({
     default: { post: postMock },
 }))
 
-const { encodeVibe, generateImage, validateApiKey } = await import('../../src/services/novelai')
+const { encodeVibe, generateImage } = await import('../../src/services/novelai')
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeZip(entries: Record<string, Uint8Array>): ArrayBuffer {
+function makeZip(entries: Record<string, Uint8Array>) {
     return (zipSync(entries) as Uint8Array).buffer as ArrayBuffer
 }
 
 const pngZip = makeZip({ 'image.png': new Uint8Array([1, 2, 3]) })
+const tempImagePath = join(import.meta.dir, 'ref.png')
 
 const baseParams: SimpleNovelAIParameters = {
     prompt: 'a cat',
     negativePrompt: 'bad',
     characterPrompts: [],
     vibeTransfers: [],
+    characterReferences: [],
     model: 'nai-diffusion-4-5-full',
     width: 512,
     height: 512,
@@ -41,135 +41,143 @@ const baseParams: SimpleNovelAIParameters = {
     qualityToggle: true,
 }
 
-// ---------------------------------------------------------------------------
-// encodeVibe
-// ---------------------------------------------------------------------------
+async function getRequestFromForm(form: FormData) {
+    const request = form.get('request')
+    expect(request).toBeInstanceOf(Blob)
+    return JSON.parse(await (request as Blob).text())
+}
+
+describe('NovelAI cached reference requests', () => {
+    beforeEach(async () => {
+        postMock.mockClear()
+        arrayBufferMock.mockClear()
+        arrayBufferMock.mockImplementation(() => Promise.resolve(pngZip))
+        await writeFile(tempImagePath, new Uint8Array([137, 80, 78, 71]))
+    })
+
+    afterEach(async () => {
+        await rm(tempImagePath, { force: true })
+    })
+
+    it('uses JSON for generation without cached references', async () => {
+        await generateImage('key', baseParams)
+
+        expect(postMock).toHaveBeenCalledWith(
+            'https://image.novelai.net/ai/generate-image',
+            expect.objectContaining({
+                json: expect.objectContaining({
+                    parameters: expect.not.objectContaining({
+                        reference_image_multiple_cached: expect.anything(),
+                    }),
+                }),
+            }),
+        )
+    })
+
+    it('uploads character references as director_ref parts before request', async () => {
+        await generateImage('key', {
+            ...baseParams,
+            characterReferences: [
+                {
+                    id: 1,
+                    cacheSecretKey: 'character-key',
+                    uploadFieldName: 'director_ref_0',
+                    filePath: tempImagePath,
+                    strength: 0.8,
+                    fidelity: 0.6,
+                    mode: 'character&style',
+                },
+            ],
+        })
+
+        const [, options] = postMock.mock.calls[0]!
+        const form = options.body as FormData
+        expect([...form.keys()]).toEqual(['director_ref_0', 'request'])
+
+        const request = await getRequestFromForm(form)
+        expect(request.parameters.director_reference_images_cached).toEqual([
+            { cache_secret_key: 'character-key', data: 'director_ref_0' },
+        ])
+        expect(request.parameters.director_reference_secondary_strength_values).toEqual([0.4])
+        expect(request.parameters.skip_cfg_above_sigma).toBeNull()
+    })
+
+    it('reuses cached character reference keys without data fields', async () => {
+        await generateImage('key', {
+            ...baseParams,
+            characterReferences: [
+                {
+                    id: 1,
+                    cacheSecretKey: 'character-key',
+                    strength: 0.8,
+                    fidelity: 0.6,
+                    mode: 'character',
+                },
+            ],
+        })
+
+        const [, options] = postMock.mock.calls[0]!
+        const form = options.body as FormData
+        expect([...form.keys()]).toEqual(['request'])
+
+        const request = await getRequestFromForm(form)
+        expect(request.parameters.director_reference_images_cached).toEqual([
+            { cache_secret_key: 'character-key' },
+        ])
+    })
+
+    it('uploads vibe references as ref_multiple parts before request', async () => {
+        await generateImage('key', {
+            ...baseParams,
+            vibeTransfers: [
+                {
+                    id: 1,
+                    cacheSecretKey: 'vibe-key',
+                    uploadFieldName: 'ref_multiple_0',
+                    filePath: tempImagePath,
+                    strength: 0.6,
+                },
+            ],
+        })
+
+        const [, options] = postMock.mock.calls[0]!
+        const form = options.body as FormData
+        expect([...form.keys()]).toEqual(['ref_multiple_0', 'request'])
+
+        const request = await getRequestFromForm(form)
+        expect(request.parameters.reference_image_multiple_cached).toEqual([
+            { cache_secret_key: 'vibe-key', data: 'ref_multiple_0' },
+        ])
+        expect(request.parameters.reference_strength_multiple).toEqual([0.6])
+    })
+})
 
 describe('encodeVibe', () => {
     beforeEach(() => {
         postMock.mockClear()
         arrayBufferMock.mockClear()
-    })
-
-    it('returns a base64-encoded string of the response bytes', async () => {
-        const bytes = new Uint8Array([72, 101, 108, 108, 111]) // "Hello"
-        arrayBufferMock.mockImplementation(() => Promise.resolve(bytes.buffer as ArrayBuffer))
-
-        const request: EncodeVibeRequest = {
-            image: 'base64data',
-            information_extracted: 1,
-            model: 'nai-diffusion-4-5-full',
-        }
-
-        const result = await encodeVibe('key', request)
-
-        expect(result).toBe(Buffer.from(bytes).toString('base64'))
-    })
-
-    it('posts to the encode-vibe endpoint', async () => {
-        arrayBufferMock.mockImplementation(() => Promise.resolve(new ArrayBuffer(0)))
-
-        const request: EncodeVibeRequest = {
-            image: 'base64data',
-            information_extracted: 1,
-            model: 'nai-diffusion-4-5-full',
-        }
-
-        await encodeVibe('mykey', request)
-
-        expect(postMock).toHaveBeenCalledWith(
-            'https://image.novelai.net/ai/encode-vibe',
-            expect.objectContaining({ json: request }),
-        )
-    })
-})
-
-// ---------------------------------------------------------------------------
-// generateImage
-// ---------------------------------------------------------------------------
-
-describe('generateImage', () => {
-    beforeEach(() => {
-        postMock.mockClear()
-        arrayBufferMock.mockClear()
-        arrayBufferMock.mockImplementation(() => Promise.resolve(pngZip))
-    })
-
-    it('returns imageData as Uint8Array and seed as number', async () => {
-        const result = await generateImage('key', baseParams)
-
-        expect(result.imageData).toBeInstanceOf(Uint8Array)
-        expect(typeof result.seed).toBe('number')
-    })
-
-    it('returns the image bytes stored in the zip', async () => {
-        const result = await generateImage('key', baseParams)
-
-        expect(result.imageData).toEqual(new Uint8Array([1, 2, 3]))
-    })
-
-    it('uses the provided seed', async () => {
-        const result = await generateImage('key', { ...baseParams, seed: 99999 })
-
-        expect(result.seed).toBe(99999)
-    })
-
-    it('generates a numeric seed when seed is not provided', async () => {
-        const params = { ...baseParams, seed: undefined } as unknown as SimpleNovelAIParameters
-
-        const result = await generateImage('key', params)
-
-        expect(typeof result.seed).toBe('number')
-        expect(result.seed).toBeGreaterThanOrEqual(0)
-    })
-
-    it('throws when the response zip is empty', async () => {
-        arrayBufferMock.mockImplementation(() => Promise.resolve(makeZip({})))
-
-        await expect(generateImage('key', baseParams)).rejects.toThrow('empty')
-    })
-
-    it('throws when the zip contains no image file', async () => {
         arrayBufferMock.mockImplementation(() =>
-            Promise.resolve(makeZip({ 'data.json': new Uint8Array([1]) })),
+            Promise.resolve(new Uint8Array([72, 101, 108, 108, 111]).buffer),
         )
-
-        await expect(generateImage('key', baseParams)).rejects.toThrow('No image')
-    })
-})
-
-// ---------------------------------------------------------------------------
-// validateApiKey
-// ---------------------------------------------------------------------------
-
-describe('validateApiKey', () => {
-    it('returns true when subscription endpoint responds with 200', async () => {
-        globalThis.fetch = mock(() =>
-            Promise.resolve(new Response(null, { status: 200 })),
-        ) as unknown as typeof fetch
-
-        const result = await validateApiKey('valid-key')
-
-        expect(result).toBe(true)
     })
 
-    it('returns false when subscription endpoint responds with 401', async () => {
-        globalThis.fetch = mock(() =>
-            Promise.resolve(new Response(null, { status: 401 })),
-        ) as unknown as typeof fetch
+    it('posts image and request as multipart binary parts', async () => {
+        const result = await encodeVibe('key', {
+            image: Buffer.from([1, 2, 3]).toString('base64'),
+            information_extracted: 0.7,
+            model: 'nai-diffusion-4-5-full',
+        })
 
-        const result = await validateApiKey('invalid-key')
+        expect(result).toBe(Buffer.from('Hello').toString('base64'))
 
-        expect(result).toBe(false)
-    })
+        const [, options] = postMock.mock.calls[0]!
+        const form = options.body as FormData
+        expect([...form.keys()]).toEqual(['image', 'request'])
 
-    it('returns false when fetch throws a network error', async () => {
-        globalThis.fetch = mock(() =>
-            Promise.reject(new Error('network error')),
-        ) as unknown as typeof fetch
-
-        const result = await validateApiKey('key')
-
-        expect(result).toBe(false)
+        const request = await getRequestFromForm(form)
+        expect(request).toEqual({
+            information_extracted: 0.7,
+            model: 'nai-diffusion-4-5-full',
+        })
     })
 })

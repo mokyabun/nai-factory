@@ -1,6 +1,11 @@
+import type {
+    CharacterPrompt,
+    GlobalSettings,
+    Parameters,
+    PromptVariable,
+} from '@nai-factory/types'
 import { sql } from 'drizzle-orm'
 import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import type { CharacterPrompt, GlobalSettings, Parameters, PromptVariable } from '../types'
 
 // Groups
 export const groups = sqliteTable(
@@ -9,7 +14,10 @@ export const groups = sqliteTable(
         id: integer('id').primaryKey(),
         name: text('name').notNull(),
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at')
+            .notNull()
+            .default(sql`(datetime('now'))`)
+            .$onUpdate(() => new Date().toISOString()),
     },
     (t) => [index('groups_name_idx').on(t.name)],
 )
@@ -82,10 +90,44 @@ export const vibeTransfers = sqliteTable(
         encodedData: text('encoded_data'),
         encodedInformationExtracted: real('encoded_information_extracted'),
 
+        cacheSecretKey: text('cache_secret_key'),
+        cacheCreatedAt: text('cache_created_at'),
+
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
         updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
     },
     (t) => [index('vibe_transfers_project_id_display_order_idx').on(t.projectId, t.displayOrder)],
+)
+
+// Character References
+export const characterReferences = sqliteTable(
+    'character_references',
+    {
+        id: integer('id').primaryKey(),
+        projectId: integer('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+
+        displayOrder: text('display_order').notNull().default(''),
+
+        sourceImagePath: text('source_image_path').notNull(),
+        thumbnailPath: text('thumbnail_path'),
+        processedImagePath: text('processed_image_path'),
+
+        strength: real('strength').notNull().default(0.6),
+        fidelity: real('fidelity').notNull().default(0.5),
+        referenceMode: text('reference_mode').notNull().default('character&style'),
+        enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+
+        cacheSecretKey: text('cache_secret_key'),
+        cacheCreatedAt: text('cache_created_at'),
+
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+    },
+    (t) => [
+        index('character_references_project_id_display_order_idx').on(t.projectId, t.displayOrder),
+    ],
 )
 
 // Scenes

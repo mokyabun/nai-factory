@@ -1,7 +1,7 @@
 import { useRouterState } from '@tanstack/react-router'
 import { AlignLeft, File, Settings } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import * as Base from '#/components/ui/sidebar'
+import * as Base from '@/components/ui/sidebar'
 import { SidebarFooter } from './sidebar-footer'
 import { SidebarHeader } from './sidebar-header'
 import { SidebarProject } from './sidebar-project'

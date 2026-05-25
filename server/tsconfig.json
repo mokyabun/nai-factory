@@ -1,8 +1,15 @@
 {
     "extends": "@tsconfig/bun/tsconfig.json",
     "compilerOptions": {
+        "types": ["@types/bun", "@types/node"],
+        "strict": true,
+        "jsx": "react-jsx",
+        "jsxImportSource": "hono/jsx",
         "paths": {
-            "@/*": ["./src/*"]
+            "#/*": ["./src/*"]
         }
-    }
+    },
+    "include": [
+        "src/**/*"
+    ]
 }

@@ -1,7 +1,7 @@
 {
     "version": "6",
     "dialect": "sqlite",
-    "id": "43695d7a-3e93-4979-ae86-94188f8f7f41",
+    "id": "663e09ba-87e0-4e14-b514-6eedb8e2e3c4",
     "prevId": "00000000-0000-0000-0000-000000000000",
     "tables": {
         "groups": {
@@ -274,6 +274,11 @@
                     "name": "queue_items_sort_index_idx",
                     "columns": ["sort_index"],
                     "isUnique": false
+                },
+                "queue_items_scene_id_idx": {
+                    "name": "queue_items_scene_id_idx",
+                    "columns": ["scene_id"],
+                    "isUnique": false
                 }
             },
             "foreignKeys": {
@@ -322,13 +327,6 @@
                     "type": "text",
                     "primaryKey": false,
                     "notNull": true,
-                    "autoincrement": false
-                },
-                "thumbnail_image_id": {
-                    "name": "thumbnail_image_id",
-                    "type": "integer",
-                    "primaryKey": false,
-                    "notNull": false,
                     "autoincrement": false
                 },
                 "name": {
@@ -515,9 +513,9 @@
                 }
             },
             "indexes": {
-                "vibe_transfers_project_id_idx": {
-                    "name": "vibe_transfers_project_id_idx",
-                    "columns": ["project_id"],
+                "vibe_transfers_project_id_display_order_idx": {
+                    "name": "vibe_transfers_project_id_display_order_idx",
+                    "columns": ["project_id", "display_order"],
                     "isUnique": false
                 }
             },

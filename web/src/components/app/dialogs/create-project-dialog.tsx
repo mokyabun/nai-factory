@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button } from '#/components/ui/button'
+import { Button } from '@/components/ui/button'
 import {
     Dialog,
     DialogContent,
@@ -7,8 +7,8 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '#/components/ui/dialog'
-import { Input } from '#/components/ui/input'
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 
 interface CreateProjectDialogProps {
     open: boolean

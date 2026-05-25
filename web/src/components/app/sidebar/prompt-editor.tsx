@@ -1,7 +1,7 @@
-import { CodeEditor } from '#/components/app/code-editor/code-editor'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
-import { tagCompletionSource } from '#/lib/tag-autocomplete'
-import { cn } from '#/lib/utils'
+import { CodeEditor } from '@/components/app/code-editor/code-editor'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { tagCompletionSource } from '@/lib/tag-autocomplete'
+import { cn } from '@/lib/utils'
 
 interface PromptEditorProps {
     prompt: string

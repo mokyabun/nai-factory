@@ -1,20 +1,14 @@
+import type { PromptVariation, ScenePatchBody } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { VariationEditor } from '#/components/app/project/variation-editor'
-import { Button } from '#/components/ui/button'
-import { Input } from '#/components/ui/input'
-import { api } from '#/lib/api'
-import { qk } from '#/lib/queries'
-import { debounce } from '#/lib/utils'
-
-type Scene = {
-    id: number
-    projectId: number
-    name: string
-    variations: Record<string, string>[]
-}
+import { VariationEditor } from '@/components/app/project/variation-editor'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { api } from '@/lib/api'
+import { qk } from '@/lib/queries'
+import { debounce } from '@/lib/utils'
 
 export const Route = createFileRoute('/scene/$sceneId/')({ component: SceneEditPage })
 
@@ -28,12 +22,12 @@ function SceneEditPage() {
         queryKey: qk.scene(scenId),
         queryFn: async () => {
             const { data } = await api.scenes({ id: scenId }).get()
-            return (data ?? null) as Scene | null
+            return data ?? null
         },
     })
 
     const [name, setName] = useState('')
-    const [variations, setVariations] = useState<Record<string, string>[]>([])
+    const [variations, setVariations] = useState<PromptVariation[]>([])
     const [loadedId, setLoadedId] = useState<number | null>(null)
 
     // Sync local state only when switching to a different scene
@@ -47,8 +41,7 @@ function SceneEditPage() {
     }, [sceneQuery.data, loadedId])
 
     const patchScene = useMutation({
-        mutationFn: (patch: { name?: string; variations?: Record<string, string>[] }) =>
-            api.scenes({ id: scenId }).patch(patch),
+        mutationFn: (patch: ScenePatchBody) => api.scenes({ id: scenId }).patch(patch),
         onSuccess: (res) => {
             if (res.data) queryClient.setQueryData(qk.scene(scenId), res.data)
             queryClient.invalidateQueries({ queryKey: qk.scenes(sceneQuery.data?.projectId ?? 0) })
@@ -57,10 +50,7 @@ function SceneEditPage() {
 
     const saveName = useRef(debounce((value: string) => patchScene.mutate({ name: value }), 600))
     const saveVariations = useRef(
-        debounce(
-            (value: Record<string, string>[]) => patchScene.mutate({ variations: value }),
-            600,
-        ),
+        debounce((value: PromptVariation[]) => patchScene.mutate({ variations: value }), 600),
     )
 
     // Flush debounces on unmount
@@ -76,7 +66,7 @@ function SceneEditPage() {
         saveName.current(value)
     }
 
-    function handleVariationsChange(value: Record<string, string>[]) {
+    function handleVariationsChange(value: PromptVariation[]) {
         setVariations(value)
         saveVariations.current(value)
     }

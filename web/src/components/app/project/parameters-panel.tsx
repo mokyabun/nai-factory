@@ -1,15 +1,16 @@
+import type { Project, Parameters as ProjectParams } from '@nai-factory/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { Button } from '#/components/ui/button'
-import { Input } from '#/components/ui/input'
-import { Label } from '#/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '#/components/ui/select'
+} from '@/components/ui/select'
 import {
     Sheet,
     SheetContent,
@@ -17,36 +18,15 @@ import {
     SheetFooter,
     SheetHeader,
     SheetTitle,
-} from '#/components/ui/sheet'
-import { Slider } from '#/components/ui/slider'
-import { Switch } from '#/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
-import { api } from '#/lib/api'
-import { qk } from '#/lib/queries'
-import { CharacterPromptEditor } from './character-prompt-editor'
-import { VibeTransferEditor } from './vibe-transfer-editor'
+} from '@/components/ui/sheet'
+import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { api } from '@/lib/api'
+import { qk } from '@/lib/queries'
+import { VibeTransferEditor } from '../sidebar/sidebar-prompt/vibe-transfer-editor'
 
-type ProjectParams = {
-    model: string
-    qualityToggle: boolean
-    width: number
-    height: number
-    steps: number
-    promptGuidance: number
-    varietyPlus: boolean
-    seed: number
-    sampler: string
-    promptGuidanceRescale: number
-    noiseSchedule: string
-    normalizeReferenceStrengthValues: boolean
-    useCharacterPositions: boolean
-}
-
-type ProjectData = {
-    id: number
-    parameters: ProjectParams
-    characterPrompts: CharacterPrompt[] | null
-}
+type ProjectData = Pick<Project, 'id' | 'parameters' | 'characterPrompts'>
 
 const MODELS = [
     { value: 'nai-diffusion-4-5-full', label: 'NAI Diffusion 4.5 Full' },
@@ -78,13 +58,6 @@ interface ParametersPanelProps {
     project: ProjectData
 }
 
-type CharacterPrompt = {
-    enabled: boolean
-    center: { x: number; y: number }
-    prompt: string
-    uc: string
-}
-
 export function ParametersPanel({ open, onOpenChange, project }: ParametersPanelProps) {
     const queryClient = useQueryClient()
     const [params, setParams] = useState<ProjectParams>({ ...project.parameters })
@@ -104,6 +77,10 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
 
     function set<K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) {
         setParams((prev) => ({ ...prev, [key]: value }))
+    }
+
+    function sliderValue(value: number | readonly number[], fallback: number) {
+        return typeof value === 'number' ? value : (value[0] ?? fallback)
     }
 
     return (
@@ -135,7 +112,12 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
                             {/* Model */}
                             <div className="flex flex-col gap-1.5">
                                 <Label>모델</Label>
-                                <Select value={params.model} onValueChange={(v) => set('model', v)}>
+                                <Select
+                                    value={params.model}
+                                    onValueChange={(v) =>
+                                        v && set('model', v as ProjectParams['model'])
+                                    }
+                                >
                                     <SelectTrigger className="w-full">
                                         <SelectValue />
                                     </SelectTrigger>
@@ -190,7 +172,9 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
                                     min={1}
                                     max={50}
                                     step={1}
-                                    onValueChange={([v]) => set('steps', v)}
+                                    onValueChange={(value) =>
+                                        set('steps', sliderValue(value, params.steps))
+                                    }
                                 />
                             </div>
 
@@ -207,7 +191,12 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
                                     min={1}
                                     max={10}
                                     step={0.1}
-                                    onValueChange={([v]) => set('promptGuidance', v)}
+                                    onValueChange={(value) =>
+                                        set(
+                                            'promptGuidance',
+                                            sliderValue(value, params.promptGuidance),
+                                        )
+                                    }
                                 />
                             </div>
 
@@ -224,7 +213,12 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
                                     min={0}
                                     max={1}
                                     step={0.01}
-                                    onValueChange={([v]) => set('promptGuidanceRescale', v)}
+                                    onValueChange={(value) =>
+                                        set(
+                                            'promptGuidanceRescale',
+                                            sliderValue(value, params.promptGuidanceRescale),
+                                        )
+                                    }
                                 />
                             </div>
 
@@ -245,7 +239,9 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
                                 <Label>샘플러</Label>
                                 <Select
                                     value={params.sampler}
-                                    onValueChange={(v) => set('sampler', v)}
+                                    onValueChange={(v) =>
+                                        v && set('sampler', v as ProjectParams['sampler'])
+                                    }
                                 >
                                     <SelectTrigger className="w-full">
                                         <SelectValue />
@@ -265,7 +261,10 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
                                 <Label>노이즈 스케줄</Label>
                                 <Select
                                     value={params.noiseSchedule}
-                                    onValueChange={(v) => set('noiseSchedule', v)}
+                                    onValueChange={(v) =>
+                                        v &&
+                                        set('noiseSchedule', v as ProjectParams['noiseSchedule'])
+                                    }
                                 >
                                     <SelectTrigger className="w-full">
                                         <SelectValue />
@@ -305,10 +304,8 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
                         </TabsContent>
 
                         <TabsContent value="character" className="mt-0 py-4">
-                            <CharacterPromptEditor
-                                projectId={project.id}
-                                characterPrompts={project.characterPrompts ?? []}
-                            />
+                            {/* CharacterPromptEditor goes here */}
+                            Not implemented yet
                         </TabsContent>
                     </div>
                 </Tabs>

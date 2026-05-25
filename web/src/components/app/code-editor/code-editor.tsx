@@ -1,9 +1,15 @@
 import { acceptCompletion, autocompletion, type CompletionSource } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { EditorState, type Extension } from '@codemirror/state'
-import { placeholder as cmPlaceholder, EditorView, keymap, tooltips } from '@codemirror/view'
+import {
+    placeholder as cmPlaceholder,
+    EditorView,
+    type KeyBinding,
+    keymap,
+    tooltips,
+} from '@codemirror/view'
 import { useEffect, useRef } from 'react'
-import { cn } from '#/lib/utils'
+import { cn } from '@/lib/utils'
 import { shadcnTheme } from './theme'
 
 const LINE_HEIGHT = 19.5
@@ -50,8 +56,8 @@ export function CodeEditor({
             history(),
             keymap.of([
                 { key: 'Tab', run: acceptCompletion },
-                ...defaultKeymap,
-                ...historyKeymap,
+                ...(defaultKeymap as unknown as KeyBinding[]),
+                ...(historyKeymap as unknown as KeyBinding[]),
             ]),
             EditorView.lineWrapping,
             cmPlaceholder(placeholder),

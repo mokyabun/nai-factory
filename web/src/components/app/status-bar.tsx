@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader, Play, Square, Trash2 } from 'lucide-react'
-import { api } from '#/lib/api'
-import { qk } from '#/lib/queries'
+import { api } from '@/lib/api'
+import { qk } from '@/lib/queries'
 
 export function StatusBar() {
     const queryClient = useQueryClient()

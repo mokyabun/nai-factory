@@ -2,18 +2,14 @@
     "$schema": "https://biomejs.dev/schemas/2.4.5/schema.json",
     "extends": "//",
     "files": {
-        "includes": ["src/**/*", "index.html", "vite.config.ts", "!src/routeTree.gen.ts"]
-    },
-    "css": {
-        "parser": {
-            "tailwindDirectives": true
-        }
-    },
-    "linter": {
-        "rules": {
-            "suspicious": {
-                "noArrayIndexKey": "warn"
-            }
-        }
+        "ignoreUnknown": false,
+        "includes": [
+            "**/src/**/*",
+            "**/.vscode/**/*",
+            "**/index.html",
+            "**/vite.config.ts",
+            "!**/src/routeTree.gen.ts",
+            "!**/src/styles.css"
+        ]
     }
 }

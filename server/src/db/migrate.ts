@@ -14,6 +14,10 @@ import addQueueItemsSceneIdIdx from './migrations/0002_add_queue_items_scene_id_
 import fixVibeTransfersIndex from './migrations/0003_fix_vibe_transfers_index.sql' with {
     type: 'text',
 }
+// @ts-expect-error Bun imports SQL migrations as text at runtime
+import characterReferencesAndReferenceCache from './migrations/0004_character_references_and_reference_cache.sql' with {
+    type: 'text',
+}
 
 const log = logger.child({ module: 'migrate' })
 
@@ -22,6 +26,10 @@ const migrations: { tag: string; sql: string }[] = [
     { tag: '0001_remove_thumbnail_image_id', sql: removeThumbnailImageId },
     { tag: '0002_add_queue_items_scene_id_idx', sql: addQueueItemsSceneIdIdx },
     { tag: '0003_fix_vibe_transfers_index', sql: fixVibeTransfersIndex },
+    {
+        tag: '0004_character_references_and_reference_cache',
+        sql: characterReferencesAndReferenceCache,
+    },
 ]
 
 export function migrate(db: Database) {

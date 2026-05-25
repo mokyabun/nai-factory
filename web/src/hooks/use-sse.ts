@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import { BASE_URL } from '#/lib/api'
+import { BASE_URL } from '@/lib/api'
 
 export function useSse(queryClient: QueryClient) {
     useEffect(() => {

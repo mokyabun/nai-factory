@@ -1,13 +1,12 @@
+import type { PromptVariation } from '@nai-factory/types'
 import { Plus, Trash2, X } from 'lucide-react'
-import { CodeEditor } from '#/components/app/code-editor/code-editor'
-import { Button } from '#/components/ui/button'
-import { Input } from '#/components/ui/input'
-
-type Variation = Record<string, string>
+import { CodeEditor } from '@/components/app/code-editor/code-editor'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 interface VariationEditorProps {
-    variations: Variation[]
-    onChange: (variations: Variation[]) => void
+    variations: PromptVariation[]
+    onChange: (variations: PromptVariation[]) => void
     layout?: 'col' | 'row'
 }
 
@@ -54,6 +53,7 @@ export function VariationEditor({ variations, onChange, layout = 'col' }: Variat
             <div className={layout === 'row' ? 'flex flex-nowrap gap-4' : 'flex flex-col gap-3'}>
                 {variations.map((variation, varIdx) => (
                     <div
+                        // biome-ignore lint/suspicious/noArrayIndexKey: variations have no persisted id and position is their editor identity.
                         key={varIdx}
                         className={`rounded-md border bg-card p-3 ${layout === 'row' ? 'w-96 shrink-0' : ''}`}
                     >
@@ -72,8 +72,8 @@ export function VariationEditor({ variations, onChange, layout = 'col' }: Variat
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            {Object.entries(variation).map(([key, value], keyIdx) => (
-                                <div key={keyIdx} className="flex flex-col gap-1">
+                            {Object.entries(variation).map(([key, value]) => (
+                                <div key={key} className="flex flex-col gap-1">
                                     <div className="flex items-center gap-1.5">
                                         <Input
                                             className="h-7 flex-1 px-2 font-mono text-xs"
