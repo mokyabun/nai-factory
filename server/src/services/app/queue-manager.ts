@@ -1,5 +1,5 @@
-import { asc, count, eq, inArray, sql } from 'drizzle-orm'
-import { db, queueItems, scenes } from '#/db'
+import { asc, count, eq, inArray } from 'drizzle-orm'
+import { db, queueItems, scenes, sceneVariations } from '#/db'
 import logger from '#/logger'
 import { domainEvents } from './events'
 import { runJob } from './queue-runner'
@@ -16,32 +16,47 @@ class QueueManager {
     private running = false
     private currentSceneId: number | null = null
 
-    async add(sceneId: number, position: EnqueuePosition = 'back') {
+    async add(sceneId: number, position: EnqueuePosition = 'back', sceneVariationId?: number) {
         const [scene] = await db
-            .select({ projectId: scenes.projectId, variation: scenes.variations })
+            .select({ projectId: scenes.projectId })
             .from(scenes)
             .where(eq(scenes.id, sceneId))
         if (!scene) throw new Error(`Scene ${sceneId} not found`)
 
-        // if front, sort index is -now, if back sort index is now (unix timestamp in seconds)
-        const sortIndex = position === 'front' ? -Date.now() : Date.now()
+        const variations = await db
+            .select({ id: sceneVariations.id, sceneId: sceneVariations.sceneId })
+            .from(sceneVariations)
+            .where(
+                sceneVariationId
+                    ? eq(sceneVariations.id, sceneVariationId)
+                    : eq(sceneVariations.sceneId, sceneId),
+            )
+            .orderBy(asc(sceneVariations.displayOrder))
 
-        const [item] = await db
+        if (sceneVariationId && variations[0]?.sceneId !== sceneId) {
+            throw new Error(`Scene variation ${sceneVariationId} not found`)
+        }
+        if (variations.length === 0) return []
+
+        const baseSortIndex = position === 'front' ? -Date.now() : Date.now()
+        const items = await db
             .insert(queueItems)
-            .values({
-                projectId: scene.projectId,
-                sceneId,
-                sortIndex,
-                variationCount: scene.variation.length,
-            })
+            .values(
+                variations.map((variation, index) => ({
+                    projectId: scene.projectId,
+                    sceneId,
+                    sceneVariationId: variation.id,
+                    sortIndex: baseSortIndex + index,
+                })),
+            )
             .returning()
-        if (!item) throw new Error('Failed to create queue item')
+        if (items.length !== variations.length) throw new Error('Failed to create queue items')
 
-        this.log.debug({ sceneId, position, sortIndex }, 'Job enqueued')
+        this.log.debug({ sceneId, sceneVariationId, position, count: items.length }, 'Job enqueued')
 
         if (this.running && !this.processing) this.processQueue()
 
-        return item
+        return items
     }
 
     start() {
@@ -68,10 +83,10 @@ class QueueManager {
     }
 
     async status() {
-        const { jobCount, totalVariations } = await this.fetchQueueStats()
+        const { jobCount } = await this.fetchQueueStats()
         const avgDurationMs = this.avgDurationMs()
         const estimatedSeconds =
-            avgDurationMs !== null ? Math.round((avgDurationMs * totalVariations) / 1000) : null
+            avgDurationMs !== null ? Math.round((avgDurationMs * jobCount) / 1000) : null
 
         return {
             running: this.running,
@@ -83,14 +98,9 @@ class QueueManager {
     }
 
     private async fetchQueueStats() {
-        const [row] = await db
-            .select({
-                jobCount: count(),
-                totalVariations: sql<number>`coalesce(sum(${queueItems.variationCount}), 0)`,
-            })
-            .from(queueItems)
+        const [row] = await db.select({ jobCount: count() }).from(queueItems)
 
-        return { jobCount: row?.jobCount ?? 0, totalVariations: row?.totalVariations ?? 0 }
+        return { jobCount: row?.jobCount ?? 0 }
     }
 
     private async processQueue(): Promise<void> {

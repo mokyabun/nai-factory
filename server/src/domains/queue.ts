@@ -7,7 +7,7 @@ import {
     QueueEnqueueBulkBody,
     QueueGetQuery,
 } from '@nai-factory/types'
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, projects, queueItems, scenes } from '../db'
@@ -19,8 +19,8 @@ async function get(projectId?: number) {
             id: queueItems.id,
             projectId: queueItems.projectId,
             sceneId: queueItems.sceneId,
+            sceneVariationId: queueItems.sceneVariationId,
             sceneName: scenes.name,
-            variationCount: queueItems.variationCount,
             sortIndex: queueItems.sortIndex,
         })
         .from(queueItems)
@@ -31,9 +31,13 @@ async function get(projectId?: number) {
     return rows
 }
 
-async function enqueue(sceneId: number, position: QueueEnqueueBody['position'] = 'back') {
+async function enqueue(
+    sceneId: number,
+    position: QueueEnqueueBody['position'] = 'back',
+    sceneVariationId?: number,
+) {
     try {
-        return await queueManager.add(sceneId, position)
+        return await queueManager.add(sceneId, position, sceneVariationId)
     } catch (error) {
         throw new HTTPException(404, {
             message: error instanceof Error ? error.message : 'Scene not found',
@@ -56,7 +60,7 @@ async function enqueueAll(projectId: number, position: QueueEnqueueAllBody['posi
 
     const items = []
     for (const scene of rows) {
-        items.push(await enqueue(scene.id, position))
+        items.push(...(await enqueue(scene.id, position)))
     }
 
     return items
@@ -68,7 +72,7 @@ async function enqueueBulk(
 ) {
     const items = []
     for (const sceneId of sceneIds) {
-        items.push(await enqueue(sceneId, position))
+        items.push(...(await enqueue(sceneId, position)))
     }
     return items
 }
@@ -83,11 +87,16 @@ async function cancel(id: number) {
     await queueManager.cancel([id])
 }
 
-async function clear(sceneId?: number) {
+async function clear(sceneId?: number, sceneVariationId?: number) {
     const rows = await db
         .select({ id: queueItems.id })
         .from(queueItems)
-        .where(sceneId ? eq(queueItems.sceneId, sceneId) : undefined)
+        .where(
+            and(
+                sceneId ? eq(queueItems.sceneId, sceneId) : undefined,
+                sceneVariationId ? eq(queueItems.sceneVariationId, sceneVariationId) : undefined,
+            ),
+        )
 
     await queueManager.cancel(rows.map((row) => row.id))
     return { cancelled: rows.length }
@@ -105,21 +114,21 @@ export const queue = new Hono()
     .get('/status', async (c) => c.json(await queueManager.status()))
     .post('/enqueue', zValidator('json', QueueEnqueueBody), async (c) => {
         const body = c.req.valid('json')
-        const item = await enqueue(body.sceneId, body.position)
+        const items = await enqueue(body.sceneId, body.position, body.sceneVariationId)
         invalidateQueue()
-        return c.json(item, 201)
+        return c.json({ queued: items.length, items }, 201)
     })
     .post('/enqueue-all', zValidator('json', QueueEnqueueAllBody), async (c) => {
         const body = c.req.valid('json')
         const items = await enqueueAll(body.projectId, body.position)
         invalidateQueue()
-        return c.json(items, 201)
+        return c.json({ queued: items.length, items }, 201)
     })
     .post('/enqueue-bulk', zValidator('json', QueueEnqueueBulkBody), async (c) => {
         const body = c.req.valid('json')
         const items = await enqueueBulk(body.sceneIds, body.position)
         invalidateQueue()
-        return c.json(items, 201)
+        return c.json({ queued: items.length, items }, 201)
     })
     .post('/start', async (c) => {
         queueManager.start()
@@ -133,7 +142,7 @@ export const queue = new Hono()
     })
     .delete('/', zValidator('query', QueueClearQuery), async (c) => {
         const query = c.req.valid('query')
-        const result = await clear(query.sceneId)
+        const result = await clear(query.sceneId, query.sceneVariationId)
         invalidateQueue()
         return c.json(result)
     })

@@ -1,4 +1,4 @@
-import type { PromptVariation, ScenePatchBody } from '@nai-factory/types'
+import type { ScenePatchBody, SceneVariationDraft } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Plus } from 'lucide-react'
@@ -27,7 +27,7 @@ function SceneEditPage() {
     })
 
     const [name, setName] = useState('')
-    const [variations, setVariations] = useState<PromptVariation[]>([])
+    const [variations, setVariations] = useState<SceneVariationDraft[]>([])
     const [loadedId, setLoadedId] = useState<number | null>(null)
 
     // Sync local state only when switching to a different scene
@@ -50,7 +50,7 @@ function SceneEditPage() {
 
     const saveName = useRef(debounce((value: string) => patchScene.mutate({ name: value }), 600))
     const saveVariations = useRef(
-        debounce((value: PromptVariation[]) => patchScene.mutate({ variations: value }), 600),
+        debounce((value: SceneVariationDraft[]) => patchScene.mutate({ variations: value }), 600),
     )
 
     // Flush debounces on unmount
@@ -66,7 +66,7 @@ function SceneEditPage() {
         saveName.current(value)
     }
 
-    function handleVariationsChange(value: PromptVariation[]) {
+    function handleVariationsChange(value: SceneVariationDraft[]) {
         setVariations(value)
         saveVariations.current(value)
     }
@@ -126,18 +126,14 @@ function SceneEditPage() {
                             variant="outline"
                             size="sm"
                             className="gap-1.5"
-                            onClick={() => handleVariationsChange([{}])}
+                            onClick={() => handleVariationsChange([{ variables: {} }])}
                         >
                             <Plus className="h-3.5 w-3.5" />
                             변수 세트 추가
                         </Button>
                     </div>
                 ) : (
-                    <VariationEditor
-                        variations={variations}
-                        onChange={handleVariationsChange}
-                        layout="row"
-                    />
+                    <VariationEditor variations={variations} onChange={handleVariationsChange} />
                 )}
             </div>
         </div>

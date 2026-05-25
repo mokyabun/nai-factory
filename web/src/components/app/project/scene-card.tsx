@@ -39,8 +39,7 @@ export function SceneCard({
     const queueCount = scene.queueCount ?? 0
     const inQueue = queueCount > 0
     const images = scene.latestImages ?? []
-    const cycleImages =
-        slideshowCount > 0 ? images.slice(-slideshowCount) : images.slice(-images.length)
+    const cycleImages = images.slice(0, slideshowCount)
 
     const [currentThumbIndex, setCurrentThumbIndex] = useState(0)
     const [deleteOpen, setDeleteOpen] = useState(false)

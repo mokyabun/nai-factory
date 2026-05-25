@@ -18,6 +18,8 @@ import fixVibeTransfersIndex from './migrations/0003_fix_vibe_transfers_index.sq
 import characterReferencesAndReferenceCache from './migrations/0004_character_references_and_reference_cache.sql' with {
     type: 'text',
 }
+// @ts-expect-error Bun imports SQL migrations as text at runtime
+import projectSettings from './migrations/0005_project_settings.sql' with { type: 'text' }
 
 const log = logger.child({ module: 'migrate' })
 
@@ -30,6 +32,7 @@ const migrations: { tag: string; sql: string }[] = [
         tag: '0004_character_references_and_reference_cache',
         sql: characterReferencesAndReferenceCache,
     },
+    { tag: '0005_project_settings', sql: projectSettings },
 ]
 
 export function migrate(db: Database) {

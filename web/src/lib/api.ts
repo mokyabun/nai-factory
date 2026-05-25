@@ -79,6 +79,11 @@ export type QueueStatus = {
     currentSceneId: number | null
 }
 
+export type QueueEnqueueResult = {
+    queued: number
+    items: QueueItem[]
+}
+
 type SearchParams = Record<string, string | number | boolean | null | undefined>
 
 type ApiRequestOptions = Omit<Options, 'json' | 'body' | 'searchParams'> & {
@@ -309,18 +314,18 @@ export const api = {
         },
         enqueue: {
             post: (json: QueueEnqueueBody) =>
-                request<QueueItem>('/queue/enqueue', { method: 'post', json }),
+                request<QueueEnqueueResult>('/queue/enqueue', { method: 'post', json }),
         },
         'enqueue-all': {
             post: (json: QueueEnqueueAllBody) =>
-                request<{ queued: number; items: QueueItem[] }>('/queue/enqueue-all', {
+                request<QueueEnqueueResult>('/queue/enqueue-all', {
                     method: 'post',
                     json,
                 }),
         },
         'enqueue-bulk': {
             post: (json: QueueEnqueueBulkBody) =>
-                request<{ queued: number; items: QueueItem[] }>('/queue/enqueue-bulk', {
+                request<QueueEnqueueResult>('/queue/enqueue-bulk', {
                     method: 'post',
                     json,
                 }),

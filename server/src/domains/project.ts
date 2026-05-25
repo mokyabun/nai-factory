@@ -5,10 +5,10 @@ import {
     ProjectPatchBody,
     ProjectPostBody,
 } from '@nai-factory/types'
-import { asc, eq, isNull } from 'drizzle-orm'
+import { asc, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { db, projects, scenes } from '../db'
+import { db, projects, scenes, sceneVariations } from '../db'
 import { removeByProject, removeCharacterReferencesByProject } from '../services'
 import { requireEntity, withUpdatedAt } from '../shared'
 
@@ -60,6 +60,19 @@ async function duplicate(projectId: number) {
         .from(scenes)
         .where(eq(scenes.projectId, projectId))
         .orderBy(asc(scenes.displayOrder))
+    const sourceVariations =
+        sourceScenes.length === 0
+            ? []
+            : await db
+                  .select()
+                  .from(sceneVariations)
+                  .where(
+                      inArray(
+                          sceneVariations.sceneId,
+                          sourceScenes.map((scene) => scene.id),
+                      ),
+                  )
+                  .orderBy(asc(sceneVariations.sceneId), asc(sceneVariations.displayOrder))
 
     const [project] = await db
         .insert(projects)
@@ -71,19 +84,34 @@ async function duplicate(projectId: number) {
             variables: source.variables,
             parameters: source.parameters,
             characterPrompts: source.characterPrompts,
+            settings: source.settings,
         })
         .returning()
     if (!project) throw new HTTPException(500, { message: 'Failed to duplicate project' })
 
-    if (sourceScenes.length > 0) {
-        await db.insert(scenes).values(
-            sourceScenes.map((scene) => ({
+    for (const sourceScene of sourceScenes) {
+        const [scene] = await db
+            .insert(scenes)
+            .values({
                 projectId: project.id,
-                displayOrder: scene.displayOrder,
-                name: scene.name,
-                variations: scene.variations,
-            })),
+                displayOrder: sourceScene.displayOrder,
+                name: sourceScene.name,
+            })
+            .returning()
+        if (!scene) throw new HTTPException(500, { message: 'Failed to duplicate scene' })
+
+        const variations = sourceVariations.filter(
+            (variation) => variation.sceneId === sourceScene.id,
         )
+        if (variations.length > 0) {
+            await db.insert(sceneVariations).values(
+                variations.map((variation) => ({
+                    sceneId: scene.id,
+                    displayOrder: variation.displayOrder,
+                    variables: variation.variables,
+                })),
+            )
+        }
     }
 
     return project

@@ -1,17 +1,8 @@
-import {
-    closestCenter,
-    DndContext,
-    type DragEndEvent,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core'
-import { arrayMove, rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import type { Image } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { SortableImageItem } from '@/components/app/project/sortable-image-item'
 import { Button } from '@/components/ui/button'
@@ -26,6 +17,14 @@ function ImagesPage() {
     const queryClient = useQueryClient()
     const scenId = Number(sceneId)
 
+    const sceneQuery = useQuery({
+        queryKey: qk.scene(scenId),
+        queryFn: async () => {
+            const { data } = await api.scenes({ id: scenId }).get()
+            return data ?? null
+        },
+    })
+
     const imagesQuery = useQuery({
         queryKey: qk.images(scenId),
         queryFn: async () => {
@@ -34,15 +33,16 @@ function ImagesPage() {
         },
     })
 
-    const [items, setItems] = useState<Image[]>([])
     const [deleteTarget, setDeleteTarget] = useState<Image | null>(null)
-
-    // Sync DnD items from server data
-    useEffect(() => {
-        if (imagesQuery.data) setItems(imagesQuery.data)
-    }, [imagesQuery.data])
-
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+    const images = useMemo(
+        () =>
+            [...(imagesQuery.data ?? [])].sort(
+                (a, b) =>
+                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() ||
+                    b.id - a.id,
+            ),
+        [imagesQuery.data],
+    )
 
     const deleteImage = useMutation({
         mutationFn: (img: Image) => api.images({ id: img.id }).delete(),
@@ -52,31 +52,14 @@ function ImagesPage() {
         },
     })
 
-    const reorderImages = useMutation({
-        mutationFn: ({
-            id,
-            prevId,
-            nextId,
-        }: {
-            id: number
-            prevId: number | null
-            nextId: number | null
-        }) => api.images({ id }).order.patch({ prevId, nextId }),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.images(scenId) }),
-    })
+    function goBack() {
+        const projectId = sceneQuery.data?.projectId
+        if (projectId) {
+            navigate({ to: '/project/$projectId', params: { projectId: String(projectId) } })
+            return
+        }
 
-    function handleDragEnd(event: DragEndEvent) {
-        const { active, over } = event
-        if (!over || active.id === over.id) return
-
-        const oldIndex = items.findIndex((i) => i.id === active.id)
-        const newIndex = items.findIndex((i) => i.id === over.id)
-        const newItems = arrayMove(items, oldIndex, newIndex)
-        setItems(newItems)
-
-        const prevId = newIndex > 0 ? newItems[newIndex - 1].id : null
-        const nextId = newIndex < newItems.length - 1 ? newItems[newIndex + 1].id : null
-        reorderImages.mutate({ id: active.id as number, prevId, nextId })
+        navigate({ to: '/' })
     }
 
     return (
@@ -88,12 +71,13 @@ function ImagesPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 shrink-0"
-                        onClick={() => navigate({ to: '/scene/$sceneId', params: { sceneId } })}
+                        onClick={goBack}
+                        aria-label="프로젝트로 돌아가기"
                     >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <span className="text-sm font-medium">
-                        이미지 ({imagesQuery.data?.length ?? 0}장)
+                        이미지 ({images.length}장)
                     </span>
                 </div>
 
@@ -102,38 +86,27 @@ function ImagesPage() {
                     <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
                         불러오는 중...
                     </div>
-                ) : items.length === 0 ? (
+                ) : images.length === 0 ? (
                     <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
                         생성된 이미지가 없습니다.
                     </div>
                 ) : (
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={handleDragEnd}
-                    >
-                        <SortableContext
-                            items={items.map((i) => i.id)}
-                            strategy={rectSortingStrategy}
-                        >
-                            <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 pb-4">
-                                {items.map((img) => (
-                                    <SortableImageItem
-                                        key={img.id}
-                                        img={img}
-                                        imageUrl={imageUrl(img.thumbnailPath ?? img.filePath)}
-                                        onView={(img) =>
-                                            navigate({
-                                                to: '/scene/$sceneId/images/$imageId',
-                                                params: { sceneId, imageId: String(img.id) },
-                                            })
-                                        }
-                                        onDelete={(img) => setDeleteTarget(img)}
-                                    />
-                                ))}
-                            </div>
-                        </SortableContext>
-                    </DndContext>
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 pb-4">
+                        {images.map((img) => (
+                            <SortableImageItem
+                                key={img.id}
+                                img={img}
+                                imageUrl={imageUrl(img.thumbnailPath ?? img.filePath)}
+                                onView={(img) =>
+                                    navigate({
+                                        to: '/scene/$sceneId/images/$imageId',
+                                        params: { sceneId, imageId: String(img.id) },
+                                    })
+                                }
+                                onDelete={(img) => setDeleteTarget(img)}
+                            />
+                        ))}
+                    </div>
                 )}
             </div>
 

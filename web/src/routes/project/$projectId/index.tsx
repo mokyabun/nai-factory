@@ -9,13 +9,16 @@ import {
 import { arrayMove, rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { ListPlus, Plus } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Images, ListPlus, Plus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
 import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { api, type SceneSummary } from '@/lib/api'
 import { qk } from '@/lib/queries'
+import { debounce } from '@/lib/utils'
 
 export const Route = createFileRoute('/project/$projectId/')({ component: ProjectPage })
 
@@ -23,6 +26,14 @@ function ProjectPage() {
     const { projectId } = Route.useParams()
     const queryClient = useQueryClient()
     const projId = Number(projectId)
+
+    const projectQuery = useQuery({
+        queryKey: qk.project(projId),
+        queryFn: async () => {
+            const { data } = await api.projects({ projectId: projId }).get()
+            return data ?? null
+        },
+    })
 
     const scenesQuery = useQuery({
         queryKey: qk.scenes(projId),
@@ -43,11 +54,35 @@ function ProjectPage() {
     const [items, setItems] = useState<SceneSummary[]>([])
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
     const [createSceneOpen, setCreateSceneOpen] = useState(false)
+    const [loadedProjectId, setLoadedProjectId] = useState<number | null>(null)
+    const [slideshowImageCount, setSlideshowImageCount] = useState(4)
+
+    const saveProjectSettings = useRef(
+        debounce(async (projectId: number, slideshowImageCount: number) => {
+            const { data } = await api
+                .projects({ projectId })
+                .patch({ settings: { slideshowImageCount } })
+            if (data) queryClient.setQueryData(qk.project(projectId), data)
+        }, 600),
+    )
 
     // Sync items from query
     useEffect(() => {
         if (scenesQuery.data) setItems(scenesQuery.data)
     }, [scenesQuery.data])
+
+    useEffect(() => {
+        const project = projectQuery.data
+        if (project && project.id !== loadedProjectId) {
+            saveProjectSettings.current.cancel()
+            setLoadedProjectId(project.id)
+            setSlideshowImageCount(project.settings.slideshowImageCount)
+        }
+    }, [projectQuery.data, loadedProjectId])
+
+    useEffect(() => {
+        return () => saveProjectSettings.current.flush()
+    }, [])
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -104,6 +139,12 @@ function ProjectPage() {
         })
     }
 
+    function handleSlideshowImageCountChange(value: string) {
+        const nextCount = Math.min(10, Math.max(1, Number(value) || 1))
+        setSlideshowImageCount(nextCount)
+        if (loadedProjectId) saveProjectSettings.current(loadedProjectId, nextCount)
+    }
+
     const selectMode = selectedIds.size > 0
     const currentSceneId = queueStatusQuery.data?.currentSceneId ?? null
 
@@ -130,6 +171,24 @@ function ProjectPage() {
                     )}
                 </div>
                 <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 rounded-md border bg-background px-2 py-1">
+                        <Images className="h-3.5 w-3.5 text-muted-foreground" />
+                        <Label
+                            htmlFor="slideshow-image-count"
+                            className="text-xs text-muted-foreground"
+                        >
+                            회전
+                        </Label>
+                        <Input
+                            id="slideshow-image-count"
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={slideshowImageCount}
+                            onChange={(e) => handleSlideshowImageCountChange(e.target.value)}
+                            className="h-6 w-12 px-1.5 text-xs"
+                        />
+                    </div>
                     <Button size="sm" className="gap-1.5" onClick={() => setCreateSceneOpen(true)}>
                         <Plus className="h-4 w-4" />새 씬
                     </Button>
@@ -160,7 +219,7 @@ function ProjectPage() {
                                     selected={selectedIds.has(scene.id)}
                                     selectMode={selectMode}
                                     isProcessing={scene.id === currentSceneId}
-                                    slideshowCount={4}
+                                    slideshowCount={slideshowImageCount}
                                     onToggleSelect={toggleSelect}
                                 />
                             ))}

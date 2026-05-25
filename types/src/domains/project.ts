@@ -1,6 +1,10 @@
 import * as z from 'zod'
 import { CharacterPrompt, Parameters } from '../app'
 
+export const ProjectSettings = z.object({
+    slideshowImageCount: z.number().int().min(1).max(10).default(4),
+})
+
 export const Project = z.object({
     id: z.number(),
     groupId: z.number().nullable(),
@@ -12,6 +16,7 @@ export const Project = z.object({
     variables: z.record(z.string(), z.string()),
     parameters: Parameters,
     characterPrompts: z.array(CharacterPrompt),
+    settings: ProjectSettings,
 
     createdAt: z.string(),
     updatedAt: z.string(),
@@ -36,6 +41,7 @@ export const ProjectPatchBody = z.object({
     variables: z.record(z.string(), z.string()).optional(),
     parameters: Parameters.optional(),
     characterPrompts: z.array(CharacterPrompt).optional(),
+    settings: ProjectSettings.optional(),
 })
 
 export const ProjectListQuery = ProjectGetQuery
@@ -43,6 +49,7 @@ export const CreateProjectBody = ProjectPostBody
 export const UpdateProjectBody = ProjectPatchBody
 
 export type Project = z.infer<typeof Project>
+export type ProjectSettings = z.infer<typeof ProjectSettings>
 export type ProjectGetQuery = z.infer<typeof ProjectGetQuery>
 export type ProjectPostBody = z.infer<typeof ProjectPostBody>
 export type ProjectPatchBody = z.infer<typeof ProjectPatchBody>

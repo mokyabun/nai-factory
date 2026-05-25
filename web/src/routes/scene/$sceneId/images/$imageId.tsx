@@ -2,7 +2,7 @@ import type { Image } from '@nai-factory/types'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, ChevronLeft, ChevronRight, Download } from 'lucide-react'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, imageUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
@@ -24,7 +24,15 @@ function ImageViewerPage() {
         },
     })
 
-    const images = imagesQuery.data ?? []
+    const images = useMemo(
+        () =>
+            [...(imagesQuery.data ?? [])].sort(
+                (a, b) =>
+                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() ||
+                    b.id - a.id,
+            ),
+        [imagesQuery.data],
+    )
     const currentIndex = images.findIndex((i) => i.id === Number(imageId))
     const current = images[currentIndex] ?? null
 
@@ -33,6 +41,7 @@ function ImageViewerPage() {
             navigate({
                 to: '/scene/$sceneId/images/$imageId',
                 params: { sceneId, imageId: String(img.id) },
+                replace: true,
             })
         },
         [navigate, sceneId],
@@ -52,7 +61,7 @@ function ImageViewerPage() {
             if (e.key === 'ArrowLeft') goPrev()
             else if (e.key === 'ArrowRight') goNext()
             else if (e.key === 'Escape')
-                navigate({ to: '/scene/$sceneId/images', params: { sceneId } })
+                navigate({ to: '/scene/$sceneId/images', params: { sceneId }, replace: true })
         }
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
@@ -66,7 +75,10 @@ function ImageViewerPage() {
                     variant="ghost"
                     size="icon"
                     className="text-white/70 hover:bg-white/10 hover:text-white"
-                    onClick={() => navigate({ to: '/scene/$sceneId/images', params: { sceneId } })}
+                    onClick={() =>
+                        navigate({ to: '/scene/$sceneId/images', params: { sceneId }, replace: true })
+                    }
+                    aria-label="이미지 목록으로 돌아가기"
                 >
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
@@ -105,6 +117,7 @@ function ImageViewerPage() {
                         type="button"
                         className="absolute left-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
                         onClick={goPrev}
+                        aria-label="이전 이미지"
                     >
                         <ChevronLeft className="h-6 w-6" />
                     </button>
@@ -114,6 +127,7 @@ function ImageViewerPage() {
                         type="button"
                         className="absolute right-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
                         onClick={goNext}
+                        aria-label="다음 이미지"
                     >
                         <ChevronRight className="h-6 w-6" />
                     </button>

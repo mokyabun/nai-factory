@@ -7,19 +7,29 @@ function render(template: string, vars: PromptVariable): string {
     return template.replace(TEMPLATE_VAR_RE, (_, key) => vars[key] ?? '')
 }
 
+function renderMultiple(template: string, vars: PromptVariable, count = 2): string {
+    let result: string = template
+
+    for (let i = 0; i < count; i++) {
+        result = render(result, vars)
+    }
+
+    return result
+}
+
 export function compilePrompts(source: Prompt, variables: PromptVariable[]): Prompt[] {
     const results: Prompt[] = []
     for (const vars of variables) {
         const characterPrompts: CharacterPrompt[] = source.characterPrompts.map((char) => ({
             enabled: char.enabled,
-            prompt: render(char.prompt, vars),
-            uc: render(char.uc, vars),
+            prompt: renderMultiple(char.prompt, vars),
+            uc: renderMultiple(char.uc, vars),
             center: char.center,
         }))
 
         results.push({
-            prompt: render(source.prompt, vars),
-            negativePrompt: render(source.negativePrompt, vars),
+            prompt: renderMultiple(source.prompt, vars),
+            negativePrompt: renderMultiple(source.negativePrompt, vars),
             characterPrompts,
         })
     }

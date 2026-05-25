@@ -6,11 +6,12 @@ import {
     ScenePatchBody,
     ScenePostBody,
     ScenePreviewGetQuery,
+    type SceneVariationDraft,
 } from '@nai-factory/types'
-import { asc, desc, eq, sql } from 'drizzle-orm'
+import { asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { db, images, projects, scenes, vibeTransfers } from '#/db'
+import { db, images, projects, scenes, sceneVariations, vibeTransfers } from '#/db'
 import { compilePrompts, compileVariables, removeByScene } from '#/services'
 import * as settingsService from '#/services/app/settings'
 import { displayOrderBetween, nextDisplayOrder, requireEntity, withUpdatedAt } from '#/shared'
@@ -26,7 +27,6 @@ const summaryColumns = {
     projectId: scenes.projectId,
     displayOrder: scenes.displayOrder,
     name: scenes.name,
-    variations: scenes.variations,
     createdAt: scenes.createdAt,
     updatedAt: scenes.updatedAt,
     imageCount: sql<number>`(select count(*) from images where images.scene_id = scenes.id)`,
@@ -41,11 +41,15 @@ const summaryColumns = {
             select id, file_path, thumbnail_path
             from images
             where scene_id = scenes.id
-            order by display_order desc
+            order by created_at desc, id desc
             limit 10
         ) i
     )`,
 } as const
+
+function variationOrder(index: number) {
+    return index.toString().padStart(8, '0')
+}
 
 function parseLatestImages(value: string | null): LatestImage[] {
     if (!value) return []
@@ -57,11 +61,42 @@ function parseLatestImages(value: string | null): LatestImage[] {
     }
 }
 
-function parseSummary<T extends { latestImages: string | null }>(row: T) {
+function parseSummary<T extends { latestImages: string | null }>(
+    row: T,
+    variations: (typeof sceneVariations.$inferSelect)[] = [],
+) {
     return {
         ...row,
+        variations,
         latestImages: parseLatestImages(row.latestImages),
     }
+}
+
+async function getVariations(sceneId: number) {
+    return db
+        .select()
+        .from(sceneVariations)
+        .where(eq(sceneVariations.sceneId, sceneId))
+        .orderBy(asc(sceneVariations.displayOrder))
+}
+
+async function getVariationsBySceneIds(sceneIds: number[]) {
+    if (sceneIds.length === 0) return new Map<number, (typeof sceneVariations.$inferSelect)[]>()
+
+    const rows = await db
+        .select()
+        .from(sceneVariations)
+        .where(inArray(sceneVariations.sceneId, sceneIds))
+        .orderBy(asc(sceneVariations.sceneId), asc(sceneVariations.displayOrder))
+
+    const bySceneId = new Map<number, (typeof sceneVariations.$inferSelect)[]>()
+    for (const row of rows) {
+        const items = bySceneId.get(row.sceneId) ?? []
+        items.push(row)
+        bySceneId.set(row.sceneId, items)
+    }
+
+    return bySceneId
 }
 
 async function getProject(projectId: number) {
@@ -108,23 +143,28 @@ async function list(projectId: number) {
         .where(eq(scenes.projectId, projectId))
         .orderBy(asc(scenes.displayOrder))
 
-    return rows.map(parseSummary)
+    const variations = await getVariationsBySceneIds(rows.map((row) => row.id))
+    return rows.map((row) => parseSummary(row, variations.get(row.id)))
 }
 
 async function getSummary(id: number) {
     const [row] = await db.select(summaryColumns).from(scenes).where(eq(scenes.id, id))
-    return parseSummary(requireEntity(row, 'Scene not found'))
+    const scene = requireEntity(row, 'Scene not found')
+    return parseSummary(scene, await getVariations(id))
 }
 
 async function getById(id: number) {
     const scene = await getScene(id)
-    const sceneImages = await db
-        .select()
-        .from(images)
-        .where(eq(images.sceneId, id))
-        .orderBy(desc(images.displayOrder))
+    const [sceneImages, variations] = await Promise.all([
+        db
+            .select()
+            .from(images)
+            .where(eq(images.sceneId, id))
+            .orderBy(desc(images.createdAt), desc(images.id)),
+        getVariations(id),
+    ])
 
-    return { ...scene, images: sceneImages }
+    return { ...scene, variations, images: sceneImages }
 }
 
 async function getWorkspaceData(id: number) {
@@ -136,7 +176,11 @@ async function getWorkspaceData(id: number) {
         .where(eq(vibeTransfers.projectId, scene.projectId))
         .orderBy(asc(vibeTransfers.displayOrder))
 
-    return { scene, project, vibeTransfers: vibes }
+    return {
+        scene: { ...scene, variations: await getVariations(id) },
+        project,
+        vibeTransfers: vibes,
+    }
 }
 
 async function getPreviewPrompts(id: number, variationId?: number) {
@@ -144,8 +188,17 @@ async function getPreviewPrompts(id: number, variationId?: number) {
     const project = await getProject(scene.projectId)
     const variables =
         variationId === undefined
-            ? scene.variations
-            : [requireEntity(scene.variations[variationId], 'Variation not found')]
+            ? await getVariations(id).then((rows) => rows.map((row) => row.variables))
+            : [
+                  requireEntity(
+                      await db
+                          .select()
+                          .from(sceneVariations)
+                          .where(eq(sceneVariations.id, variationId))
+                          .then((rows) => rows.find((row) => row.sceneId === id)),
+                      'Variation not found',
+                  ).variables,
+              ]
     const settings = settingsService.get()
 
     return compilePrompts(
@@ -166,22 +219,59 @@ async function create(body: ScenePostBody) {
             projectId: body.projectId,
             name: body.name,
             displayOrder: nextDisplayOrder(await getLastOrder(body.projectId)),
-            variations: [],
         })
         .returning()
 
     if (!scene) throw new HTTPException(500, { message: 'Failed to create scene' })
-    return scene
+    return { ...scene, variations: [] }
 }
 
 async function update(id: number, body: ScenePatchBody) {
-    const [scene] = await db
-        .update(scenes)
-        .set(withUpdatedAt(body))
-        .where(eq(scenes.id, id))
-        .returning()
+    await getScene(id)
 
-    return requireEntity(scene, 'Scene not found')
+    const { variations, ...scenePatch } = body
+    if (Object.keys(scenePatch).length > 0) {
+        await db.update(scenes).set(withUpdatedAt(scenePatch)).where(eq(scenes.id, id))
+    }
+
+    if (variations) {
+        await syncVariations(id, variations)
+        await db.update(scenes).set(withUpdatedAt({})).where(eq(scenes.id, id))
+    }
+
+    return getById(id)
+}
+
+async function syncVariations(sceneId: number, drafts: SceneVariationDraft[]) {
+    const existing = await getVariations(sceneId)
+    const existingIds = new Set(existing.map((variation) => variation.id))
+    const incomingIds = drafts
+        .map((variation) => variation.id)
+        .filter((id): id is number => id !== undefined && existingIds.has(id))
+
+    const removedIds = existing
+        .map((variation) => variation.id)
+        .filter((id) => !incomingIds.includes(id))
+    if (removedIds.length > 0) {
+        await db.delete(sceneVariations).where(inArray(sceneVariations.id, removedIds))
+    }
+
+    for (const [index, variation] of drafts.entries()) {
+        const values = {
+            sceneId,
+            displayOrder: variationOrder(index),
+            variables: variation.variables,
+        }
+
+        if (variation.id && existingIds.has(variation.id)) {
+            await db
+                .update(sceneVariations)
+                .set(withUpdatedAt(values))
+                .where(eq(sceneVariations.id, variation.id))
+        } else {
+            await db.insert(sceneVariations).values(values)
+        }
+    }
 }
 
 async function reorder(id: number, prevId: number | null, nextId: number | null) {
@@ -206,18 +296,28 @@ async function remove(id: number) {
 
 async function duplicate(id: number) {
     const source = await getScene(id)
+    const sourceVariations = await getVariations(id)
     const [scene] = await db
         .insert(scenes)
         .values({
             projectId: source.projectId,
             displayOrder: nextDisplayOrder(await getLastOrder(source.projectId)),
             name: `${source.name} Copy`,
-            variations: source.variations,
         })
         .returning()
 
     if (!scene) throw new HTTPException(500, { message: 'Failed to duplicate scene' })
-    return scene
+    if (sourceVariations.length > 0) {
+        await db.insert(sceneVariations).values(
+            sourceVariations.map((variation) => ({
+                sceneId: scene.id,
+                displayOrder: variation.displayOrder,
+                variables: variation.variables,
+            })),
+        )
+    }
+
+    return getById(scene.id)
 }
 
 export const scene = new Hono()

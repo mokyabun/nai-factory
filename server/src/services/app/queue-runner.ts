@@ -1,6 +1,6 @@
 import type { ImageSettings, Prompt, SimpleNovelAIParameters } from '@nai-factory/types'
 import { desc, eq } from 'drizzle-orm'
-import { db, images, projects, queueItems, scenes } from '#/db'
+import { db, images, projects, queueItems, scenes, sceneVariations } from '#/db'
 import logger from '#/logger'
 import * as characterReferenceService from '#/services/novelai/character-reference'
 import * as novelAIService from '#/services/novelai/novelai'
@@ -21,7 +21,7 @@ async function loadJobContext(jobId: number) {
     if (!globalSettings.novelai.apiKey)
         throw new Error('NovelAI API key not set in global settings')
 
-    const [project, scene] = await Promise.all([
+    const [project, scene, variation] = await Promise.all([
         db
             .select()
             .from(projects)
@@ -34,12 +34,19 @@ async function loadJobContext(jobId: number) {
             .where(eq(scenes.id, job.sceneId))
             .limit(1)
             .then((r) => r[0]),
+        db
+            .select()
+            .from(sceneVariations)
+            .where(eq(sceneVariations.id, job.sceneVariationId))
+            .limit(1)
+            .then((r) => r[0]),
     ])
 
     if (!project) throw new Error(`Project ${job.projectId} not found`)
     if (!scene) throw new Error(`Scene ${job.sceneId} not found`)
+    if (!variation) throw new Error(`Scene variation ${job.sceneVariationId} not found`)
 
-    return { job, project, scene, globalSettings }
+    return { job, project, scene, variation, globalSettings }
 }
 
 async function generateAndSaveImage(
@@ -70,6 +77,7 @@ async function generateAndSaveImage(
             thumbnailPath: '',
             metadata: {
                 ...params,
+                sceneVariationId: job.sceneVariationId,
                 vibeTransfers: params.vibeTransfers.map((ref) => ({
                     strength: ref.strength,
                 })),
@@ -130,9 +138,17 @@ async function markUploadedReferenceCaches(params: SimpleNovelAIParameters) {
 }
 
 export async function* runJob(jobId: number) {
-    const { job, project, scene, globalSettings } = await loadJobContext(jobId)
+    const { job, project, scene, variation, globalSettings } = await loadJobContext(jobId)
     const startedAt = Date.now()
-    log.info({ jobId, sceneId: job.sceneId, projectId: job.projectId }, 'Processing job')
+    log.info(
+        {
+            jobId,
+            sceneId: job.sceneId,
+            sceneVariationId: job.sceneVariationId,
+            projectId: job.projectId,
+        },
+        'Processing job',
+    )
 
     const [vibeTransfers, characterReferences] = await Promise.all([
         vibeImageService.checkVibesForProject(
@@ -152,15 +168,11 @@ export async function* runJob(jobId: number) {
         characterPrompts: project.characterPrompts,
     }
 
-    const compiledVars = compileVariables(
-        globalSettings.globalVariables,
-        project.variables,
-        scene.variations,
-    )
+    const compiledVars = compileVariables(globalSettings.globalVariables, project.variables, [
+        variation.variables,
+    ])
     const compiledPrompts = compilePrompts(sourcePrompt, compiledVars)
     log.debug({ jobId, promptCount: compiledPrompts.length }, 'Prompts compiled')
-
-    let remainingCount = job.variationCount
 
     for (const prompt of compiledPrompts) {
         const params: SimpleNovelAIParameters = {
@@ -188,12 +200,6 @@ export async function* runJob(jobId: number) {
         )
         await markUploadedReferenceCaches(params)
         const variationDuration = Date.now() - variationStart
-
-        remainingCount--
-        await db
-            .update(queueItems)
-            .set({ variationCount: remainingCount })
-            .where(eq(queueItems.id, jobId))
 
         yield variationDuration
     }

@@ -2,6 +2,7 @@ import type {
     CharacterPrompt,
     GlobalSettings,
     Parameters,
+    ProjectSettings,
     PromptVariable,
 } from '@nai-factory/types'
 import { sql } from 'drizzle-orm'
@@ -63,6 +64,11 @@ export const projects = sqliteTable(
             .notNull()
             .$type<CharacterPrompt[]>()
             .default([]),
+
+        settings: text('settings', { mode: 'json' })
+            .notNull()
+            .$type<ProjectSettings>()
+            .default({ slideshowImageCount: 4 }),
 
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
         updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
@@ -144,15 +150,30 @@ export const scenes = sqliteTable(
 
         name: text('name').notNull(),
 
-        variations: text('variations', { mode: 'json' })
-            .notNull()
-            .$type<PromptVariable[]>()
-            .default([]),
-
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
         updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
     },
     (t) => [index('scenes_display_order_idx').on(t.projectId, t.displayOrder)],
+)
+
+export const sceneVariations = sqliteTable(
+    'scene_variations',
+    {
+        id: integer('id').primaryKey(),
+        sceneId: integer('scene_id')
+            .notNull()
+            .references(() => scenes.id, { onDelete: 'cascade' }),
+
+        displayOrder: text('display_order').notNull(),
+        variables: text('variables', { mode: 'json' })
+            .notNull()
+            .$type<PromptVariable>()
+            .default({}),
+
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+    },
+    (t) => [index('scene_variations_scene_id_display_order_idx').on(t.sceneId, t.displayOrder)],
 )
 
 // Images
@@ -188,14 +209,16 @@ export const queueItems = sqliteTable(
         sceneId: integer('scene_id')
             .notNull()
             .references(() => scenes.id, { onDelete: 'cascade' }),
-
-        variationCount: integer('variation_count').notNull(),
+        sceneVariationId: integer('scene_variation_id')
+            .notNull()
+            .references(() => sceneVariations.id, { onDelete: 'cascade' }),
 
         sortIndex: integer('sort_index').notNull(),
     },
     (t) => [
         index('queue_items_sort_index_idx').on(t.sortIndex),
         index('queue_items_scene_id_idx').on(t.sceneId),
+        index('queue_items_scene_variation_id_idx').on(t.sceneVariationId),
     ],
 )
 

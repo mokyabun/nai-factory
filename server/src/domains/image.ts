@@ -29,7 +29,7 @@ async function getAllBySceneId(sceneId: number) {
         .select()
         .from(images)
         .where(eq(images.sceneId, sceneId))
-        .orderBy(desc(images.displayOrder))
+        .orderBy(desc(images.createdAt), desc(images.id))
 }
 
 async function update(id: number, data: ImagePatchBody) {

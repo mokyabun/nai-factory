@@ -1,5 +1,3 @@
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import type { Image } from '@nai-factory/types'
 import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,23 +10,12 @@ interface SortableImageItemProps {
 }
 
 export function SortableImageItem({ img, imageUrl, onView, onDelete }: SortableImageItemProps) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-        id: img.id,
-    })
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.4 : 1,
-    }
-
     return (
-        <div ref={setNodeRef} style={style} className="group relative aspect-[3/4] cursor-pointer">
+        <div className="group relative aspect-[3/4] cursor-pointer">
             <button
+                type="button"
                 className="h-full w-full overflow-hidden rounded-lg border bg-muted"
                 onClick={() => onView(img)}
-                {...attributes}
-                {...listeners}
             >
                 <img
                     src={imageUrl}

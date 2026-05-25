@@ -1,7 +1,7 @@
-import type { ImageSaveType } from '@nai-factory/types'
+import type { ImageSaveType, SettingsPatchBody } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Eye, EyeOff, Plus, Save, Settings, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,13 +16,42 @@ import {
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
-import { cn } from '@/lib/utils'
+import { cn, debounce } from '@/lib/utils'
 
 const IMAGE_FORMATS = [
     { value: 'png', label: 'PNG' },
     { value: 'webp', label: 'WebP' },
     { value: 'avif', label: 'AVIF' },
 ]
+
+function createSettingsPatch({
+    apiKey,
+    globalVars,
+    sourceFormat,
+    sourceQuality,
+    thumbFormat,
+    thumbQuality,
+    thumbSize,
+}: {
+    apiKey: string
+    globalVars: [string, string][]
+    sourceFormat: 'png' | 'webp' | 'avif'
+    sourceQuality: number
+    thumbFormat: 'png' | 'webp' | 'avif'
+    thumbQuality: number
+    thumbSize: number
+}): SettingsPatchBody {
+    const sourceType: ImageSaveType =
+        sourceFormat === 'png' ? { type: 'png' } : { type: sourceFormat, quality: sourceQuality }
+    const thumbnailType: ImageSaveType =
+        thumbFormat === 'png' ? { type: 'png' } : { type: thumbFormat, quality: thumbQuality }
+
+    return {
+        novelai: { apiKey },
+        globalVariables: Object.fromEntries(globalVars),
+        image: { sourceType, thumbnailType, thumbnailSize: thumbSize },
+    }
+}
 
 interface SettingsPanelProps {
     variant?: 'page' | 'sidebar'
@@ -49,6 +78,7 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
     const [thumbQuality, setThumbQuality] = useState(80)
     const [thumbSize, setThumbSize] = useState(256)
     const [loaded, setLoaded] = useState(false)
+    const lastSavedJson = useRef('')
 
     useEffect(() => {
         const data = settingsQuery.data
@@ -69,38 +99,78 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                     : (data.image?.thumbnailType?.quality ?? 80),
             )
             setThumbSize(data.image?.thumbnailSize ?? 256)
+            lastSavedJson.current = JSON.stringify(
+                createSettingsPatch({
+                    apiKey: data.novelai?.apiKey ?? '',
+                    globalVars: Object.entries(data.globalVariables ?? {}),
+                    sourceFormat: data.image?.sourceType?.type ?? 'png',
+                    sourceQuality:
+                        data.image?.sourceType?.type === 'png'
+                            ? 90
+                            : (data.image?.sourceType?.quality ?? 90),
+                    thumbFormat: data.image?.thumbnailType?.type ?? 'webp',
+                    thumbQuality:
+                        data.image?.thumbnailType?.type === 'png'
+                            ? 80
+                            : (data.image?.thumbnailType?.quality ?? 80),
+                    thumbSize: data.image?.thumbnailSize ?? 256,
+                }),
+            )
         }
     }, [settingsQuery.data, loaded])
 
     const saveSettings = useMutation({
-        mutationFn: () => {
-            const sourceType: ImageSaveType =
-                sourceFormat === 'png'
-                    ? { type: 'png' }
-                    : { type: sourceFormat, quality: sourceQuality }
-            const thumbnailType: ImageSaveType =
-                thumbFormat === 'png'
-                    ? { type: 'png' }
-                    : { type: thumbFormat, quality: thumbQuality }
-
-            return api.settings.patch({
-                novelai: { apiKey },
-                globalVariables: Object.fromEntries(globalVars),
-                image: { sourceType, thumbnailType, thumbnailSize: thumbSize },
-            })
+        mutationFn: (patch: SettingsPatchBody) => api.settings.patch(patch),
+        onSuccess: (res, patch) => {
+            lastSavedJson.current = JSON.stringify(patch)
+            if (res.data) queryClient.setQueryData(qk.settings(), res.data)
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.settings() }),
     })
+
+    const debouncedSaveSettings = useRef(
+        debounce((patch: SettingsPatchBody) => saveSettings.mutate(patch), 600),
+    )
+
+    useEffect(() => {
+        if (!loaded) return
+
+        const patch = createSettingsPatch({
+            apiKey,
+            globalVars,
+            sourceFormat,
+            sourceQuality,
+            thumbFormat,
+            thumbQuality,
+            thumbSize,
+        })
+        const nextJson = JSON.stringify(patch)
+        if (nextJson === lastSavedJson.current) return
+
+        debouncedSaveSettings.current(patch)
+    }, [
+        loaded,
+        apiKey,
+        globalVars,
+        sourceFormat,
+        sourceQuality,
+        thumbFormat,
+        thumbQuality,
+        thumbSize,
+    ])
+
+    useEffect(() => {
+        return () => debouncedSaveSettings.current.flush()
+    }, [])
 
     const saveButton = (
         <Button
             className="gap-1.5"
             disabled={saveSettings.isPending}
-            onClick={() => saveSettings.mutate()}
+            onClick={() => debouncedSaveSettings.current.flush()}
             size={compact ? 'sm' : 'default'}
         >
             <Save className="h-4 w-4" />
-            {saveSettings.isPending ? '저장 중...' : '저장'}
+            {saveSettings.isPending ? '저장 중...' : '자동 저장'}
         </Button>
     )
 

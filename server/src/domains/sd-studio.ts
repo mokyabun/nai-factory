@@ -2,7 +2,7 @@ import { zValidator } from '@hono/zod-validator'
 import { type ImportOptions, type Parameters, SdStudioImportBody } from '@nai-factory/types'
 import { desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db, projects, scenes } from '#/db'
+import { db, projects, scenes, sceneVariations } from '#/db'
 import { parseSdStudioFile } from '#/services'
 import { nextDisplayOrder, requireEntity, withUpdatedAt } from '#/shared'
 
@@ -82,6 +82,10 @@ async function getLastOrder(projectId: number) {
     return lastScene?.displayOrder ?? null
 }
 
+function variationOrder(index: number) {
+    return index.toString().padStart(8, '0')
+}
+
 async function importToProject(projectId: number, rawData: unknown, options: ImportOptions = {}) {
     const project = await getProject(projectId)
     const pack = parseSdStudioFile(rawData)
@@ -102,11 +106,19 @@ async function importToProject(projectId: number, rawData: unknown, options: Imp
                     projectId,
                     name: item.name,
                     displayOrder,
-                    variations: item.variations,
                 })
                 .returning()
             if (!scene) throw new Error('Failed to insert scene')
-            created.push(scene)
+            if (item.variations.length > 0) {
+                await db.insert(sceneVariations).values(
+                    item.variations.map((variables, index) => ({
+                        sceneId: scene.id,
+                        displayOrder: variationOrder(index),
+                        variables,
+                    })),
+                )
+            }
+            created.push({ ...scene, variations: [] })
             previousOrder = displayOrder
         }
     }

@@ -37,26 +37,38 @@ CREATE TABLE `queue_items` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`project_id` integer NOT NULL,
 	`scene_id` integer NOT NULL,
-	`variation_count` integer NOT NULL,
+	`scene_variation_id` integer NOT NULL,
 	`sort_index` integer NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`scene_id`) REFERENCES `scenes`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`scene_id`) REFERENCES `scenes`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`scene_variation_id`) REFERENCES `scene_variations`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE INDEX `queue_items_sort_index_idx` ON `queue_items` (`sort_index`);--> statement-breakpoint
+CREATE INDEX `queue_items_scene_variation_id_idx` ON `queue_items` (`scene_variation_id`);--> statement-breakpoint
 CREATE TABLE `scenes` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`project_id` integer NOT NULL,
 	`display_order` text NOT NULL,
 	`thumbnail_image_id` integer,
 	`name` text NOT NULL,
-	`variations` text DEFAULT '[]' NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE INDEX `scenes_display_order_idx` ON `scenes` (`project_id`,`display_order`);--> statement-breakpoint
+CREATE TABLE `scene_variations` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`scene_id` integer NOT NULL,
+	`display_order` text NOT NULL,
+	`variables` text DEFAULT '{}' NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (`scene_id`) REFERENCES `scenes`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `scene_variations_scene_id_display_order_idx` ON `scene_variations` (`scene_id`,`display_order`);--> statement-breakpoint
 CREATE TABLE `settings` (
 	`id` integer PRIMARY KEY DEFAULT 1 NOT NULL,
 	`global_variables` text DEFAULT '{}' NOT NULL,

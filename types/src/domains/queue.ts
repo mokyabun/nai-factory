@@ -7,8 +7,8 @@ export const QueueItem = z.object({
     id: z.number(),
     projectId: z.number(),
     sceneId: z.number(),
+    sceneVariationId: z.number(),
 
-    variationCount: z.number(),
     sortIndex: z.number(),
 })
 
@@ -18,10 +18,12 @@ export const QueueGetQuery = z.object({
 
 export const QueueClearQuery = z.object({
     sceneId: z.coerce.number().int().positive().optional(),
+    sceneVariationId: z.coerce.number().int().positive().optional(),
 })
 
 export const QueueEnqueueBody = z.object({
     sceneId: z.number().int().positive(),
+    sceneVariationId: z.number().int().positive().optional(),
     position: EnqueuePosition.optional(),
 })
 
