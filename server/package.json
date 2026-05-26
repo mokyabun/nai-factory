@@ -9,7 +9,9 @@
         "db:migrate": "bun run src/db/migrate.ts",
         "format": "biome format --write .",
         "lint": "biome lint .",
-        "check": "biome check --write ."
+        "check": "biome check --write .",
+        "build": "bun build src/index.ts --outdir=dist --target=bun --minify --sourcemap",
+        "start": "bun dist/index.js"
     },
     "dependencies": {
         "@hono/zod-validator": "^0.8.0",
