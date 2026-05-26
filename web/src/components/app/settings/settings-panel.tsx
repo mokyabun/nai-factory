@@ -1,7 +1,8 @@
 import type { ImageSaveType, SettingsPatchBody } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Eye, EyeOff, Plus, Save, Settings, X } from 'lucide-react'
+import { Bug, Eye, EyeOff, Plus, Save, Settings, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -14,7 +15,8 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { SidebarHeader } from '@/components/ui/sidebar'
-import { api } from '@/lib/api'
+import { Switch } from '@/components/ui/switch'
+import { api, type DebugRequestEntry } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { cn, debounce } from '@/lib/utils'
 
@@ -32,6 +34,8 @@ function createSettingsPatch({
     thumbFormat,
     thumbQuality,
     thumbSize,
+    debugEnabled,
+    debugRequestLimit,
 }: {
     apiKey: string
     globalVars: [string, string][]
@@ -40,6 +44,8 @@ function createSettingsPatch({
     thumbFormat: 'png' | 'webp' | 'avif'
     thumbQuality: number
     thumbSize: number
+    debugEnabled: boolean
+    debugRequestLimit: number
 }): SettingsPatchBody {
     const sourceType: ImageSaveType =
         sourceFormat === 'png' ? { type: 'png' } : { type: sourceFormat, quality: sourceQuality }
@@ -50,7 +56,60 @@ function createSettingsPatch({
         novelai: { apiKey },
         globalVariables: Object.fromEntries(globalVars),
         image: { sourceType, thumbnailType, thumbnailSize: thumbSize },
+        debug: { enabled: debugEnabled, recentRequestLimit: debugRequestLimit },
     }
+}
+
+function formatDuration(milliseconds: number | null) {
+    if (milliseconds === null) return '-'
+    if (milliseconds >= 1000) return `${(milliseconds / 1000).toFixed(1)}s`
+    return `${milliseconds}ms`
+}
+
+function DebugRequestRow({ request }: { request: DebugRequestEntry }) {
+    const [open, setOpen] = useState(false)
+    const statusVariant =
+        request.status === 'success'
+            ? 'secondary'
+            : request.status === 'error'
+              ? 'destructive'
+              : 'outline'
+
+    return (
+        <div className="rounded border bg-background/40">
+            <button
+                type="button"
+                className="flex w-full items-center gap-2 p-2 text-left"
+                onClick={() => setOpen((v) => !v)}
+            >
+                <Badge variant={statusVariant} className="shrink-0">
+                    {request.status}
+                </Badge>
+                <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
+                    {request.method} {request.url.replace('https://image.novelai.net/ai/', '')}
+                </span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                    {formatDuration(request.durationMs)}
+                </span>
+            </button>
+            {open && (
+                <div className="border-t p-2">
+                    <pre className="max-h-56 overflow-auto rounded bg-muted p-2 text-[10px] leading-relaxed">
+                        {JSON.stringify(
+                            {
+                                context: request.context,
+                                request: request.request,
+                                response: request.response,
+                                error: request.error,
+                            },
+                            null,
+                            2,
+                        )}
+                    </pre>
+                </div>
+            )}
+        </div>
+    )
 }
 
 interface SettingsPanelProps {
@@ -77,8 +136,19 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
     const [thumbFormat, setThumbFormat] = useState<'png' | 'webp' | 'avif'>('webp')
     const [thumbQuality, setThumbQuality] = useState(80)
     const [thumbSize, setThumbSize] = useState(256)
+    const [debugEnabled, setDebugEnabled] = useState(false)
+    const [debugRequestLimit, setDebugRequestLimit] = useState(20)
     const [loaded, setLoaded] = useState(false)
     const lastSavedJson = useRef('')
+
+    const debugRequestsQuery = useQuery({
+        queryKey: qk.debugRequests(),
+        queryFn: async () => {
+            const { data } = await api.debug.requests.get()
+            return data ?? []
+        },
+        enabled: debugEnabled,
+    })
 
     useEffect(() => {
         const data = settingsQuery.data
@@ -99,6 +169,8 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                     : (data.image?.thumbnailType?.quality ?? 80),
             )
             setThumbSize(data.image?.thumbnailSize ?? 256)
+            setDebugEnabled(data.debug?.enabled ?? false)
+            setDebugRequestLimit(data.debug?.recentRequestLimit ?? 20)
             lastSavedJson.current = JSON.stringify(
                 createSettingsPatch({
                     apiKey: data.novelai?.apiKey ?? '',
@@ -114,6 +186,8 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                             ? 80
                             : (data.image?.thumbnailType?.quality ?? 80),
                     thumbSize: data.image?.thumbnailSize ?? 256,
+                    debugEnabled: data.debug?.enabled ?? false,
+                    debugRequestLimit: data.debug?.recentRequestLimit ?? 20,
                 }),
             )
         }
@@ -142,6 +216,8 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
             thumbFormat,
             thumbQuality,
             thumbSize,
+            debugEnabled,
+            debugRequestLimit,
         })
         const nextJson = JSON.stringify(patch)
         if (nextJson === lastSavedJson.current) return
@@ -156,11 +232,18 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
         thumbFormat,
         thumbQuality,
         thumbSize,
+        debugEnabled,
+        debugRequestLimit,
     ])
 
     useEffect(() => {
         return () => debouncedSaveSettings.current.flush()
     }, [])
+
+    const clearDebugRequests = useMutation({
+        mutationFn: () => api.debug.requests.delete(),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.debugRequests() }),
+    })
 
     const saveButton = (
         <Button
@@ -422,6 +505,70 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                     max={1024}
                                 />
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card size={compact ? 'sm' : 'default'}>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <Bug className="h-4 w-4" />
+                                디버그
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <Label htmlFor="debug-mode">요청 기록</Label>
+                                <Switch
+                                    id="debug-mode"
+                                    checked={debugEnabled}
+                                    onCheckedChange={setDebugEnabled}
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="debug-limit" className="shrink-0">
+                                    최근
+                                </Label>
+                                <Input
+                                    id="debug-limit"
+                                    type="number"
+                                    min={1}
+                                    max={500}
+                                    value={debugRequestLimit}
+                                    onChange={(e) =>
+                                        setDebugRequestLimit(
+                                            Math.min(500, Math.max(1, Number(e.target.value) || 1)),
+                                        )
+                                    }
+                                    className="h-8 w-20 text-xs"
+                                    disabled={!debugEnabled}
+                                />
+                                <span className="text-xs text-muted-foreground">개</span>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="ml-auto h-8 w-8"
+                                    disabled={!debugEnabled || clearDebugRequests.isPending}
+                                    onClick={() => clearDebugRequests.mutate()}
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+
+                            {debugEnabled && (
+                                <div className="flex flex-col gap-2">
+                                    {(debugRequestsQuery.data ?? []).length === 0 ? (
+                                        <div className="rounded border bg-background/40 p-3 text-xs text-muted-foreground">
+                                            기록 없음
+                                        </div>
+                                    ) : (
+                                        (debugRequestsQuery.data ?? []).map((request) => (
+                                            <DebugRequestRow key={request.id} request={request} />
+                                        ))
+                                    )}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

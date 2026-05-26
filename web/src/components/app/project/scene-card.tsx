@@ -69,9 +69,11 @@ export function SceneCard({
     })
 
     const enqueue = useMutation({
-        mutationFn: () => api.queue.enqueue.post({ sceneId: scene.id }),
+        mutationFn: (position: 'back' | 'front' = 'back') =>
+            api.queue.enqueue.post({ sceneId: scene.id, position }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
         },
     })
@@ -80,6 +82,7 @@ export function SceneCard({
         mutationFn: () => api.queue.delete({ query: { sceneId: scene.id } }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
         },
     })
@@ -199,7 +202,7 @@ export function SceneCard({
                             variant="ghost"
                             size="sm"
                             className="h-8 flex-1 gap-1 rounded-none text-xs"
-                            onClick={() => enqueue.mutate()}
+                            onClick={() => enqueue.mutate('back')}
                             disabled={enqueue.isPending}
                         >
                             <ListPlus className="h-3.5 w-3.5" />큐 추가
@@ -233,6 +236,13 @@ export function SceneCard({
                 </ContextMenuTrigger>
 
                 <ContextMenuContent>
+                    <ContextMenuItem
+                        onClick={() => enqueue.mutate('front')}
+                        disabled={enqueue.isPending}
+                    >
+                        <ListPlus className="mr-2 h-4 w-4" />큐 맨 앞 추가
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
                     <ContextMenuItem
                         onClick={() => duplicateScene.mutate()}
                         disabled={duplicateScene.isPending}

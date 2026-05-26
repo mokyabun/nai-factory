@@ -17,6 +17,12 @@ export function StatusBar() {
                     pendingCount: 0,
                     estimatedSeconds: null,
                     currentSceneId: null as number | null,
+                    currentJob: null,
+                    avgDurationMs: null,
+                    durationSampleSize: 0,
+                    completedCount: 0,
+                    failedCount: 0,
+                    recent: [],
                 }
             )
         },
@@ -43,6 +49,12 @@ export function StatusBar() {
         pendingCount: 0,
         estimatedSeconds: null as number | null,
         currentSceneId: null as number | null,
+        currentJob: null,
+        avgDurationMs: null,
+        durationSampleSize: 0,
+        completedCount: 0,
+        failedCount: 0,
+        recent: [],
     }
 
     return (

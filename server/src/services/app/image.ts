@@ -17,6 +17,7 @@ async function processImage(
     data: Uint8Array,
     filePath: string,
     saveType: ImageSaveType,
+    metadata?: Record<string, unknown>,
     size?: number,
 ) {
     let image = sharp(data)
@@ -35,7 +36,43 @@ async function processImage(
             break
     }
 
+    if (metadata) {
+        const serialized = JSON.stringify(metadata)
+        image = image
+            .withExif({
+                IFD0: {
+                    Software: 'NAI Factory',
+                    ImageDescription: serialized,
+                },
+            })
+            .withXmp(createXmpPacket(serialized))
+    }
+
     await image.toFile(filePath)
+}
+
+function escapeXml(value: string) {
+    return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;')
+}
+
+function createXmpPacket(serializedMetadata: string) {
+    const escaped = escapeXml(serializedMetadata)
+
+    return `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:nai="https://nai-factory.local/metadata/1.0/">
+      <dc:description><rdf:Alt><rdf:li xml:lang="x-default">${escaped}</rdf:li></rdf:Alt></dc:description>
+      <nai:metadata>${escaped}</nai:metadata>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>`
 }
 
 export async function save(
@@ -44,6 +81,7 @@ export async function save(
     imageId: number,
     imageData: Uint8Array,
     imageSettings: ImageSettings,
+    metadata?: Record<string, unknown>,
 ) {
     const base = join(String(projectId), String(sceneId), String(imageId))
     const filePath = join(IMAGES_DIR, `${base}.${imageSettings.sourceType.type}`)
@@ -52,11 +90,12 @@ export async function save(
     await Promise.all([ensureDir(filePath), ensureDir(thumbnailPath)])
 
     await Promise.all([
-        processImage(imageData, filePath, imageSettings.sourceType),
+        processImage(imageData, filePath, imageSettings.sourceType, metadata),
         processImage(
             imageData,
             thumbnailPath,
             imageSettings.thumbnailType,
+            undefined,
             imageSettings.thumbnailSize,
         ),
     ])

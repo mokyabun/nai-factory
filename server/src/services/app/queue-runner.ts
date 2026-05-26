@@ -57,7 +57,17 @@ async function generateAndSaveImage(
     apiKey: string,
     imageSettings: ImageSettings,
 ): Promise<void> {
-    const { imageData } = await novelAIService.generateImage(apiKey, params)
+    const { imageData } = await novelAIService.generateImage(apiKey, params, {
+        settings: settingsService.get().debug,
+        context: {
+            jobId: job.id,
+            projectId: project.id,
+            projectName: project.name,
+            sceneId: scene.id,
+            sceneName: scene.name,
+            sceneVariationId: job.sceneVariationId,
+        },
+    })
 
     const [lastImage] = await db
         .select({ displayOrder: images.displayOrder })
@@ -67,6 +77,41 @@ async function generateAndSaveImage(
         .limit(1)
 
     const newDisplayOrder = nextDisplayOrder(lastImage?.displayOrder)
+    const metadata = {
+        generator: 'nai-factory',
+        generatedAt: new Date().toISOString(),
+        projectId: project.id,
+        projectName: project.name,
+        sceneId: scene.id,
+        sceneName: scene.name,
+        sceneVariationId: job.sceneVariationId,
+        prompt: params.prompt,
+        negativePrompt: params.negativePrompt,
+        characterPrompts: params.characterPrompts,
+        parameters: {
+            model: params.model,
+            width: params.width,
+            height: params.height,
+            steps: params.steps,
+            promptGuidance: params.promptGuidance,
+            promptGuidanceRescale: params.promptGuidanceRescale,
+            sampler: params.sampler,
+            noiseSchedule: params.noiseSchedule,
+            seed: params.seed,
+            qualityToggle: params.qualityToggle,
+            varietyPlus: params.varietyPlus,
+            normalizeReferenceStrengthValues: params.normalizeReferenceStrengthValues,
+            useCharacterPositions: params.useCharacterPositions,
+        },
+        vibeTransfers: params.vibeTransfers.map((ref) => ({
+            strength: ref.strength,
+        })),
+        characterReferences: params.characterReferences.map((ref) => ({
+            strength: ref.strength,
+            fidelity: ref.fidelity,
+            mode: ref.mode,
+        })),
+    }
 
     const [image] = await db
         .insert(images)
@@ -75,18 +120,7 @@ async function generateAndSaveImage(
             displayOrder: newDisplayOrder,
             filePath: '',
             thumbnailPath: '',
-            metadata: {
-                ...params,
-                sceneVariationId: job.sceneVariationId,
-                vibeTransfers: params.vibeTransfers.map((ref) => ({
-                    strength: ref.strength,
-                })),
-                characterReferences: params.characterReferences.map((ref) => ({
-                    strength: ref.strength,
-                    fidelity: ref.fidelity,
-                    mode: ref.mode,
-                })),
-            },
+            metadata,
         })
         .returning({ id: images.id })
 
@@ -99,6 +133,7 @@ async function generateAndSaveImage(
             image.id,
             imageData,
             imageSettings,
+            metadata,
         )
 
         await db.update(images).set({ filePath, thumbnailPath }).where(eq(images.id, image.id))

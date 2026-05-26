@@ -1,18 +1,19 @@
 import { useRouterState } from '@tanstack/react-router'
-import { AlignLeft, File, Settings } from 'lucide-react'
+import { AlignLeft, File, ListTodo, Settings } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import * as Base from '@/components/ui/sidebar'
 import { SidebarFooter } from './sidebar-footer'
 import { SidebarHeader } from './sidebar-header'
 import { SidebarProject } from './sidebar-project'
 import { SidebarPrompt } from './sidebar-prompt'
+import { SidebarQueue } from './sidebar-queue'
 import { SidebarSettings } from './sidebar-settings'
 
 interface AppSidebarProps {
     projectId?: number | null
 }
 
-type SidebarPanel = 'project' | 'prompt' | 'settings'
+type SidebarPanel = 'project' | 'prompt' | 'queue' | 'settings'
 
 export function Sidebar({ projectId }: AppSidebarProps) {
     const { setOpen, open } = Base.useSidebar()
@@ -25,7 +26,7 @@ export function Sidebar({ projectId }: AppSidebarProps) {
     useEffect(() => {
         const params = new URLSearchParams(search)
         const panel = params.get('sidebar') as SidebarPanel | null
-        if (panel && ['project', 'prompt', 'settings'].includes(panel)) {
+        if (panel && ['project', 'prompt', 'queue', 'settings'].includes(panel)) {
             setActivePanel(panel)
         }
     }, [search])
@@ -33,6 +34,7 @@ export function Sidebar({ projectId }: AppSidebarProps) {
     const topItems = [
         { title: '프로젝트', panel: 'project' as const, icon: File },
         ...(projectId ? [{ title: '프롬프트', panel: 'prompt' as const, icon: AlignLeft }] : []),
+        { title: 'Queue', panel: 'queue' as const, icon: ListTodo },
     ]
     const bottomItems = [{ title: '설정', panel: 'settings' as const, icon: Settings }]
 
@@ -102,6 +104,7 @@ export function Sidebar({ projectId }: AppSidebarProps) {
             <Base.Sidebar collapsible="none" className="hidden flex-1 md:flex">
                 {activePanel === 'project' && <SidebarProject />}
                 {activePanel === 'prompt' && projectId && <SidebarPrompt projectId={projectId} />}
+                {activePanel === 'queue' && <SidebarQueue projectId={projectId} />}
                 {activePanel === 'settings' && <SidebarSettings />}
                 <Base.SidebarRail />
             </Base.Sidebar>

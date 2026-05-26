@@ -77,11 +77,54 @@ export type QueueStatus = {
     pendingCount: number
     estimatedSeconds: number | null
     currentSceneId: number | null
+    currentJob: QueueStatusJob | null
+    avgDurationMs: number | null
+    durationSampleSize: number
+    completedCount: number
+    failedCount: number
+    recent: QueueHistoryEntry[]
 }
 
 export type QueueEnqueueResult = {
     queued: number
     items: QueueItem[]
+}
+
+export type QueueStatusJob = {
+    id: number
+    projectId: number
+    sceneId: number
+    sceneVariationId: number
+    sceneName: string
+    startedAt: string
+    elapsedSeconds: number
+}
+
+export type QueueHistoryEntry = {
+    id: number
+    jobId: number
+    projectId: number
+    sceneId: number
+    sceneVariationId: number
+    sceneName: string
+    status: 'completed' | 'failed'
+    durationMs: number
+    completedAt: string
+    error: string | null
+}
+
+export type DebugRequestEntry = {
+    id: number
+    createdAt: string
+    completedAt: string | null
+    durationMs: number | null
+    status: 'pending' | 'success' | 'error'
+    method: string
+    url: string
+    context: Record<string, unknown>
+    request: unknown
+    response: unknown
+    error: string | null
 }
 
 type SearchParams = Record<string, string | number | boolean | null | undefined>
@@ -338,6 +381,12 @@ export const api = {
         },
         delete: ({ query }: { query?: QueueClearQuery } = {}) =>
             request<{ cancelled: number }>('/queue', { method: 'delete', searchParams: query }),
+    },
+    debug: {
+        requests: {
+            get: () => request<DebugRequestEntry[]>('/debug/requests'),
+            delete: () => request<void>('/debug/requests', { method: 'delete' }),
+        },
     },
     'sd-studio': {
         import: {

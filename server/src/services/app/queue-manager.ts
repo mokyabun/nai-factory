@@ -1,4 +1,4 @@
-import { asc, count, eq, inArray } from 'drizzle-orm'
+import { asc, count, eq, inArray, max, min } from 'drizzle-orm'
 import { db, queueItems, scenes, sceneVariations } from '#/db'
 import logger from '#/logger'
 import { domainEvents } from './events'
@@ -6,15 +6,43 @@ import { runJob } from './queue-runner'
 
 export type EnqueuePosition = 'back' | 'front'
 
-const DURATION_BUFFER_SIZE = 20
+const DURATION_BUFFER_SIZE = 100
+const HISTORY_BUFFER_SIZE = 100
+
+type QueueHistoryEntry = {
+    id: number
+    jobId: number
+    projectId: number
+    sceneId: number
+    sceneVariationId: number
+    sceneName: string
+    status: 'completed' | 'failed'
+    durationMs: number
+    completedAt: string
+    error: string | null
+}
+
+type CurrentJob = {
+    id: number
+    projectId: number
+    sceneId: number
+    sceneVariationId: number
+    sceneName: string
+    startedAt: string
+    startedAtMs: number
+}
 
 class QueueManager {
     private readonly log = logger.child({ module: 'queue' })
     private readonly recentDurations: number[] = []
+    private readonly recentHistory: QueueHistoryEntry[] = []
 
     private processing = false
     private running = false
-    private currentSceneId: number | null = null
+    private currentJob: CurrentJob | null = null
+    private nextHistoryId = 1
+    private completedCount = 0
+    private failedCount = 0
 
     async add(sceneId: number, position: EnqueuePosition = 'back', sceneVariationId?: number) {
         const [scene] = await db
@@ -38,7 +66,7 @@ class QueueManager {
         }
         if (variations.length === 0) return []
 
-        const baseSortIndex = position === 'front' ? -Date.now() : Date.now()
+        const baseSortIndex = await this.nextSortIndex(position, variations.length)
         const items = await db
             .insert(queueItems)
             .values(
@@ -93,7 +121,26 @@ class QueueManager {
             processing: this.processing,
             pendingCount: jobCount,
             estimatedSeconds,
-            currentSceneId: this.currentSceneId,
+            currentSceneId: this.currentJob?.sceneId ?? null,
+            currentJob: this.currentJob
+                ? {
+                      id: this.currentJob.id,
+                      projectId: this.currentJob.projectId,
+                      sceneId: this.currentJob.sceneId,
+                      sceneVariationId: this.currentJob.sceneVariationId,
+                      sceneName: this.currentJob.sceneName,
+                      startedAt: this.currentJob.startedAt,
+                      elapsedSeconds: Math.max(
+                          0,
+                          Math.floor((Date.now() - this.currentJob.startedAtMs) / 1000),
+                      ),
+                  }
+                : null,
+            avgDurationMs,
+            durationSampleSize: this.recentDurations.length,
+            completedCount: this.completedCount,
+            failedCount: this.failedCount,
+            recent: this.recentHistory,
         }
     }
 
@@ -103,6 +150,19 @@ class QueueManager {
         return { jobCount: row?.jobCount ?? 0 }
     }
 
+    private async nextSortIndex(position: EnqueuePosition, count: number) {
+        const [row] = await db
+            .select({
+                minSortIndex: min(queueItems.sortIndex),
+                maxSortIndex: max(queueItems.sortIndex),
+            })
+            .from(queueItems)
+
+        if (position === 'front') return (row?.minSortIndex ?? 0) - count
+
+        return (row?.maxSortIndex ?? 0) + 1
+    }
+
     private async processQueue(): Promise<void> {
         if (this.processing) return
         this.processing = true
@@ -110,25 +170,59 @@ class QueueManager {
         while (this.running) {
             // idc about same priority items being processed in random order
             const [next] = await db
-                .select({ id: queueItems.id, sceneId: queueItems.sceneId })
+                .select({
+                    id: queueItems.id,
+                    projectId: queueItems.projectId,
+                    sceneId: queueItems.sceneId,
+                    sceneVariationId: queueItems.sceneVariationId,
+                    sceneName: scenes.name,
+                })
                 .from(queueItems)
+                .innerJoin(scenes, eq(queueItems.sceneId, scenes.id))
                 .orderBy(asc(queueItems.sortIndex))
                 .limit(1)
 
             if (!next) break
 
-            this.currentSceneId = next.sceneId
+            const startedAtMs = Date.now()
+            this.currentJob = {
+                ...next,
+                startedAt: new Date(startedAtMs).toISOString(),
+                startedAtMs,
+            }
             try {
                 for await (const variationDurationMs of runJob(next.id)) {
                     this.recordDurationMs(variationDurationMs)
                     domainEvents.invalidate('queue')
                 }
+                this.completedCount += 1
+                this.recordHistory({
+                    jobId: next.id,
+                    projectId: next.projectId,
+                    sceneId: next.sceneId,
+                    sceneVariationId: next.sceneVariationId,
+                    sceneName: next.sceneName,
+                    status: 'completed',
+                    durationMs: Date.now() - startedAtMs,
+                    error: null,
+                })
             } catch (error) {
                 this.log.error({ jobId: next.id, err: error }, 'Job failed — stopping queue')
+                this.failedCount += 1
+                this.recordHistory({
+                    jobId: next.id,
+                    projectId: next.projectId,
+                    sceneId: next.sceneId,
+                    sceneVariationId: next.sceneVariationId,
+                    sceneName: next.sceneName,
+                    status: 'failed',
+                    durationMs: Date.now() - startedAtMs,
+                    error: error instanceof Error ? error.message : String(error),
+                })
                 this.running = false
                 break
             } finally {
-                this.currentSceneId = null
+                this.currentJob = null
                 domainEvents.invalidate('queue')
             }
         }
@@ -143,6 +237,16 @@ class QueueManager {
         this.recentDurations.push(milliseconds)
 
         if (this.recentDurations.length > DURATION_BUFFER_SIZE) this.recentDurations.shift()
+    }
+
+    private recordHistory(entry: Omit<QueueHistoryEntry, 'id' | 'completedAt'>) {
+        this.recentHistory.unshift({
+            id: this.nextHistoryId++,
+            completedAt: new Date().toISOString(),
+            ...entry,
+        })
+
+        if (this.recentHistory.length > HISTORY_BUFFER_SIZE) this.recentHistory.pop()
     }
 
     private avgDurationMs() {

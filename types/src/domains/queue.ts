@@ -8,6 +8,7 @@ export const QueueItem = z.object({
     projectId: z.number(),
     sceneId: z.number(),
     sceneVariationId: z.number(),
+    sceneName: z.string().optional(),
 
     sortIndex: z.number(),
 })

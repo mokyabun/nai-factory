@@ -1,9 +1,9 @@
 import { zValidator } from '@hono/zod-validator'
 import {
     type GroupListItem,
-    type GroupProjectSummary,
     GroupPatchBody,
     GroupPostBody,
+    type GroupProjectSummary,
     IdParams,
 } from '@nai-factory/types'
 import { asc, eq } from 'drizzle-orm'

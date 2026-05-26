@@ -4,6 +4,7 @@ import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import {
     characterReference,
+    debug,
     group,
     image,
     project,
@@ -41,6 +42,7 @@ export function createApp() {
         .route('/projects/:projectId/vibe-transfers', vibeTransfer)
         .route('/scenes', scene)
         .route('/images', image)
+        .route('/debug', debug)
         .route('/queue', queue)
         .route('/sd-studio', sdStudio)
         .route('/settings', setting)

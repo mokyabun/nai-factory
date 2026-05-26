@@ -7,6 +7,8 @@ export const qk = {
     images: (sceneId: number) => ['images', sceneId] as const,
     settings: () => ['settings'] as const,
     queueStatus: () => ['queue', 'status'] as const,
+    queue: (projectId?: number | null) => ['queue', 'items', projectId ?? 'all'] as const,
+    debugRequests: () => ['debug', 'requests'] as const,
     vibeTransfers: (projectId: number) => ['vibe-transfers', projectId] as const,
     characterReferences: (projectId: number) => ['character-references', projectId] as const,
 }

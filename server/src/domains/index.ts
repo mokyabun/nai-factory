@@ -1,4 +1,5 @@
 export { characterReference } from './character-reference'
+export { debug } from './debug'
 export { group } from './group'
 export { image } from './image'
 export { project } from './project'

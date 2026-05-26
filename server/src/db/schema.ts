@@ -222,6 +222,39 @@ export const queueItems = sqliteTable(
     ],
 )
 
+export const playgroundQueueItems = sqliteTable(
+    'playground_queue_items',
+    {
+        id: integer('id').primaryKey(),
+
+        prompt: text('prompt').notNull(),
+        negativePrompt: text('negative_prompt').notNull().default(''),
+        parameters: text('parameters', { mode: 'json' }).notNull().$type<Parameters>(),
+
+        sortIndex: integer('sort_index').notNull(),
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+    },
+    (t) => [index('playground_queue_items_sort_index_idx').on(t.sortIndex)],
+)
+
+export const playgroundImages = sqliteTable(
+    'playground_images',
+    {
+        id: integer('id').primaryKey(),
+
+        prompt: text('prompt').notNull(),
+        negativePrompt: text('negative_prompt').notNull().default(''),
+        parameters: text('parameters', { mode: 'json' }).notNull().$type<Parameters>(),
+
+        filePath: text('file_path').notNull(),
+        thumbnailPath: text('thumbnail_path'),
+        metadata: text('metadata', { mode: 'json' }).notNull().default('{}'),
+
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+    },
+    (t) => [index('playground_images_created_at_idx').on(t.createdAt)],
+)
+
 export const settings = sqliteTable('settings', {
     id: integer('id').primaryKey().default(1),
 
@@ -245,6 +278,11 @@ export const settings = sqliteTable('settings', {
             thumbnailType: { type: 'webp', quality: 60 },
             thumbnailSize: 512,
         }),
+
+    debug: text('debug', { mode: 'json' }).notNull().$type<GlobalSettings['debug']>().default({
+        enabled: false,
+        recentRequestLimit: 20,
+    }),
 
     updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })

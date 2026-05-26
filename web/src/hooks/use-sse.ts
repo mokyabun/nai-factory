@@ -23,6 +23,10 @@ export function useSse(queryClient: QueryClient) {
                     queryClient.invalidateQueries({
                         predicate: (q) => q.queryKey[0] === 'queue' || q.queryKey[0] === 'scenes',
                     })
+                } else if (domain === 'debug') {
+                    queryClient.invalidateQueries({
+                        queryKey: ['debug'],
+                    })
                 }
             } catch {
                 // ignore malformed messages

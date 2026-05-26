@@ -111,8 +111,18 @@ function ProjectPage() {
         mutationFn: () => api.queue['enqueue-bulk'].post({ sceneIds: [...selectedIds] }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
             setSelectedIds(new Set())
+        },
+    })
+
+    const enqueueAll = useMutation({
+        mutationFn: () => api.queue['enqueue-all'].post({ projectId: projId }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
+            queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
         },
     })
 
@@ -189,6 +199,16 @@ function ProjectPage() {
                             className="h-6 w-12 px-1.5 text-xs"
                         />
                     </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => enqueueAll.mutate()}
+                        disabled={enqueueAll.isPending || items.length === 0}
+                    >
+                        <ListPlus className="h-4 w-4" />
+                        전체 큐 추가
+                    </Button>
                     <Button size="sm" className="gap-1.5" onClick={() => setCreateSceneOpen(true)}>
                         <Plus className="h-4 w-4" />새 씬
                     </Button>

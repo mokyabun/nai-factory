@@ -1,4 +1,5 @@
 import type {
+    DebugSettings,
     EncodeVibeRequest,
     NovelAICharacterReferenceImage,
     NovelAIParameters,
@@ -8,6 +9,12 @@ import type {
 } from '@nai-factory/types'
 import { unzipSync } from 'fflate'
 import ky from 'ky'
+import { beginDebugRequest } from '#/services/debug-log'
+
+type GenerateImageDebugOptions = {
+    settings: DebugSettings
+    context?: Record<string, unknown>
+}
 
 export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Promise<string> {
     const form = new FormData()
@@ -84,7 +91,11 @@ function getUploadRefs(params: SimpleNovelAIParameters) {
     return { vibes, characterReferences }
 }
 
-export async function generateImage(apiKey: string, params: SimpleNovelAIParameters) {
+export async function generateImage(
+    apiKey: string,
+    params: SimpleNovelAIParameters,
+    debug?: GenerateImageDebugOptions,
+) {
     const seed = params.seed ?? Math.floor(Math.random() * 2 ** 32)
     const enabledChars = params.characterPrompts.filter((c) => c.enabled)
     const vibeTransfers = params.vibeTransfers ?? []
@@ -194,70 +205,95 @@ export async function generateImage(apiKey: string, params: SimpleNovelAIParamet
 
     const uploadRefs = getUploadRefs(params)
     const shouldUseMultipart = vibeTransfers.length > 0 || characterReferences.length > 0
+    const debugRequest = beginDebugRequest({
+        settings: debug?.settings ?? { enabled: false, recentRequestLimit: 20 },
+        method: 'POST',
+        url: 'https://image.novelai.net/ai/generate-image',
+        context: {
+            multipart: shouldUseMultipart,
+            uploadCount: uploadRefs.characterReferences.length + uploadRefs.vibes.length,
+            ...debug?.context,
+        },
+        request: body,
+    })
     let zipData: ArrayBuffer
 
-    if (shouldUseMultipart) {
-        const form = new FormData()
+    try {
+        if (shouldUseMultipart) {
+            const form = new FormData()
 
-        for (const ref of uploadRefs.characterReferences) {
-            await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
-        }
-        for (const ref of uploadRefs.vibes) {
-            await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
+            for (const ref of uploadRefs.characterReferences) {
+                await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
+            }
+            for (const ref of uploadRefs.vibes) {
+                await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
+            }
+
+            form.append(
+                'request',
+                new Blob([JSON.stringify(body)], { type: 'application/json' }),
+                'blob',
+            )
+
+            zipData = await ky
+                .post('https://image.novelai.net/ai/generate-image', {
+                    body: form,
+                    timeout: 120_000,
+                    retry: {
+                        limit: 5,
+                        delay: (attempt) => 1000 * 2 ** (attempt - 1),
+                    },
+                    headers: {
+                        Authorization: `Bearer ${apiKey}`,
+                        Accept: '*/*',
+                        'Cache-Control': 'no-cache',
+                        Pragma: 'no-cache',
+                    },
+                })
+                .arrayBuffer()
+        } else {
+            zipData = await ky
+                .post('https://image.novelai.net/ai/generate-image', {
+                    json: body,
+                    timeout: 120_000,
+                    retry: {
+                        limit: 5,
+                        delay: (attempt) => 1000 * 2 ** (attempt - 1),
+                    },
+                    headers: {
+                        Authorization: `Bearer ${apiKey}`,
+                    },
+                })
+                .arrayBuffer()
         }
 
-        form.append(
-            'request',
-            new Blob([JSON.stringify(body)], { type: 'application/json' }),
-            'blob',
+        const zipUint8 = new Uint8Array(zipData)
+        const files = unzipSync(zipUint8)
+
+        if (Object.keys(files).length === 0) {
+            throw new Error('NAI API response zip is empty')
+        }
+
+        const imageEntry = Object.entries(files).find(([name]) =>
+            /\.(png|webp|jpg|jpeg)$/i.test(name),
         )
 
-        zipData = await ky
-            .post('https://image.novelai.net/ai/generate-image', {
-                body: form,
-                timeout: 120_000,
-                retry: {
-                    limit: 5,
-                    delay: (attempt) => 1000 * 2 ** (attempt - 1),
-                },
-                headers: {
-                    Authorization: `Bearer ${apiKey}`,
-                    Accept: '*/*',
-                    'Cache-Control': 'no-cache',
-                    Pragma: 'no-cache',
-                },
-            })
-            .arrayBuffer()
-    } else {
-        zipData = await ky
-            .post('https://image.novelai.net/ai/generate-image', {
-                json: body,
-                timeout: 120_000,
-                retry: {
-                    limit: 5,
-                    delay: (attempt) => 1000 * 2 ** (attempt - 1),
-                },
-                headers: {
-                    Authorization: `Bearer ${apiKey}`,
-                },
-            })
-            .arrayBuffer()
+        if (!imageEntry) {
+            throw new Error('No image found in NAI API response ZIP')
+        }
+
+        debugRequest?.success({
+            seed,
+            zipBytes: zipData.byteLength,
+            imageName: imageEntry[0],
+            imageBytes: imageEntry[1].byteLength,
+        })
+
+        return { imageData: imageEntry[1], seed }
+    } catch (error) {
+        debugRequest?.error(error)
+        throw error
     }
-
-    const zipUint8 = new Uint8Array(zipData)
-    const files = unzipSync(zipUint8)
-
-    if (Object.keys(files).length === 0) {
-        throw new Error('NAI API response zip is empty')
-    }
-
-    const imageEntry = Object.entries(files).find(([name]) => /\.(png|webp|jpg|jpeg)$/i.test(name))
-
-    if (!imageEntry) {
-        throw new Error('No image found in NAI API response ZIP')
-    }
-
-    return { imageData: imageEntry[1], seed }
 }
 
 export async function validateApiKey(apiKey: string): Promise<boolean> {

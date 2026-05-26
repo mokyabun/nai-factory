@@ -20,6 +20,12 @@ export const ImageSettings = z.object({
     thumbnailSize: z.number().min(1),
 })
 
+export type DebugSettings = z.infer<typeof DebugSettings>
+export const DebugSettings = z.object({
+    enabled: z.boolean(),
+    recentRequestLimit: z.number().int().min(1).max(500),
+})
+
 export type NovelAISettings = z.infer<typeof NovelAISettings>
 export const NovelAISettings = z.object({
     apiKey: z.string(),
@@ -30,4 +36,5 @@ export const GlobalSettings = z.object({
     globalVariables: z.record(z.string(), z.string()),
     novelai: NovelAISettings,
     image: ImageSettings,
+    debug: DebugSettings,
 })

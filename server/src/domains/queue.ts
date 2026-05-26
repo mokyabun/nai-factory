@@ -59,7 +59,9 @@ async function enqueueAll(projectId: number, position: QueueEnqueueAllBody['posi
         .orderBy(asc(scenes.displayOrder))
 
     const items = []
-    for (const scene of rows) {
+    const orderedRows = position === 'front' ? [...rows].reverse() : rows
+
+    for (const scene of orderedRows) {
         items.push(...(await enqueue(scene.id, position)))
     }
 
@@ -71,7 +73,8 @@ async function enqueueBulk(
     position: QueueEnqueueBulkBody['position'] = 'back',
 ) {
     const items = []
-    for (const sceneId of sceneIds) {
+    const orderedSceneIds = position === 'front' ? [...sceneIds].reverse() : sceneIds
+    for (const sceneId of orderedSceneIds) {
         items.push(...(await enqueue(sceneId, position)))
     }
     return items

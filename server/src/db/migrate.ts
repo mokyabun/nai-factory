@@ -20,6 +20,10 @@ import characterReferencesAndReferenceCache from './migrations/0004_character_re
 }
 // @ts-expect-error Bun imports SQL migrations as text at runtime
 import projectSettings from './migrations/0005_project_settings.sql' with { type: 'text' }
+// @ts-expect-error Bun imports SQL migrations as text at runtime
+import debugSettings from './migrations/0006_debug_settings.sql' with { type: 'text' }
+// @ts-expect-error Bun imports SQL migrations as text at runtime
+import playground from './migrations/0007_playground.sql' with { type: 'text' }
 
 const log = logger.child({ module: 'migrate' })
 
@@ -33,6 +37,8 @@ const migrations: { tag: string; sql: string }[] = [
         sql: characterReferencesAndReferenceCache,
     },
     { tag: '0005_project_settings', sql: projectSettings },
+    { tag: '0006_debug_settings', sql: debugSettings },
+    { tag: '0007_playground', sql: playground },
 ]
 
 export function migrate(db: Database) {
