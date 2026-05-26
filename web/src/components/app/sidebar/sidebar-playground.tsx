@@ -15,10 +15,10 @@ import {
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+import { PromptEditor } from './prompt-editor'
 
 const DEFAULT_PARAMETERS: Parameters = {
     model: 'nai-diffusion-4-5-full',
@@ -195,25 +195,13 @@ export function SidebarPlayground() {
             </SidebarHeader>
 
             <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-3 scrollbar-none">
-                <div className="flex flex-col gap-2">
-                    <Label htmlFor="sidebar-playground-prompt">Prompt</Label>
-                    <Textarea
-                        id="sidebar-playground-prompt"
-                        value={settings.prompt}
-                        onChange={(event) => setField('prompt', event.target.value)}
-                        className="min-h-36 resize-y"
-                    />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                    <Label htmlFor="sidebar-playground-negative-prompt">Negative Prompt</Label>
-                    <Textarea
-                        id="sidebar-playground-negative-prompt"
-                        value={settings.negativePrompt}
-                        onChange={(event) => setField('negativePrompt', event.target.value)}
-                        className="min-h-24 resize-y"
-                    />
-                </div>
+                <PromptEditor
+                    prompt={settings.prompt}
+                    negativePrompt={settings.negativePrompt}
+                    onPromptChange={(value) => setField('prompt', value)}
+                    onNegativePromptChange={(value) => setField('negativePrompt', value)}
+                    className="min-h-[300px] shrink-0"
+                />
 
                 <div className="flex flex-col gap-1.5">
                     <Label>모델</Label>
