@@ -56,7 +56,7 @@ async function ensureLoaded() {
 
 ensureLoaded().catch(() => {})
 
-async function search(q: string, limit = 20) {
+async function search(q: string, limit = 10) {
     await ensureLoaded()
     if (!searchIndex) return []
 
