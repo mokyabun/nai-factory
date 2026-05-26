@@ -1,15 +1,26 @@
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import type { LucideIcon } from 'lucide-react'
 import { AlignLeft, File, FlaskConical, ListTodo, Settings } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { lazy, useEffect, useState } from 'react'
 import * as Base from '@/components/ui/sidebar'
 import { SidebarFooter } from './sidebar-footer'
 import { SidebarHeader } from './sidebar-header'
-import { SidebarPlayground } from './sidebar-playground'
-import { SidebarProject } from './sidebar-project'
-import { SidebarPrompt } from './sidebar-prompt'
-import { SidebarQueue } from './sidebar-queue'
-import { SidebarSettings } from './sidebar-settings'
+
+const SidebarPlayground = lazy(() =>
+    import('./sidebar-playground').then((mod) => ({ default: mod.SidebarPlayground })),
+)
+const SidebarProject = lazy(() =>
+    import('./sidebar-project').then((mod) => ({ default: mod.SidebarProject })),
+)
+const SidebarPrompt = lazy(() =>
+    import('./sidebar-prompt').then((mod) => ({ default: mod.SidebarPrompt })),
+)
+const SidebarQueue = lazy(() =>
+    import('./sidebar-queue').then((mod) => ({ default: mod.SidebarQueue })),
+)
+const SidebarSettings = lazy(() =>
+    import('./sidebar-settings').then((mod) => ({ default: mod.SidebarSettings })),
+)
 
 interface AppSidebarProps {
     projectId?: number | null
