@@ -1,8 +1,8 @@
 import { asc, count, eq, inArray, max, min } from 'drizzle-orm'
-import { db, queueItems, scenes, sceneVariations } from '#/db'
+import { db, playgroundQueueItems, queueItems, scenes, sceneVariations } from '#/db'
 import logger from '#/logger'
 import { domainEvents } from './events'
-import { runJob } from './queue-runner'
+import { runJob, runPlaygroundJob } from './queue-runner'
 
 export type EnqueuePosition = 'back' | 'front'
 
@@ -12,10 +12,12 @@ const HISTORY_BUFFER_SIZE = 100
 type QueueHistoryEntry = {
     id: number
     jobId: number
-    projectId: number
-    sceneId: number
-    sceneVariationId: number
+    type: 'scene' | 'playground'
+    projectId: number | null
+    sceneId: number | null
+    sceneVariationId: number | null
     sceneName: string
+    prompt: string | null
     status: 'completed' | 'failed'
     durationMs: number
     completedAt: string
@@ -24,12 +26,20 @@ type QueueHistoryEntry = {
 
 type CurrentJob = {
     id: number
-    projectId: number
-    sceneId: number
-    sceneVariationId: number
+    type: 'scene' | 'playground'
+    projectId: number | null
+    sceneId: number | null
+    sceneVariationId: number | null
     sceneName: string
+    prompt: string | null
     startedAt: string
     startedAtMs: number
+}
+
+type PlaygroundJobDraft = {
+    prompt: string
+    negativePrompt: string
+    parameters: typeof playgroundQueueItems.$inferInsert.parameters
 }
 
 class QueueManager {
@@ -87,6 +97,27 @@ class QueueManager {
         return items
     }
 
+    async addPlayground(draft: PlaygroundJobDraft, position: EnqueuePosition = 'back') {
+        const sortIndex = await this.nextSortIndex(position, 1)
+        const [item] = await db
+            .insert(playgroundQueueItems)
+            .values({
+                prompt: draft.prompt,
+                negativePrompt: draft.negativePrompt,
+                parameters: draft.parameters,
+                sortIndex,
+            })
+            .returning()
+
+        if (!item) throw new Error('Failed to create playground queue item')
+
+        this.log.debug({ position, jobId: item.id }, 'Playground job enqueued')
+
+        if (this.running && !this.processing) this.processQueue()
+
+        return item
+    }
+
     start() {
         if (this.running) return
 
@@ -125,10 +156,12 @@ class QueueManager {
             currentJob: this.currentJob
                 ? {
                       id: this.currentJob.id,
+                      type: this.currentJob.type,
                       projectId: this.currentJob.projectId,
                       sceneId: this.currentJob.sceneId,
                       sceneVariationId: this.currentJob.sceneVariationId,
                       sceneName: this.currentJob.sceneName,
+                      prompt: this.currentJob.prompt,
                       startedAt: this.currentJob.startedAt,
                       elapsedSeconds: Math.max(
                           0,
@@ -145,22 +178,44 @@ class QueueManager {
     }
 
     private async fetchQueueStats() {
-        const [row] = await db.select({ jobCount: count() }).from(queueItems)
+        const [sceneRow, playgroundRow] = await Promise.all([
+            db
+                .select({ jobCount: count() })
+                .from(queueItems)
+                .then((rows) => rows[0]),
+            db
+                .select({ jobCount: count() })
+                .from(playgroundQueueItems)
+                .then((rows) => rows[0]),
+        ])
 
-        return { jobCount: row?.jobCount ?? 0 }
+        return { jobCount: (sceneRow?.jobCount ?? 0) + (playgroundRow?.jobCount ?? 0) }
     }
 
     private async nextSortIndex(position: EnqueuePosition, count: number) {
-        const [row] = await db
-            .select({
-                minSortIndex: min(queueItems.sortIndex),
-                maxSortIndex: max(queueItems.sortIndex),
-            })
-            .from(queueItems)
+        const [sceneRow, playgroundRow] = await Promise.all([
+            db
+                .select({
+                    minSortIndex: min(queueItems.sortIndex),
+                    maxSortIndex: max(queueItems.sortIndex),
+                })
+                .from(queueItems)
+                .then((rows) => rows[0]),
+            db
+                .select({
+                    minSortIndex: min(playgroundQueueItems.sortIndex),
+                    maxSortIndex: max(playgroundQueueItems.sortIndex),
+                })
+                .from(playgroundQueueItems)
+                .then((rows) => rows[0]),
+        ])
 
-        if (position === 'front') return (row?.minSortIndex ?? 0) - count
+        const minSortIndex = Math.min(sceneRow?.minSortIndex ?? 0, playgroundRow?.minSortIndex ?? 0)
+        const maxSortIndex = Math.max(sceneRow?.maxSortIndex ?? 0, playgroundRow?.maxSortIndex ?? 0)
 
-        return (row?.maxSortIndex ?? 0) + 1
+        if (position === 'front') return minSortIndex - count
+
+        return maxSortIndex + 1
     }
 
     private async processQueue(): Promise<void> {
@@ -169,18 +224,58 @@ class QueueManager {
 
         while (this.running) {
             // idc about same priority items being processed in random order
-            const [next] = await db
-                .select({
-                    id: queueItems.id,
-                    projectId: queueItems.projectId,
-                    sceneId: queueItems.sceneId,
-                    sceneVariationId: queueItems.sceneVariationId,
-                    sceneName: scenes.name,
-                })
-                .from(queueItems)
-                .innerJoin(scenes, eq(queueItems.sceneId, scenes.id))
-                .orderBy(asc(queueItems.sortIndex))
-                .limit(1)
+            const [nextScene, nextPlayground] = await Promise.all([
+                db
+                    .select({
+                        id: queueItems.id,
+                        projectId: queueItems.projectId,
+                        sceneId: queueItems.sceneId,
+                        sceneVariationId: queueItems.sceneVariationId,
+                        sceneName: scenes.name,
+                        sortIndex: queueItems.sortIndex,
+                    })
+                    .from(queueItems)
+                    .innerJoin(scenes, eq(queueItems.sceneId, scenes.id))
+                    .orderBy(asc(queueItems.sortIndex))
+                    .limit(1)
+                    .then((rows) =>
+                        rows[0]
+                            ? {
+                                  ...rows[0],
+                                  type: 'scene' as const,
+                                  prompt: null,
+                              }
+                            : null,
+                    ),
+                db
+                    .select({
+                        id: playgroundQueueItems.id,
+                        prompt: playgroundQueueItems.prompt,
+                        sortIndex: playgroundQueueItems.sortIndex,
+                    })
+                    .from(playgroundQueueItems)
+                    .orderBy(asc(playgroundQueueItems.sortIndex))
+                    .limit(1)
+                    .then((rows) =>
+                        rows[0]
+                            ? {
+                                  ...rows[0],
+                                  type: 'playground' as const,
+                                  projectId: null,
+                                  sceneId: null,
+                                  sceneVariationId: null,
+                                  sceneName: 'Playground',
+                              }
+                            : null,
+                    ),
+            ])
+
+            const next =
+                nextScene && nextPlayground
+                    ? nextScene.sortIndex <= nextPlayground.sortIndex
+                        ? nextScene
+                        : nextPlayground
+                    : (nextScene ?? nextPlayground)
 
             if (!next) break
 
@@ -191,17 +286,21 @@ class QueueManager {
                 startedAtMs,
             }
             try {
-                for await (const variationDurationMs of runJob(next.id)) {
+                const runner =
+                    next.type === 'playground' ? runPlaygroundJob(next.id) : runJob(next.id)
+                for await (const variationDurationMs of runner) {
                     this.recordDurationMs(variationDurationMs)
                     domainEvents.invalidate('queue')
                 }
                 this.completedCount += 1
                 this.recordHistory({
                     jobId: next.id,
+                    type: next.type,
                     projectId: next.projectId,
                     sceneId: next.sceneId,
                     sceneVariationId: next.sceneVariationId,
                     sceneName: next.sceneName,
+                    prompt: next.prompt,
                     status: 'completed',
                     durationMs: Date.now() - startedAtMs,
                     error: null,
@@ -211,10 +310,12 @@ class QueueManager {
                 this.failedCount += 1
                 this.recordHistory({
                     jobId: next.id,
+                    type: next.type,
                     projectId: next.projectId,
                     sceneId: next.sceneId,
                     sceneVariationId: next.sceneVariationId,
                     sceneName: next.sceneName,
+                    prompt: next.prompt,
                     status: 'failed',
                     durationMs: Date.now() - startedAtMs,
                     error: error instanceof Error ? error.message : String(error),

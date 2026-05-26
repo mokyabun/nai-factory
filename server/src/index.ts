@@ -7,6 +7,7 @@ import {
     debug,
     group,
     image,
+    playground,
     project,
     queue,
     scene,
@@ -42,6 +43,7 @@ export function createApp() {
         .route('/projects/:projectId/vibe-transfers', vibeTransfer)
         .route('/scenes', scene)
         .route('/images', image)
+        .route('/playground', playground)
         .route('/debug', debug)
         .route('/queue', queue)
         .route('/sd-studio', sdStudio)

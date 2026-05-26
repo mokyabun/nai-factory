@@ -255,6 +255,35 @@ export const playgroundImages = sqliteTable(
     (t) => [index('playground_images_created_at_idx').on(t.createdAt)],
 )
 
+export const playgroundSettings = sqliteTable('playground_settings', {
+    id: integer('id').primaryKey().default(1),
+
+    prompt: text('prompt').notNull().default(''),
+    negativePrompt: text('negative_prompt').notNull().default(''),
+    parameters: text('parameters', { mode: 'json' }).notNull().$type<Parameters>().default({
+        model: 'nai-diffusion-4-5-full',
+        qualityToggle: false,
+
+        width: 1024,
+        height: 1024,
+
+        steps: 28,
+        promptGuidance: 6,
+        varietyPlus: false,
+
+        seed: 0,
+
+        sampler: 'k_euler_ancestral',
+        promptGuidanceRescale: 0.7,
+        noiseSchedule: 'karras',
+
+        normalizeReferenceStrengthValues: false,
+        useCharacterPositions: false,
+    }),
+
+    updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+})
+
 export const settings = sqliteTable('settings', {
     id: integer('id').primaryKey().default(1),
 

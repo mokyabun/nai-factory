@@ -5,6 +5,7 @@ export const EnqueuePosition = z.enum(['back', 'front'])
 
 export const QueueItem = z.object({
     id: z.number(),
+    type: z.literal('scene').default('scene'),
     projectId: z.number(),
     sceneId: z.number(),
     sceneVariationId: z.number(),
@@ -12,6 +13,15 @@ export const QueueItem = z.object({
 
     sortIndex: z.number(),
 })
+
+export const PlaygroundQueueItem = z.object({
+    id: z.number(),
+    type: z.literal('playground'),
+    prompt: z.string(),
+    sortIndex: z.number(),
+})
+
+export const AnyQueueItem = z.union([QueueItem, PlaygroundQueueItem])
 
 export const QueueGetQuery = z.object({
     projectId: z.coerce.number().int().positive().optional(),
@@ -47,6 +57,8 @@ export const EnqueueBulkBody = QueueEnqueueBulkBody
 
 export type EnqueuePosition = z.infer<typeof EnqueuePosition>
 export type QueueItem = z.infer<typeof QueueItem>
+export type PlaygroundQueueItem = z.infer<typeof PlaygroundQueueItem>
+export type AnyQueueItem = z.infer<typeof AnyQueueItem>
 export type QueueGetQuery = z.infer<typeof QueueGetQuery>
 export type QueueClearQuery = z.infer<typeof QueueClearQuery>
 export type QueueEnqueueBody = z.infer<typeof QueueEnqueueBody>

@@ -108,6 +108,37 @@ export async function save(
     }
 }
 
+export async function savePlayground(
+    imageId: number,
+    imageData: Uint8Array,
+    imageSettings: ImageSettings,
+    metadata?: Record<string, unknown>,
+) {
+    const base = join('playground', String(imageId))
+    const filePath = join(IMAGES_DIR, `${base}.${imageSettings.sourceType.type}`)
+    const thumbnailPath = join(THUMBNAILS_DIR, `${base}.${imageSettings.thumbnailType.type}`)
+
+    await Promise.all([ensureDir(filePath), ensureDir(thumbnailPath)])
+
+    await Promise.all([
+        processImage(imageData, filePath, imageSettings.sourceType, metadata),
+        processImage(
+            imageData,
+            thumbnailPath,
+            imageSettings.thumbnailType,
+            undefined,
+            imageSettings.thumbnailSize,
+        ),
+    ])
+
+    logger.info({ filePath, sizeBytes: imageData.byteLength }, 'Playground image saved')
+
+    return {
+        filePath: filePath.replaceAll('\\', '/'),
+        thumbnailPath: thumbnailPath.replaceAll('\\', '/'),
+    }
+}
+
 export async function remove(filePath: string, thumbnailPath: string | null) {
     const promises: Promise<void>[] = [fs.rm(filePath, { force: true })]
     if (thumbnailPath) promises.push(fs.rm(thumbnailPath, { force: true }))

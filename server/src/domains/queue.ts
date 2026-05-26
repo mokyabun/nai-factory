@@ -10,11 +10,11 @@ import {
 import { and, asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { db, projects, queueItems, scenes } from '../db'
+import { db, playgroundQueueItems, projects, queueItems, scenes } from '../db'
 import { domainEvents, queueManager } from '../services'
 
 async function get(projectId?: number) {
-    const rows = await db
+    const sceneRows = await db
         .select({
             id: queueItems.id,
             projectId: queueItems.projectId,
@@ -28,7 +28,23 @@ async function get(projectId?: number) {
         .where(projectId ? eq(queueItems.projectId, projectId) : undefined)
         .orderBy(asc(queueItems.sortIndex))
 
-    return rows
+    if (projectId) {
+        return sceneRows.map((row) => ({ ...row, type: 'scene' as const }))
+    }
+
+    const playgroundRows = await db
+        .select({
+            id: playgroundQueueItems.id,
+            prompt: playgroundQueueItems.prompt,
+            sortIndex: playgroundQueueItems.sortIndex,
+        })
+        .from(playgroundQueueItems)
+        .orderBy(asc(playgroundQueueItems.sortIndex))
+
+    return [
+        ...sceneRows.map((row) => ({ ...row, type: 'scene' as const })),
+        ...playgroundRows.map((row) => ({ ...row, type: 'playground' as const })),
+    ].sort((a, b) => a.sortIndex - b.sortIndex)
 }
 
 async function enqueue(
@@ -91,6 +107,20 @@ async function cancel(id: number) {
 }
 
 async function clear(sceneId?: number, sceneVariationId?: number) {
+    if (!sceneId && !sceneVariationId) {
+        const [sceneRows, playgroundRows] = await Promise.all([
+            db.select({ id: queueItems.id }).from(queueItems),
+            db.select({ id: playgroundQueueItems.id }).from(playgroundQueueItems),
+        ])
+
+        await Promise.all([
+            queueManager.cancel(sceneRows.map((row) => row.id)),
+            db.delete(playgroundQueueItems),
+        ])
+
+        return { cancelled: sceneRows.length + playgroundRows.length }
+    }
+
     const rows = await db
         .select({ id: queueItems.id })
         .from(queueItems)

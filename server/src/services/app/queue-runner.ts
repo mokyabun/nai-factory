@@ -1,6 +1,15 @@
 import type { ImageSettings, Prompt, SimpleNovelAIParameters } from '@nai-factory/types'
 import { desc, eq } from 'drizzle-orm'
-import { db, images, projects, queueItems, scenes, sceneVariations } from '#/db'
+import {
+    db,
+    images,
+    playgroundImages,
+    playgroundQueueItems,
+    projects,
+    queueItems,
+    scenes,
+    sceneVariations,
+} from '#/db'
 import logger from '#/logger'
 import * as characterReferenceService from '#/services/novelai/character-reference'
 import * as novelAIService from '#/services/novelai/novelai'
@@ -151,6 +160,85 @@ async function generateAndSaveImage(
     }
 }
 
+async function generateAndSavePlaygroundImage(
+    job: typeof playgroundQueueItems.$inferSelect,
+    params: SimpleNovelAIParameters,
+    apiKey: string,
+    imageSettings: ImageSettings,
+): Promise<void> {
+    const { imageData } = await novelAIService.generateImage(apiKey, params, {
+        settings: settingsService.get().debug,
+        context: {
+            jobId: job.id,
+            source: 'playground',
+        },
+    })
+
+    const metadata = {
+        generator: 'nai-factory',
+        source: 'playground',
+        generatedAt: new Date().toISOString(),
+        prompt: params.prompt,
+        negativePrompt: params.negativePrompt,
+        characterPrompts: params.characterPrompts,
+        parameters: {
+            model: params.model,
+            width: params.width,
+            height: params.height,
+            steps: params.steps,
+            promptGuidance: params.promptGuidance,
+            promptGuidanceRescale: params.promptGuidanceRescale,
+            sampler: params.sampler,
+            noiseSchedule: params.noiseSchedule,
+            seed: params.seed,
+            qualityToggle: params.qualityToggle,
+            varietyPlus: params.varietyPlus,
+            normalizeReferenceStrengthValues: params.normalizeReferenceStrengthValues,
+            useCharacterPositions: params.useCharacterPositions,
+        },
+        vibeTransfers: [],
+        characterReferences: [],
+    }
+
+    const [image] = await db
+        .insert(playgroundImages)
+        .values({
+            prompt: job.prompt,
+            negativePrompt: job.negativePrompt,
+            parameters: job.parameters,
+            filePath: '',
+            thumbnailPath: '',
+            metadata,
+        })
+        .returning({ id: playgroundImages.id })
+
+    if (!image) throw new Error('Failed to create playground image record')
+
+    try {
+        const { filePath, thumbnailPath } = await imageService.savePlayground(
+            image.id,
+            imageData,
+            imageSettings,
+            metadata,
+        )
+
+        await db
+            .update(playgroundImages)
+            .set({ filePath, thumbnailPath })
+            .where(eq(playgroundImages.id, image.id))
+        domainEvents.invalidate('playground')
+
+        log.debug({ imageId: image.id, filePath }, 'Playground image saved')
+    } catch (error) {
+        await db
+            .delete(playgroundImages)
+            .where(eq(playgroundImages.id, image.id))
+            .catch(() => {})
+
+        throw error
+    }
+}
+
 async function markUploadedReferenceCaches(params: SimpleNovelAIParameters) {
     const uploadedVibeIds = params.vibeTransfers
         .map((ref) => (ref.uploadFieldName && ref.filePath ? ref.id : undefined))
@@ -241,4 +329,43 @@ export async function* runJob(jobId: number) {
 
     await db.delete(queueItems).where(eq(queueItems.id, jobId))
     log.info({ jobId, duration: (Date.now() - startedAt) / 1000 }, 'Job completed')
+}
+
+export async function* runPlaygroundJob(jobId: number) {
+    const [job] = await db
+        .select()
+        .from(playgroundQueueItems)
+        .where(eq(playgroundQueueItems.id, jobId))
+        .limit(1)
+    if (!job) throw new Error(`Playground job ${jobId} not found`)
+
+    const globalSettings = settingsService.get()
+    if (!globalSettings.novelai.apiKey) {
+        throw new Error('NovelAI API key not set in global settings')
+    }
+
+    const startedAt = Date.now()
+    log.info({ jobId, source: 'playground' }, 'Processing playground job')
+
+    const params: SimpleNovelAIParameters = {
+        ...job.parameters,
+        prompt: job.prompt,
+        negativePrompt: job.negativePrompt,
+        characterPrompts: [],
+        vibeTransfers: [],
+        characterReferences: [],
+        seed: job.parameters.seed || Math.floor(Math.random() * 1_000_000_000),
+    }
+
+    const variationStart = Date.now()
+    await generateAndSavePlaygroundImage(
+        job,
+        params,
+        globalSettings.novelai.apiKey,
+        globalSettings.image,
+    )
+    yield Date.now() - variationStart
+
+    await db.delete(playgroundQueueItems).where(eq(playgroundQueueItems.id, jobId))
+    log.info({ jobId, duration: (Date.now() - startedAt) / 1000 }, 'Playground job completed')
 }

@@ -1,6 +1,7 @@
 export * from './character-reference'
 export * from './group'
 export * from './image'
+export * from './playground'
 export * from './project'
 export * from './queue'
 export * from './scene'

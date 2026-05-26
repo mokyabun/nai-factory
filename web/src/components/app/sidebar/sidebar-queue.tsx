@@ -142,12 +142,16 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                     {status.currentJob ? (
                         <div className="flex flex-col gap-1 text-xs">
                             <div className="truncate font-medium">
-                                {status.currentJob.sceneName}
+                                {status.currentJob.type === 'playground'
+                                    ? 'Playground'
+                                    : status.currentJob.sceneName}
                             </div>
                             <div className="text-muted-foreground">
-                                #{status.currentJob.id} · variation{' '}
-                                {status.currentJob.sceneVariationId} ·{' '}
-                                {status.currentJob.elapsedSeconds}s
+                                #{status.currentJob.id} ·{' '}
+                                {status.currentJob.type === 'playground'
+                                    ? (status.currentJob.prompt ?? 'prompt')
+                                    : `variation ${status.currentJob.sceneVariationId}`}{' '}
+                                · {status.currentJob.elapsedSeconds}s
                             </div>
                         </div>
                     ) : (
@@ -187,10 +191,15 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <div className="truncate font-medium">
-                                        {item.sceneName ?? `Scene ${item.sceneId}`}
+                                        {item.type === 'playground'
+                                            ? 'Playground'
+                                            : (item.sceneName ?? `Scene ${item.sceneId}`)}
                                     </div>
                                     <div className="truncate text-[11px] text-muted-foreground">
-                                        job #{item.id} · variation {item.sceneVariationId}
+                                        job #{item.id} ·{' '}
+                                        {item.type === 'playground'
+                                            ? item.prompt
+                                            : `variation ${item.sceneVariationId}`}
                                     </div>
                                 </div>
                             </div>
@@ -217,7 +226,11 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                                 >
                                     {entry.status === 'completed' ? '완료' : '실패'}
                                 </Badge>
-                                <div className="min-w-0 flex-1 truncate">{entry.sceneName}</div>
+                                <div className="min-w-0 flex-1 truncate">
+                                    {entry.type === 'playground'
+                                        ? (entry.prompt ?? 'Playground')
+                                        : entry.sceneName}
+                                </div>
                                 <span className="shrink-0 text-[11px] text-muted-foreground">
                                     {formatDuration(entry.durationMs)}
                                 </span>

@@ -19,6 +19,10 @@ export function useSse(queryClient: QueryClient) {
                     queryClient.invalidateQueries({
                         predicate: (q) => q.queryKey[0] === 'images' || q.queryKey[0] === 'scenes',
                     })
+                } else if (domain === 'playground') {
+                    queryClient.invalidateQueries({
+                        queryKey: ['playground'],
+                    })
                 } else if (domain === 'queue') {
                     queryClient.invalidateQueries({
                         predicate: (q) => q.queryKey[0] === 'queue' || q.queryKey[0] === 'scenes',

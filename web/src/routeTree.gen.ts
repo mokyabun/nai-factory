@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SceneSceneIdRouteImport } from './routes/scene/$sceneId'
 import { Route as ProjectProjectIdRouteImport } from './routes/project/$projectId'
@@ -21,6 +22,11 @@ import { Route as SceneSceneIdImagesImageIdRouteImport } from './routes/scene/$s
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlaygroundRoute = PlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -62,6 +68,7 @@ const SceneSceneIdImagesImageIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/playground': typeof PlaygroundRoute
   '/settings': typeof SettingsRoute
   '/project/$projectId': typeof ProjectProjectIdRouteWithChildren
   '/scene/$sceneId': typeof SceneSceneIdRouteWithChildren
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/playground': typeof PlaygroundRoute
   '/settings': typeof SettingsRoute
   '/project/$projectId': typeof ProjectProjectIdIndexRoute
   '/scene/$sceneId': typeof SceneSceneIdIndexRoute
@@ -81,6 +89,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/playground': typeof PlaygroundRoute
   '/settings': typeof SettingsRoute
   '/project/$projectId': typeof ProjectProjectIdRouteWithChildren
   '/scene/$sceneId': typeof SceneSceneIdRouteWithChildren
@@ -93,6 +102,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/playground'
     | '/settings'
     | '/project/$projectId'
     | '/scene/$sceneId'
@@ -103,6 +113,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/playground'
     | '/settings'
     | '/project/$projectId'
     | '/scene/$sceneId'
@@ -111,6 +122,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/playground'
     | '/settings'
     | '/project/$projectId'
     | '/scene/$sceneId'
@@ -122,6 +134,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PlaygroundRoute: typeof PlaygroundRoute
   SettingsRoute: typeof SettingsRoute
   ProjectProjectIdRoute: typeof ProjectProjectIdRouteWithChildren
   SceneSceneIdRoute: typeof SceneSceneIdRouteWithChildren
@@ -134,6 +147,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -217,6 +237,7 @@ const SceneSceneIdRouteWithChildren = SceneSceneIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PlaygroundRoute: PlaygroundRoute,
   SettingsRoute: SettingsRoute,
   ProjectProjectIdRoute: ProjectProjectIdRouteWithChildren,
   SceneSceneIdRoute: SceneSceneIdRouteWithChildren,

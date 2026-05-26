@@ -11,6 +11,11 @@ import type {
     Image,
     ImageGetQuery,
     ImageOrderPatchBody,
+    PlaygroundEnqueueBody,
+    PlaygroundImage,
+    PlaygroundImageGetQuery,
+    PlaygroundSettings,
+    PlaygroundSettingsPatchBody,
     Project,
     ProjectGetQuery,
     ProjectPatchBody,
@@ -33,6 +38,7 @@ import type {
     VibeTransferOrderPatchBody,
     VibeTransferPatchBody,
     VibeTransferUploadBody,
+    AnyQueueItem,
 } from '@nai-factory/types'
 import ky, { HTTPError, type Options } from 'ky'
 
@@ -92,10 +98,12 @@ export type QueueEnqueueResult = {
 
 export type QueueStatusJob = {
     id: number
-    projectId: number
-    sceneId: number
-    sceneVariationId: number
+    type: 'scene' | 'playground'
+    projectId: number | null
+    sceneId: number | null
+    sceneVariationId: number | null
     sceneName: string
+    prompt: string | null
     startedAt: string
     elapsedSeconds: number
 }
@@ -103,10 +111,12 @@ export type QueueStatusJob = {
 export type QueueHistoryEntry = {
     id: number
     jobId: number
-    projectId: number
-    sceneId: number
-    sceneVariationId: number
+    type: 'scene' | 'playground'
+    projectId: number | null
+    sceneId: number | null
+    sceneVariationId: number | null
     sceneName: string
+    prompt: string | null
     status: 'completed' | 'failed'
     durationMs: number
     completedAt: string
@@ -351,7 +361,7 @@ export const api = {
     images,
     queue: {
         get: ({ query }: { query?: { projectId?: number } } = {}) =>
-            request<QueueItem[]>('/queue', { searchParams: query }),
+            request<AnyQueueItem[]>('/queue', { searchParams: query }),
         status: {
             get: () => request<QueueStatus>('/queue/status'),
         },
@@ -381,6 +391,26 @@ export const api = {
         },
         delete: ({ query }: { query?: QueueClearQuery } = {}) =>
             request<{ cancelled: number }>('/queue', { method: 'delete', searchParams: query }),
+    },
+    playground: {
+        settings: {
+            get: () => request<PlaygroundSettings>('/playground/settings'),
+            patch: (json: PlaygroundSettingsPatchBody) =>
+                request<PlaygroundSettings>('/playground/settings', { method: 'patch', json }),
+        },
+        images: {
+            get: ({ query }: { query?: PlaygroundImageGetQuery } = {}) =>
+                request<PlaygroundImage[]>('/playground/images', { searchParams: query }),
+            delete: ({ id }: EntityId) =>
+                request<void>(`/playground/images/${id}`, { method: 'delete' }),
+        },
+        enqueue: {
+            post: (json: PlaygroundEnqueueBody) =>
+                request<{ queued: number; item: unknown }>('/playground/enqueue', {
+                    method: 'post',
+                    json,
+                }),
+        },
     },
     debug: {
         requests: {

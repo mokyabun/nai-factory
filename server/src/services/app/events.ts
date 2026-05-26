@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 
-export type EventDomain = 'queue' | 'images' | 'debug'
+export type EventDomain = 'queue' | 'images' | 'playground' | 'debug'
 
 export interface DomainChangeEvent {
     domain: EventDomain
