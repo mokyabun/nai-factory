@@ -19,10 +19,22 @@ import {
 import { VibeTransferEditor } from './vibe-transfer-editor'
 
 type SidebarPromptProps = {
-    projectId: number
+    projectId: number | null
 }
 
 export function SidebarPrompt({ projectId }: SidebarPromptProps) {
+    if (projectId === null) {
+        return (
+            <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
+                왼쪽 패널에서 프로젝트를 선택하세요
+            </div>
+        )
+    }
+
+    return <SidebarPromptContent projectId={projectId} />
+}
+
+export function SidebarPromptContent({ projectId }: { projectId: number }) {
     const queryClient = useQueryClient()
 
     const projectQuery = useQuery({

@@ -43,6 +43,7 @@ interface ProjectTreeActions {
     renameGroup: (group: GroupWithProjects) => void
     deleteGroup: (group: GroupWithProjects) => void
     selectProject: (project: ProjectSummary) => void
+    preloadProject: (project: ProjectSummary) => void
     renameProject: (project: ProjectSummary) => void
     duplicateProject: (project: ProjectSummary) => void
     moveProject: (project: ProjectSummary, groupId: ProjectGroupId) => void
@@ -256,6 +257,7 @@ function ProjectGroup({
                                         onCommitRename({ type: 'project', id: project.id })
                                     }
                                     onCancelRename={onCancelRename}
+                                    onPreload={() => actions.preloadProject(project)}
                                     onSelect={() => actions.selectProject(project)}
                                     onRename={() => actions.renameProject(project)}
                                     onDuplicate={() => actions.duplicateProject(project)}
@@ -316,6 +318,7 @@ function RootProjects({
                         onRenameValueChange={onRenameValueChange}
                         onCommitRename={() => onCommitRename({ type: 'project', id: project.id })}
                         onCancelRename={onCancelRename}
+                        onPreload={() => actions.preloadProject(project)}
                         onSelect={() => actions.selectProject(project)}
                         onRename={() => actions.renameProject(project)}
                         onDuplicate={() => actions.duplicateProject(project)}
@@ -337,6 +340,7 @@ interface ProjectRowProps {
     onRenameValueChange: (value: string) => void
     onCommitRename: () => void
     onCancelRename: () => void
+    onPreload: () => void
     onSelect: () => void
     onRename: () => void
     onDuplicate: () => void
@@ -353,6 +357,7 @@ function ProjectRow({
     onRenameValueChange,
     onCommitRename,
     onCancelRename,
+    onPreload,
     onSelect,
     onRename,
     onDuplicate,
@@ -398,6 +403,8 @@ function ProjectRow({
                 <Base.SidebarMenuButton
                     isActive={isActive}
                     className="h-7 flex-1 cursor-grab px-2 active:cursor-grabbing"
+                    onMouseEnter={onPreload}
+                    onFocus={onPreload}
                     onClick={onSelect}
                     {...attributes}
                     {...listeners}
@@ -409,6 +416,8 @@ function ProjectRow({
                 <Base.SidebarMenuSubButton
                     isActive={isActive}
                     className="flex-1 cursor-grab active:cursor-grabbing"
+                    onMouseEnter={onPreload}
+                    onFocus={onPreload}
                     onClick={onSelect}
                     {...attributes}
                     {...listeners}

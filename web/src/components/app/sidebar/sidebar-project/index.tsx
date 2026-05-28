@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useRouterState } from '@tanstack/react-router'
+import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateGroupDialog } from '@/components/app/dialogs/create-group-dialog'
@@ -22,6 +22,7 @@ type DeleteTarget =
 
 export function SidebarProject() {
     const navigate = useNavigate()
+    const router = useRouter()
     const pathname = useRouterState({ select: (state) => state.location.pathname })
     const queryClient = useQueryClient()
 
@@ -121,6 +122,34 @@ export function SidebarProject() {
         })
     }
 
+    function preloadProject(project: ProjectSummary) {
+        const projectId = project.id
+
+        router
+            .preloadRoute({
+                to: '/project/$projectId',
+                params: { projectId: String(projectId) },
+                search: (prev) => ({ ...prev, sidebar: 'prompt' }),
+            })
+            .catch(() => undefined)
+
+        queryClient.prefetchQuery({
+            queryKey: qk.project(projectId),
+            queryFn: async () => {
+                const { data } = await api.projects({ projectId }).get()
+                return data ?? null
+            },
+        })
+
+        queryClient.prefetchQuery({
+            queryKey: qk.scenes(projectId),
+            queryFn: async () => {
+                const { data } = await api.scenes.get({ query: { projectId } })
+                return data ?? []
+            },
+        })
+    }
+
     async function handleDeleteGroup(group: GroupWithProjects) {
         await deleteGroup.mutateAsync(group.id)
 
@@ -169,6 +198,7 @@ export function SidebarProject() {
                             setDeleteOpen(true)
                         },
                         selectProject,
+                        preloadProject,
                         renameProject: (project) =>
                             startRename({ type: 'project', id: project.id }, project.name),
                         duplicateProject: (project) => duplicateProject.mutate(project.id),

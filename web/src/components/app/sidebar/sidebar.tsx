@@ -1,25 +1,59 @@
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import type { LucideIcon } from 'lucide-react'
 import { AlignLeft, File, FlaskConical, ListTodo, Settings } from 'lucide-react'
-import { lazy, useEffect, useState } from 'react'
+import {
+    type ComponentType,
+    type LazyExoticComponent,
+    lazy,
+    Suspense,
+    useEffect,
+    useState,
+} from 'react'
 import * as Base from '@/components/ui/sidebar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { SidebarFooter } from './sidebar-footer'
 import { SidebarHeader } from './sidebar-header'
 
-const SidebarPlayground = lazy(() =>
-    import('./sidebar-playground').then((mod) => ({ default: mod.SidebarPlayground })),
+type PreloadablePanel<TProps = unknown> = LazyExoticComponent<ComponentType<TProps>> & {
+    preload: () => Promise<{ default: ComponentType<TProps> }>
+}
+
+function lazyWithPreload<TProps = unknown>(
+    load: () => Promise<{ default: ComponentType<TProps> }>,
+): PreloadablePanel<TProps> {
+    let promise: Promise<{ default: ComponentType<TProps> }> | null = null
+    const loadOnce = () => {
+        promise ??= load()
+        return promise
+    }
+
+    return Object.assign(lazy(loadOnce), { preload: loadOnce })
+}
+
+const SidebarPlayground = lazyWithPreload<Record<string, never>>(() =>
+    import('./sidebar-playground').then((mod) => ({
+        default: mod.SidebarPlayground as ComponentType<Record<string, never>>,
+    })),
 )
-const SidebarProject = lazy(() =>
-    import('./sidebar-project').then((mod) => ({ default: mod.SidebarProject })),
+const SidebarProject = lazyWithPreload<Record<string, never>>(() =>
+    import('./sidebar-project').then((mod) => ({
+        default: mod.SidebarProject as ComponentType<Record<string, never>>,
+    })),
 )
-const SidebarPrompt = lazy(() =>
-    import('./sidebar-prompt').then((mod) => ({ default: mod.SidebarPrompt })),
+const SidebarPrompt = lazyWithPreload<{ projectId: number | null }>(() =>
+    import('./sidebar-prompt').then((mod) => ({
+        default: mod.SidebarPrompt as ComponentType<{ projectId: number | null }>,
+    })),
 )
-const SidebarQueue = lazy(() =>
-    import('./sidebar-queue').then((mod) => ({ default: mod.SidebarQueue })),
+const SidebarQueue = lazyWithPreload<{ projectId?: number | null }>(() =>
+    import('./sidebar-queue').then((mod) => ({
+        default: mod.SidebarQueue as ComponentType<{ projectId?: number | null }>,
+    })),
 )
-const SidebarSettings = lazy(() =>
-    import('./sidebar-settings').then((mod) => ({ default: mod.SidebarSettings })),
+const SidebarSettings = lazyWithPreload<Record<string, never>>(() =>
+    import('./sidebar-settings').then((mod) => ({
+        default: mod.SidebarSettings as ComponentType<Record<string, never>>,
+    })),
 )
 
 interface AppSidebarProps {
@@ -44,9 +78,19 @@ export function Sidebar({ projectId }: AppSidebarProps) {
     const pathname = useRouterState({ select: (s) => s.location.pathname })
 
     useEffect(() => {
+        SidebarProject.preload()
+        SidebarQueue.preload()
+    }, [])
+
+    useEffect(() => {
+        if (projectId) SidebarPrompt.preload()
+    }, [projectId])
+
+    useEffect(() => {
         const params = new URLSearchParams(search)
         const panel = params.get('sidebar') as SidebarPanel | null
         if (panel && ['project', 'playground', 'prompt', 'queue', 'settings'].includes(panel)) {
+            preloadSidebarPanel(panel)
             setActivePanel(panel)
             return
         }
@@ -64,20 +108,18 @@ export function Sidebar({ projectId }: AppSidebarProps) {
             icon: FlaskConical,
             to: '/playground',
         },
-        ...(projectId
-            ? [
-                  {
-                      title: '프롬프트',
-                      panel: 'prompt' as const,
-                      icon: AlignLeft,
-                  },
-              ]
-            : []),
+        {
+            title: '프롬프트',
+            panel: 'prompt' as const,
+            icon: AlignLeft,
+        },
         { title: 'Queue', panel: 'queue' as const, icon: ListTodo },
     ]
     const bottomItems = [{ title: '설정', panel: 'settings' as const, icon: Settings }]
 
     function handlePanelClick(panel: SidebarPanel, to?: '/playground') {
+        preloadSidebarPanel(panel)
+
         if (to && pathname !== to) {
             navigate({ to })
             setActivePanel(panel)
@@ -115,6 +157,8 @@ export function Sidebar({ projectId }: AppSidebarProps) {
                                     <Base.SidebarMenuItem key={item.title}>
                                         <Base.SidebarMenuButton
                                             tooltip={item.title}
+                                            onMouseEnter={() => preloadSidebarPanel(item.panel)}
+                                            onFocus={() => preloadSidebarPanel(item.panel)}
                                             onClick={() => handlePanelClick(item.panel, item.to)}
                                             isActive={activePanel === item.panel}
                                             className="px-2.5 md:px-2"
@@ -129,6 +173,8 @@ export function Sidebar({ projectId }: AppSidebarProps) {
                                         <Base.SidebarMenuItem key={item.title}>
                                             <Base.SidebarMenuButton
                                                 tooltip={item.title}
+                                                onMouseEnter={() => preloadSidebarPanel(item.panel)}
+                                                onFocus={() => preloadSidebarPanel(item.panel)}
                                                 onClick={() => handlePanelClick(item.panel)}
                                                 isActive={activePanel === item.panel}
                                                 className="px-2.5 md:px-2"
@@ -148,13 +194,40 @@ export function Sidebar({ projectId }: AppSidebarProps) {
 
             {/* Panel */}
             <Base.Sidebar collapsible="none" className="hidden min-w-0 flex-1 !w-auto md:flex">
-                {activePanel === 'project' && <SidebarProject />}
-                {activePanel === 'playground' && <SidebarPlayground />}
-                {activePanel === 'prompt' && projectId && <SidebarPrompt projectId={projectId} />}
-                {activePanel === 'queue' && <SidebarQueue projectId={projectId} />}
-                {activePanel === 'settings' && <SidebarSettings />}
+                <Suspense fallback={<SidebarPanelFallback />}>
+                    {activePanel === 'project' && <SidebarProject />}
+                    {activePanel === 'playground' && <SidebarPlayground />}
+                    {activePanel === 'prompt' && <SidebarPrompt projectId={projectId ?? null} />}
+                    {activePanel === 'queue' && <SidebarQueue projectId={projectId} />}
+                    {activePanel === 'settings' && <SidebarSettings />}
+                </Suspense>
                 <Base.SidebarRail />
             </Base.Sidebar>
         </Base.Sidebar>
+    )
+}
+
+function preloadSidebarPanel(panel: SidebarPanel) {
+    if (panel === 'project') SidebarProject.preload()
+    if (panel === 'playground') SidebarPlayground.preload()
+    if (panel === 'prompt') SidebarPrompt.preload()
+    if (panel === 'queue') SidebarQueue.preload()
+    if (panel === 'settings') SidebarSettings.preload()
+}
+
+function SidebarPanelFallback() {
+    return (
+        <div className="flex flex-1 flex-col">
+            <div className="flex h-10 shrink-0 items-center gap-2 border-b px-2">
+                <Skeleton className="h-4 w-4" />
+                <Skeleton className="h-4 w-36" />
+            </div>
+            <div className="flex flex-col gap-3 p-3">
+                <Skeleton className="h-7 w-full" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-10 w-3/4" />
+            </div>
+        </div>
     )
 }
