@@ -43,7 +43,8 @@ export function StatusBar() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({
-                predicate: (query) => query.queryKey[0] === 'queue' && query.queryKey[1] === 'items',
+                predicate: (query) =>
+                    query.queryKey[0] === 'queue' && query.queryKey[1] === 'items',
             })
         },
     })

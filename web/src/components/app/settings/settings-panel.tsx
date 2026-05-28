@@ -1,7 +1,8 @@
-import type { ImageSaveType, SettingsPatchBody } from '@nai-factory/types'
+import type { SettingsPatchBody } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Provider, useAtom, useAtomValue } from 'jotai'
 import { Bug, Eye, EyeOff, Plus, Save, Settings, Trash2, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,46 +20,25 @@ import { Switch } from '@/components/ui/switch'
 import { api, type DebugRequestEntry } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { cn, debounce } from '@/lib/utils'
+import {
+    addGlobalVar,
+    updateGlobalVar as applyGlobalVarUpdate,
+    updateSettingsDraft as applySettingsDraftUpdate,
+    createSettingsDraft,
+    createSettingsPatch,
+    debugRequestRowOpenAtom,
+    type ImageFormat,
+    removeGlobalVar,
+    settingsDraftAtom,
+    settingsPatchAtom,
+    showApiKeyAtom,
+} from './atom'
 
 const IMAGE_FORMATS = [
     { value: 'png', label: 'PNG' },
     { value: 'webp', label: 'WebP' },
     { value: 'avif', label: 'AVIF' },
 ]
-
-function createSettingsPatch({
-    apiKey,
-    globalVars,
-    sourceFormat,
-    sourceQuality,
-    thumbFormat,
-    thumbQuality,
-    thumbSize,
-    debugEnabled,
-    debugRequestLimit,
-}: {
-    apiKey: string
-    globalVars: [string, string][]
-    sourceFormat: 'png' | 'webp' | 'avif'
-    sourceQuality: number
-    thumbFormat: 'png' | 'webp' | 'avif'
-    thumbQuality: number
-    thumbSize: number
-    debugEnabled: boolean
-    debugRequestLimit: number
-}): SettingsPatchBody {
-    const sourceType: ImageSaveType =
-        sourceFormat === 'png' ? { type: 'png' } : { type: sourceFormat, quality: sourceQuality }
-    const thumbnailType: ImageSaveType =
-        thumbFormat === 'png' ? { type: 'png' } : { type: thumbFormat, quality: thumbQuality }
-
-    return {
-        novelai: { apiKey },
-        globalVariables: Object.fromEntries(globalVars),
-        image: { sourceType, thumbnailType, thumbnailSize: thumbSize },
-        debug: { enabled: debugEnabled, recentRequestLimit: debugRequestLimit },
-    }
-}
 
 function formatDuration(milliseconds: number | null) {
     if (milliseconds === null) return '-'
@@ -67,7 +47,15 @@ function formatDuration(milliseconds: number | null) {
 }
 
 function DebugRequestRow({ request }: { request: DebugRequestEntry }) {
-    const [open, setOpen] = useState(false)
+    return (
+        <Provider>
+            <DebugRequestRowContent request={request} />
+        </Provider>
+    )
+}
+
+function DebugRequestRowContent({ request }: { request: DebugRequestEntry }) {
+    const [open, setOpen] = useAtom(debugRequestRowOpenAtom)
     const statusVariant =
         request.status === 'success'
             ? 'secondary'
@@ -117,8 +105,31 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
+    return (
+        <Provider>
+            <SettingsPanelContent variant={variant} />
+        </Provider>
+    )
+}
+
+function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
     const compact = variant === 'sidebar'
     const queryClient = useQueryClient()
+    const [showApiKey, setShowApiKey] = useAtom(showApiKeyAtom)
+    const [draft, setDraft] = useAtom(settingsDraftAtom)
+    const settingsPatch = useAtomValue(settingsPatchAtom)
+    const {
+        apiKey,
+        globalVars,
+        sourceFormat,
+        sourceQuality,
+        thumbFormat,
+        thumbQuality,
+        thumbSize,
+        debugEnabled,
+        debugRequestLimit,
+        loaded,
+    } = draft
 
     const settingsQuery = useQuery({
         queryKey: qk.settings(),
@@ -127,18 +138,6 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
             return data ?? null
         },
     })
-
-    const [showApiKey, setShowApiKey] = useState(false)
-    const [apiKey, setApiKey] = useState('')
-    const [globalVars, setGlobalVars] = useState<[string, string][]>([])
-    const [sourceFormat, setSourceFormat] = useState<'png' | 'webp' | 'avif'>('png')
-    const [sourceQuality, setSourceQuality] = useState(90)
-    const [thumbFormat, setThumbFormat] = useState<'png' | 'webp' | 'avif'>('webp')
-    const [thumbQuality, setThumbQuality] = useState(80)
-    const [thumbSize, setThumbSize] = useState(256)
-    const [debugEnabled, setDebugEnabled] = useState(false)
-    const [debugRequestLimit, setDebugRequestLimit] = useState(20)
-    const [loaded, setLoaded] = useState(false)
     const lastSavedJson = useRef('')
 
     const debugRequestsQuery = useQuery({
@@ -152,46 +151,13 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
 
     useEffect(() => {
         const data = settingsQuery.data
-        if (data && !loaded) {
-            setLoaded(true)
-            setApiKey(data.novelai?.apiKey ?? '')
-            setGlobalVars(Object.entries(data.globalVariables ?? {}))
-            setSourceFormat(data.image?.sourceType?.type ?? 'png')
-            setSourceQuality(
-                data.image?.sourceType?.type === 'png'
-                    ? 90
-                    : (data.image?.sourceType?.quality ?? 90),
-            )
-            setThumbFormat(data.image?.thumbnailType?.type ?? 'webp')
-            setThumbQuality(
-                data.image?.thumbnailType?.type === 'png'
-                    ? 80
-                    : (data.image?.thumbnailType?.quality ?? 80),
-            )
-            setThumbSize(data.image?.thumbnailSize ?? 256)
-            setDebugEnabled(data.debug?.enabled ?? false)
-            setDebugRequestLimit(data.debug?.recentRequestLimit ?? 20)
-            lastSavedJson.current = JSON.stringify(
-                createSettingsPatch({
-                    apiKey: data.novelai?.apiKey ?? '',
-                    globalVars: Object.entries(data.globalVariables ?? {}),
-                    sourceFormat: data.image?.sourceType?.type ?? 'png',
-                    sourceQuality:
-                        data.image?.sourceType?.type === 'png'
-                            ? 90
-                            : (data.image?.sourceType?.quality ?? 90),
-                    thumbFormat: data.image?.thumbnailType?.type ?? 'webp',
-                    thumbQuality:
-                        data.image?.thumbnailType?.type === 'png'
-                            ? 80
-                            : (data.image?.thumbnailType?.quality ?? 80),
-                    thumbSize: data.image?.thumbnailSize ?? 256,
-                    debugEnabled: data.debug?.enabled ?? false,
-                    debugRequestLimit: data.debug?.recentRequestLimit ?? 20,
-                }),
-            )
-        }
-    }, [settingsQuery.data, loaded])
+        if (!data) return
+        if (loaded) return
+
+        const initialDraft = createSettingsDraft(data)
+        setDraft(initialDraft)
+        lastSavedJson.current = JSON.stringify(createSettingsPatch(initialDraft))
+    }, [settingsQuery.data, loaded, setDraft])
 
     const saveSettings = useMutation({
         mutationFn: (patch: SettingsPatchBody) => api.settings.patch(patch),
@@ -208,33 +174,11 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
     useEffect(() => {
         if (!loaded) return
 
-        const patch = createSettingsPatch({
-            apiKey,
-            globalVars,
-            sourceFormat,
-            sourceQuality,
-            thumbFormat,
-            thumbQuality,
-            thumbSize,
-            debugEnabled,
-            debugRequestLimit,
-        })
-        const nextJson = JSON.stringify(patch)
+        const nextJson = JSON.stringify(settingsPatch)
         if (nextJson === lastSavedJson.current) return
 
-        debouncedSaveSettings.current(patch)
-    }, [
-        loaded,
-        apiKey,
-        globalVars,
-        sourceFormat,
-        sourceQuality,
-        thumbFormat,
-        thumbQuality,
-        thumbSize,
-        debugEnabled,
-        debugRequestLimit,
-    ])
+        debouncedSaveSettings.current(settingsPatch)
+    }, [loaded, settingsPatch])
 
     useEffect(() => {
         return () => debouncedSaveSettings.current.flush()
@@ -244,6 +188,22 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
         mutationFn: () => api.debug.requests.delete(),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.debugRequests() }),
     })
+
+    function updateSettingsDraft(update: Partial<typeof draft>) {
+        setDraft((current) => applySettingsDraftUpdate(current, update))
+    }
+
+    function updateGlobalVar(update: Parameters<typeof applyGlobalVarUpdate>[1]) {
+        setDraft((current) => applyGlobalVarUpdate(current, update))
+    }
+
+    function appendGlobalVar() {
+        setDraft((current) => addGlobalVar(current))
+    }
+
+    function deleteGlobalVar(index: number) {
+        setDraft((current) => removeGlobalVar(current, index))
+    }
 
     const saveButton = (
         <Button
@@ -307,7 +267,9 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                 <Input
                                     type={showApiKey ? 'text' : 'password'}
                                     value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
+                                    onChange={(e) =>
+                                        updateSettingsDraft({ apiKey: e.target.value })
+                                    }
                                     placeholder="API 키 입력..."
                                     className="pr-10 font-mono text-sm"
                                 />
@@ -357,11 +319,10 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                                 value={key}
                                                 placeholder="변수명"
                                                 onChange={(e) =>
-                                                    setGlobalVars((prev) =>
-                                                        prev.map((v, idx) =>
-                                                            idx === i ? [e.target.value, v[1]] : v,
-                                                        ),
-                                                    )
+                                                    updateGlobalVar({
+                                                        index: i,
+                                                        key: e.target.value,
+                                                    })
                                                 }
                                             />
                                             {!compact && (
@@ -373,11 +334,7 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-8 w-8 shrink-0"
-                                                onClick={() =>
-                                                    setGlobalVars((prev) =>
-                                                        prev.filter((_, idx) => idx !== i),
-                                                    )
-                                                }
+                                                onClick={() => deleteGlobalVar(i)}
                                             >
                                                 <X className="h-3.5 w-3.5" />
                                             </Button>
@@ -387,11 +344,7 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                             value={value}
                                             placeholder="값"
                                             onChange={(e) =>
-                                                setGlobalVars((prev) =>
-                                                    prev.map((v, idx) =>
-                                                        idx === i ? [v[0], e.target.value] : v,
-                                                    ),
-                                                )
+                                                updateGlobalVar({ index: i, value: e.target.value })
                                             }
                                         />
                                     </div>
@@ -400,7 +353,7 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                     variant="outline"
                                     size="sm"
                                     className="gap-1.5 self-start"
-                                    onClick={() => setGlobalVars((prev) => [...prev, ['', '']])}
+                                    onClick={appendGlobalVar}
                                 >
                                     <Plus className="h-3.5 w-3.5" />
                                     변수 추가
@@ -425,7 +378,7 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                     <Select
                                         value={sourceFormat}
                                         onValueChange={(v) =>
-                                            setSourceFormat(v as 'png' | 'webp' | 'avif')
+                                            updateSettingsDraft({ sourceFormat: v as ImageFormat })
                                         }
                                     >
                                         <SelectTrigger className="w-full">
@@ -447,7 +400,9 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                                 className="h-7 text-xs"
                                                 value={sourceQuality}
                                                 onChange={(e) =>
-                                                    setSourceQuality(Number(e.target.value))
+                                                    updateSettingsDraft({
+                                                        sourceQuality: Number(e.target.value),
+                                                    })
                                                 }
                                                 min={1}
                                                 max={100}
@@ -461,7 +416,7 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                     <Select
                                         value={thumbFormat}
                                         onValueChange={(v) =>
-                                            setThumbFormat(v as 'png' | 'webp' | 'avif')
+                                            updateSettingsDraft({ thumbFormat: v as ImageFormat })
                                         }
                                     >
                                         <SelectTrigger className="w-full">
@@ -483,7 +438,9 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                                 className="h-7 text-xs"
                                                 value={thumbQuality}
                                                 onChange={(e) =>
-                                                    setThumbQuality(Number(e.target.value))
+                                                    updateSettingsDraft({
+                                                        thumbQuality: Number(e.target.value),
+                                                    })
                                                 }
                                                 min={1}
                                                 max={100}
@@ -500,7 +457,9 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                     type="number"
                                     className="w-32"
                                     value={thumbSize}
-                                    onChange={(e) => setThumbSize(Number(e.target.value))}
+                                    onChange={(e) =>
+                                        updateSettingsDraft({ thumbSize: Number(e.target.value) })
+                                    }
                                     min={64}
                                     max={1024}
                                 />
@@ -521,7 +480,9 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                 <Switch
                                     id="debug-mode"
                                     checked={debugEnabled}
-                                    onCheckedChange={setDebugEnabled}
+                                    onCheckedChange={(debugEnabled) =>
+                                        updateSettingsDraft({ debugEnabled })
+                                    }
                                 />
                             </div>
 
@@ -536,9 +497,12 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
                                     max={500}
                                     value={debugRequestLimit}
                                     onChange={(e) =>
-                                        setDebugRequestLimit(
-                                            Math.min(500, Math.max(1, Number(e.target.value) || 1)),
-                                        )
+                                        updateSettingsDraft({
+                                            debugRequestLimit: Math.min(
+                                                500,
+                                                Math.max(1, Number(e.target.value) || 1),
+                                            ),
+                                        })
                                     }
                                     className="h-8 w-20 text-xs"
                                     disabled={!debugEnabled}

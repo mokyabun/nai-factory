@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
+import { Provider, useAtom } from 'jotai'
 import { Check, Copy, Image, ListPlus, Loader, Pencil, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,6 +16,7 @@ import type { SceneSummary } from '@/lib/api'
 import { api, imageUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+import { sceneCardDeleteOpenAtom, sceneCardThumbIndexAtom } from './atom'
 
 interface SceneCardProps {
     scene: SceneSummary
@@ -33,6 +35,28 @@ export function SceneCard({
     slideshowCount = 4,
     onToggleSelect,
 }: SceneCardProps) {
+    return (
+        <Provider>
+            <SceneCardContent
+                scene={scene}
+                selected={selected}
+                selectMode={selectMode}
+                isProcessing={isProcessing}
+                slideshowCount={slideshowCount}
+                onToggleSelect={onToggleSelect}
+            />
+        </Provider>
+    )
+}
+
+function SceneCardContent({
+    scene,
+    selected = false,
+    selectMode = false,
+    isProcessing = false,
+    slideshowCount = 4,
+    onToggleSelect,
+}: SceneCardProps) {
     const navigate = useNavigate()
     const queryClient = useQueryClient()
 
@@ -41,8 +65,8 @@ export function SceneCard({
     const images = scene.latestImages ?? []
     const cycleImages = images.slice(0, slideshowCount)
 
-    const [currentThumbIndex, setCurrentThumbIndex] = useState(0)
-    const [deleteOpen, setDeleteOpen] = useState(false)
+    const [currentThumbIndex, setCurrentThumbIndex] = useAtom(sceneCardThumbIndexAtom)
+    const [deleteOpen, setDeleteOpen] = useAtom(sceneCardDeleteOpenAtom)
 
     useEffect(() => {
         if (cycleImages.length <= 1) {
@@ -54,7 +78,7 @@ export function SceneCard({
             2000,
         )
         return () => clearInterval(interval)
-    }, [cycleImages.length])
+    }, [cycleImages.length, setCurrentThumbIndex])
 
     const currentThumbImg = cycleImages[currentThumbIndex] ?? null
 

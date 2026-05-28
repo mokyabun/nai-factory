@@ -1,10 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Provider, useAtom } from 'jotai'
 import { AlignLeft } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+import { createSidebarPromptDraft, sidebarPromptDraftAtom } from './atom'
 import { CharacterPromptEditor } from './character-prompt-editor'
 import { CharacterReferenceEditor } from './character-reference-editor'
 import { ParameterEditor } from './parameter-editor'
@@ -31,11 +33,17 @@ export function SidebarPrompt({ projectId }: SidebarPromptProps) {
         )
     }
 
-    return <SidebarPromptContent projectId={projectId} />
+    return (
+        <Provider key={projectId}>
+            <SidebarPromptContent projectId={projectId} />
+        </Provider>
+    )
 }
 
 export function SidebarPromptContent({ projectId }: { projectId: number }) {
     const queryClient = useQueryClient()
+    const [draft, setDraft] = useAtom(sidebarPromptDraftAtom)
+    const { loadedProjectId, prompt, negativePrompt, variables } = draft
 
     const projectQuery = useQuery({
         queryKey: qk.project(projectId),
@@ -44,11 +52,6 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
             return data ?? null
         },
     })
-
-    const [loadedProjectId, setLoadedProjectId] = useState<number | null>(null)
-    const [prompt, setPrompt] = useState('')
-    const [negativePrompt, setNegativePrompt] = useState('')
-    const [variables, setVariables] = useState<[string, string][]>([])
 
     const savePromptRef = useRef(
         debounce(async (projectId: number, prompt: string, negativePrompt: string) => {
@@ -71,16 +74,14 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
     // Sync local state when switching projects
     useEffect(() => {
         const data = projectQuery.data
-        if (data && data.id !== loadedProjectId) {
-            savePromptRef.current.cancel()
-            saveVariablesRef.current.cancel()
+        if (!data) return
 
-            setLoadedProjectId(data.id)
-            setPrompt(data.prompt ?? '')
-            setNegativePrompt(data.negativePrompt ?? '')
-            setVariables(Object.entries(data.variables ?? {}))
-        }
-    }, [projectQuery.data, loadedProjectId])
+        if (loadedProjectId === data.id) return
+
+        setDraft(createSidebarPromptDraft(data))
+        savePromptRef.current.cancel()
+        saveVariablesRef.current.cancel()
+    }, [projectQuery.data, loadedProjectId, setDraft])
 
     // Flush pending saves on unmount
     useEffect(() => {
@@ -91,13 +92,18 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
     }, [])
 
     function handlePromptChange(value: string) {
-        setPrompt(value)
+        setDraft((current) => ({ ...current, prompt: value }))
         if (loadedProjectId) savePromptRef.current(loadedProjectId, value, negativePrompt)
     }
 
     function handleNegativePromptChange(value: string) {
-        setNegativePrompt(value)
+        setDraft((current) => ({ ...current, negativePrompt: value }))
         if (loadedProjectId) savePromptRef.current(loadedProjectId, prompt, value)
+    }
+
+    function handleVariablesChange(value: [string, string][]) {
+        setDraft((current) => ({ ...current, variables: value }))
+        if (loadedProjectId) saveVariablesRef.current(loadedProjectId, value)
     }
 
     const project = projectQuery.data
@@ -152,7 +158,10 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
                         />
 
                         <span className="text-lg mt-4">변수</span>
-                        <PromptVariableEditor variables={variables} onChange={setVariables} />
+                        <PromptVariableEditor
+                            variables={variables}
+                            onChange={handleVariablesChange}
+                        />
                     </SidebarPromptTabsContent>
 
                     <SidebarPromptTabsContent

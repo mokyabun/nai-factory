@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Provider, useAtom } from 'jotai'
 import { Button } from '@/components/ui/button'
 import {
     Dialog,
@@ -8,6 +8,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { createSceneNameAtom } from './atom'
 
 interface CreateSceneDialogProps {
     open: boolean
@@ -16,7 +17,15 @@ interface CreateSceneDialogProps {
 }
 
 export function CreateSceneDialog({ open, onOpenChange, onCreate }: CreateSceneDialogProps) {
-    const [name, setName] = useState('')
+    return (
+        <Provider>
+            <CreateSceneDialogContent open={open} onOpenChange={onOpenChange} onCreate={onCreate} />
+        </Provider>
+    )
+}
+
+function CreateSceneDialogContent({ open, onOpenChange, onCreate }: CreateSceneDialogProps) {
+    const [name, setName] = useAtom(createSceneNameAtom)
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault()

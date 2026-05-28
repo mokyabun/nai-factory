@@ -1,16 +1,18 @@
 import { useNavigate, useRouterState } from '@tanstack/react-router'
+import { Provider, useAtom } from 'jotai'
 import type { LucideIcon } from 'lucide-react'
 import { AlignLeft, File, FlaskConical, ListTodo, Settings } from 'lucide-react'
+import { type ComponentType, type LazyExoticComponent, lazy, Suspense, useEffect } from 'react'
 import {
-    type ComponentType,
-    type LazyExoticComponent,
-    lazy,
-    Suspense,
-    useEffect,
-    useState,
-} from 'react'
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet'
 import * as Base from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { activeSidebarPanelAtom, type SidebarPanel } from './atom'
 import { SidebarFooter } from './sidebar-footer'
 import { SidebarHeader } from './sidebar-header'
 
@@ -60,7 +62,6 @@ interface AppSidebarProps {
     projectId?: number | null
 }
 
-type SidebarPanel = 'project' | 'playground' | 'prompt' | 'queue' | 'settings'
 type SidebarItem = {
     title: string
     panel: SidebarPanel
@@ -69,10 +70,17 @@ type SidebarItem = {
 }
 
 export function Sidebar({ projectId }: AppSidebarProps) {
-    const { setOpen, open } = Base.useSidebar()
-    const navigate = useNavigate()
+    return (
+        <Provider>
+            <SidebarContent projectId={projectId} />
+        </Provider>
+    )
+}
 
-    const [activePanel, setActivePanel] = useState<SidebarPanel>('project')
+function SidebarContent({ projectId }: AppSidebarProps) {
+    const { setOpen, open, isMobile, openMobile, setOpenMobile } = Base.useSidebar()
+    const navigate = useNavigate()
+    const [activePanel, setActivePanel] = useAtom(activeSidebarPanelAtom)
 
     const search = useRouterState({ select: (s) => s.location.search })
     const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -98,16 +106,10 @@ export function Sidebar({ projectId }: AppSidebarProps) {
         else if (activePanel === 'playground') {
             setActivePanel('project')
         }
-    }, [search, pathname, activePanel])
+    }, [search, pathname, activePanel, setActivePanel])
 
     const topItems: SidebarItem[] = [
         { title: '프로젝트', panel: 'project' as const, icon: File },
-        {
-            title: 'Playground',
-            panel: 'playground' as const,
-            icon: FlaskConical,
-            to: '/playground',
-        },
         {
             title: '프롬프트',
             panel: 'prompt' as const,
@@ -115,7 +117,15 @@ export function Sidebar({ projectId }: AppSidebarProps) {
         },
         { title: 'Queue', panel: 'queue' as const, icon: ListTodo },
     ]
-    const bottomItems = [{ title: '설정', panel: 'settings' as const, icon: Settings }]
+    const bottomItems = [
+        {
+            title: 'Playground',
+            panel: 'playground' as const,
+            icon: FlaskConical,
+            to: '/playground',
+        },
+        { title: '설정', panel: 'settings' as const, icon: Settings },
+    ]
 
     function handlePanelClick(panel: SidebarPanel, to?: '/playground') {
         preloadSidebarPanel(panel)
@@ -123,31 +133,27 @@ export function Sidebar({ projectId }: AppSidebarProps) {
         if (to && pathname !== to) {
             navigate({ to })
             setActivePanel(panel)
-            setOpen(true)
+            if (isMobile) setOpenMobile(true)
+            else setOpen(true)
             return
         }
 
         if (activePanel === panel) {
-            setOpen(!open)
+            if (isMobile) setOpenMobile(!openMobile)
+            else setOpen(!open)
         } else {
             setActivePanel(panel)
-            setOpen(true)
+            if (isMobile) setOpenMobile(true)
+            else setOpen(true)
             const url = new URL(window.location.href)
             url.searchParams.set('sidebar', panel)
             window.history.replaceState(null, '', url.toString())
         }
     }
 
-    return (
-        <Base.Sidebar
-            collapsible="icon"
-            className="overflow-hidden [&>[data-sidebar=sidebar]]:flex-row"
-        >
-            {/* Icon rail */}
-            <Base.Sidebar
-                collapsible="none"
-                className="!w-[calc(var(--sidebar-width-icon)_+_1px)] border-e"
-            >
+    function renderIconRail(mobile = false) {
+        return (
+            <>
                 <SidebarHeader />
                 <Base.SidebarContent>
                     <Base.SidebarGroup className="h-full">
@@ -161,7 +167,11 @@ export function Sidebar({ projectId }: AppSidebarProps) {
                                             onFocus={() => preloadSidebarPanel(item.panel)}
                                             onClick={() => handlePanelClick(item.panel, item.to)}
                                             isActive={activePanel === item.panel}
-                                            className="px-2.5 md:px-2"
+                                            className={
+                                                mobile
+                                                    ? 'h-10 justify-center px-2.5 [&>span]:sr-only'
+                                                    : 'px-2.5 md:px-2'
+                                            }
                                         >
                                             <item.icon />
                                             <span>{item.title}</span>
@@ -177,7 +187,11 @@ export function Sidebar({ projectId }: AppSidebarProps) {
                                                 onFocus={() => preloadSidebarPanel(item.panel)}
                                                 onClick={() => handlePanelClick(item.panel)}
                                                 isActive={activePanel === item.panel}
-                                                className="px-2.5 md:px-2"
+                                                className={
+                                                    mobile
+                                                        ? 'h-10 justify-center px-2.5 [&>span]:sr-only'
+                                                        : 'px-2.5 md:px-2'
+                                                }
                                             >
                                                 <item.icon />
                                                 <span>{item.title}</span>
@@ -190,17 +204,61 @@ export function Sidebar({ projectId }: AppSidebarProps) {
                     </Base.SidebarGroup>
                 </Base.SidebarContent>
                 <SidebarFooter />
+            </>
+        )
+    }
+
+    function renderPanel() {
+        return (
+            <Suspense fallback={<SidebarPanelFallback />}>
+                {activePanel === 'project' && <SidebarProject />}
+                {activePanel === 'playground' && <SidebarPlayground />}
+                {activePanel === 'prompt' && <SidebarPrompt projectId={projectId ?? null} />}
+                {activePanel === 'queue' && <SidebarQueue projectId={projectId} />}
+                {activePanel === 'settings' && <SidebarSettings />}
+            </Suspense>
+        )
+    }
+
+    if (isMobile) {
+        return (
+            <Sheet open={openMobile} onOpenChange={setOpenMobile}>
+                <SheetContent
+                    side="left"
+                    showCloseButton={false}
+                    className="!w-[min(100vw,28rem)] !max-w-none bg-sidebar p-0 text-sidebar-foreground"
+                >
+                    <SheetHeader className="sr-only">
+                        <SheetTitle>Sidebar</SheetTitle>
+                        <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+                    </SheetHeader>
+                    <div className="flex h-full min-h-0 w-full">
+                        <div className="flex w-[calc(var(--sidebar-width-icon)_+_1px)] shrink-0 flex-col border-e [&_[data-sidebar=menu-button]>div:last-child]:sr-only">
+                            {renderIconRail(true)}
+                        </div>
+                        <div className="flex min-w-0 flex-1 flex-col">{renderPanel()}</div>
+                    </div>
+                </SheetContent>
+            </Sheet>
+        )
+    }
+
+    return (
+        <Base.Sidebar
+            collapsible="icon"
+            className="overflow-hidden [&>[data-sidebar=sidebar]]:flex-row"
+        >
+            {/* Icon rail */}
+            <Base.Sidebar
+                collapsible="none"
+                className="!w-[calc(var(--sidebar-width-icon)_+_1px)] border-e"
+            >
+                {renderIconRail()}
             </Base.Sidebar>
 
             {/* Panel */}
             <Base.Sidebar collapsible="none" className="hidden min-w-0 flex-1 !w-auto md:flex">
-                <Suspense fallback={<SidebarPanelFallback />}>
-                    {activePanel === 'project' && <SidebarProject />}
-                    {activePanel === 'playground' && <SidebarPlayground />}
-                    {activePanel === 'prompt' && <SidebarPrompt projectId={projectId ?? null} />}
-                    {activePanel === 'queue' && <SidebarQueue projectId={projectId} />}
-                    {activePanel === 'settings' && <SidebarSettings />}
-                </Suspense>
+                {renderPanel()}
                 <Base.SidebarRail />
             </Base.Sidebar>
         </Base.Sidebar>

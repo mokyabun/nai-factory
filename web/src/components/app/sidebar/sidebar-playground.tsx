@@ -1,7 +1,8 @@
 import type { EnqueuePosition, Parameters, PlaygroundSettings } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAtom } from 'jotai'
 import { ArrowDownToLine, ArrowUpToLine, FlaskConical, Loader } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,31 +19,8 @@ import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+import { defaultPlaygroundSettings, playgroundSettingsAtom } from './atom'
 import { PromptEditor } from './prompt-editor'
-
-const DEFAULT_PARAMETERS: Parameters = {
-    model: 'nai-diffusion-4-5-full',
-    qualityToggle: false,
-    width: 1024,
-    height: 1024,
-    steps: 28,
-    promptGuidance: 6,
-    varietyPlus: false,
-    seed: 0,
-    sampler: 'k_euler_ancestral',
-    promptGuidanceRescale: 0.7,
-    noiseSchedule: 'karras',
-    normalizeReferenceStrengthValues: false,
-    useCharacterPositions: false,
-}
-
-const DEFAULT_SETTINGS: PlaygroundSettings = {
-    id: 1,
-    prompt: '',
-    negativePrompt: '',
-    parameters: DEFAULT_PARAMETERS,
-    updatedAt: '',
-}
 
 const MODELS = [
     { value: 'nai-diffusion-4-5-full', label: 'NAI Diffusion 4.5 Full' },
@@ -70,15 +48,15 @@ const NOISE_SCHEDULES = [
 
 export function SidebarPlayground() {
     const queryClient = useQueryClient()
-    const [settings, setSettings] = useState<PlaygroundSettings>(DEFAULT_SETTINGS)
-    const latestSettingsRef = useRef<PlaygroundSettings>(DEFAULT_SETTINGS)
+    const [settings, setSettings] = useAtom(playgroundSettingsAtom)
+    const latestSettingsRef = useRef<PlaygroundSettings>(defaultPlaygroundSettings)
     const dirtyRef = useRef(false)
 
     const settingsQuery = useQuery({
         queryKey: qk.playgroundSettings(),
         queryFn: async () => {
             const { data } = await api.playground.settings.get()
-            return data ?? DEFAULT_SETTINGS
+            return data ?? defaultPlaygroundSettings
         },
     })
 
@@ -107,7 +85,7 @@ export function SidebarPlayground() {
             latestSettingsRef.current = settingsQuery.data
             setSettings(settingsQuery.data)
         }
-    }, [settingsQuery.data])
+    }, [settingsQuery.data, setSettings])
 
     useEffect(() => {
         return () => saveSettingsRef.current.flush()

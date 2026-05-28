@@ -76,9 +76,7 @@ function ImagesPage() {
                     >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
-                    <span className="text-sm font-medium">
-                        이미지 ({images.length}장)
-                    </span>
+                    <span className="text-sm font-medium">이미지 ({images.length}장)</span>
                 </div>
 
                 {/* Image grid */}
@@ -119,7 +117,10 @@ function ImagesPage() {
                 onOpenChange={(open) => !open && setDeleteTarget(null)}
                 title="이미지 삭제"
                 description="이 이미지를 삭제합니다. 되돌릴 수 없습니다."
-                onConfirm={() => deleteTarget && deleteImage.mutate(deleteTarget)}
+                onConfirm={() => {
+                    if (!deleteTarget) return
+                    deleteImage.mutate(deleteTarget)
+                }}
             />
         </>
     )

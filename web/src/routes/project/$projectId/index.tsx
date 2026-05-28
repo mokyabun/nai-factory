@@ -6,24 +6,45 @@ import {
     useSensor,
     useSensors,
 } from '@dnd-kit/core'
-import { arrayMove, rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
+import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { Check, Images, ListPlus, Plus, Trash2, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
 import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { api, type SceneSummary } from '@/lib/api'
+import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+import {
+    hasScenesAtom,
+    loadedProjectIdAtom,
+    projectPageDialogAtom,
+    reorderSceneItems,
+    sceneItemsAtom,
+    selectedSceneCountAtom,
+    selectedSceneIdsAtom,
+    selectedSceneIdsSetAtom,
+    selectModeAtom,
+    slideshowImageCountAtom,
+} from './atom'
 
 export const Route = createFileRoute('/project/$projectId/')({ component: ProjectPage })
 
 function ProjectPage() {
+    return (
+        <Provider>
+            <ProjectPageContent />
+        </Provider>
+    )
+}
+
+function ProjectPageContent() {
     const { projectId } = Route.useParams()
     const queryClient = useQueryClient()
     const projId = Number(projectId)
@@ -52,12 +73,16 @@ function ProjectPage() {
         },
     })
 
-    const [items, setItems] = useState<SceneSummary[]>([])
-    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-    const [createSceneOpen, setCreateSceneOpen] = useState(false)
-    const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false)
-    const [loadedProjectId, setLoadedProjectId] = useState<number | null>(null)
-    const [slideshowImageCount, setSlideshowImageCount] = useState(4)
+    const [items, setItems] = useAtom(sceneItemsAtom)
+    const [selectedIds, setSelectedIds] = useAtom(selectedSceneIdsSetAtom)
+    const [projectDialog, setProjectDialog] = useAtom(projectPageDialogAtom)
+    const loadedProjectId = useAtomValue(loadedProjectIdAtom)
+    const setLoadedProjectId = useSetAtom(loadedProjectIdAtom)
+    const [slideshowImageCount, setSlideshowImageCount] = useAtom(slideshowImageCountAtom)
+    const selectedSceneIds = useAtomValue(selectedSceneIdsAtom)
+    const selectedCount = useAtomValue(selectedSceneCountAtom)
+    const selectMode = useAtomValue(selectModeAtom)
+    const hasScenes = useAtomValue(hasScenesAtom)
 
     const saveProjectSettings = useRef(
         debounce(async (projectId: number, slideshowImageCount: number) => {
@@ -78,7 +103,7 @@ function ProjectPage() {
             const next = new Set([...prev].filter((id) => availableIds.has(id)))
             return next.size === prev.size ? prev : next
         })
-    }, [scenesQuery.data])
+    }, [scenesQuery.data, setItems, setSelectedIds])
 
     useEffect(() => {
         const project = projectQuery.data
@@ -87,7 +112,7 @@ function ProjectPage() {
             setLoadedProjectId(project.id)
             setSlideshowImageCount(project.settings.slideshowImageCount)
         }
-    }, [projectQuery.data, loadedProjectId])
+    }, [projectQuery.data, loadedProjectId, setLoadedProjectId, setSlideshowImageCount])
 
     useEffect(() => {
         return () => saveProjectSettings.current.flush()
@@ -99,7 +124,7 @@ function ProjectPage() {
         mutationFn: (name: string) => api.scenes.post({ projectId: projId, name }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
-            setCreateSceneOpen(false)
+            setProjectDialog(null)
         },
     })
 
@@ -122,7 +147,7 @@ function ProjectPage() {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
-            setSelectedIds(new Set())
+            clearSelection()
         },
     })
 
@@ -136,8 +161,8 @@ function ProjectPage() {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
-            setSelectedIds(new Set())
-            setDeleteSelectedOpen(false)
+            clearSelection()
+            setProjectDialog(null)
         },
     })
 
@@ -145,14 +170,16 @@ function ProjectPage() {
         const { active, over } = event
         if (!over || active.id === over.id) return
 
-        const oldIndex = items.findIndex((s) => s.id === active.id)
-        const newIndex = items.findIndex((s) => s.id === over.id)
-        const newItems = arrayMove(items, oldIndex, newIndex)
-        setItems(newItems)
+        const activeId = Number(active.id)
+        const overId = Number(over.id)
 
-        const prevId = newIndex > 0 ? newItems[newIndex - 1].id : null
-        const nextId = newIndex < newItems.length - 1 ? newItems[newIndex + 1].id : null
-        reorderScene.mutate({ id: active.id as number, prevId, nextId })
+        if (!Number.isFinite(activeId) || !Number.isFinite(overId)) return
+
+        const reordered = reorderSceneItems(items, activeId, overId)
+        if (!reordered) return
+
+        setItems(reordered.items)
+        reorderScene.mutate(reordered.orderPatch)
     }
 
     function toggleSelect(id: number) {
@@ -169,7 +196,7 @@ function ProjectPage() {
     }
 
     function clearSelection() {
-        setSelectedIds(new Set())
+        setSelectedIds(new Set<number>())
     }
 
     function handleSlideshowImageCountChange(value: string) {
@@ -190,20 +217,13 @@ function ProjectPage() {
             }
 
             if (event.key === 'Escape') {
-                setSelectedIds(new Set())
+                setSelectedIds(new Set<number>())
             }
         }
 
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [items])
-
-    const selectedSceneIds = items
-        .filter((scene) => selectedIds.has(scene.id))
-        .map((scene) => scene.id)
-    const selectedCount = selectedSceneIds.length
-    const selectMode = selectedCount > 0
-    const hasScenes = items.length > 0
+    }, [items, setSelectedIds])
     const currentSceneId = queueStatusQuery.data?.currentSceneId ?? null
 
     return (
@@ -216,7 +236,7 @@ function ProjectPage() {
                             variant="outline"
                             size="sm"
                             className="gap-1.5"
-                            onClick={selectAllScenes}
+                            onClick={() => selectAllScenes()}
                             disabled={selectedCount === items.length}
                         >
                             <Check className="h-4 w-4" />
@@ -244,7 +264,7 @@ function ProjectPage() {
                             variant="destructive"
                             size="sm"
                             className="gap-1.5"
-                            onClick={() => setDeleteSelectedOpen(true)}
+                            onClick={() => setProjectDialog({ type: 'delete-selected' })}
                             disabled={deleteSelectedScenes.isPending}
                         >
                             <Trash2 className="h-4 w-4" />
@@ -256,7 +276,7 @@ function ProjectPage() {
                             variant="ghost"
                             size="sm"
                             className="gap-1.5"
-                            onClick={clearSelection}
+                            onClick={() => clearSelection()}
                         >
                             <X className="h-4 w-4" />
                             해제
@@ -282,7 +302,11 @@ function ProjectPage() {
                             className="h-6 w-12 px-1.5 text-xs"
                         />
                     </div>
-                    <Button size="sm" className="gap-1.5" onClick={() => setCreateSceneOpen(true)}>
+                    <Button
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setProjectDialog({ type: 'create-scene' })}
+                    >
                         <Plus className="h-4 w-4" />새 씬
                     </Button>
                 </div>
@@ -323,13 +347,17 @@ function ProjectPage() {
 
             {/* Dialogs / panels */}
             <CreateSceneDialog
-                open={createSceneOpen}
-                onOpenChange={setCreateSceneOpen}
+                open={projectDialog?.type === 'create-scene'}
+                onOpenChange={(open) => {
+                    if (!open) setProjectDialog(null)
+                }}
                 onCreate={(name) => createScene.mutate(name)}
             />
             <ConfirmDeleteDialog
-                open={deleteSelectedOpen}
-                onOpenChange={setDeleteSelectedOpen}
+                open={projectDialog?.type === 'delete-selected'}
+                onOpenChange={(open) => {
+                    if (!open) setProjectDialog(null)
+                }}
                 title="선택 씬 삭제"
                 description={`선택한 씬 ${selectedCount}개와 모든 생성된 이미지를 삭제합니다. 되돌릴 수 없습니다.`}
                 onConfirm={() => deleteSelectedScenes.mutateAsync(selectedSceneIds)}

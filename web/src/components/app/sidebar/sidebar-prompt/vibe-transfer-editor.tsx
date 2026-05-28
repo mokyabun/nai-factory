@@ -6,23 +6,25 @@ import {
     useSensor,
     useSensors,
 } from '@dnd-kit/core'
-import {
-    arrayMove,
-    SortableContext,
-    useSortable,
-    verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { VibeTransfer, VibeTransferPatchBody } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { GripVertical, Trash2, Upload } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { api, imageUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+import {
+    createVibeTransferItemDraft,
+    reorderItems,
+    vibeTransferItemDraftAtom,
+    vibeTransferItemsAtom,
+} from './atom'
 
 interface SortableVibeItemProps {
     vibe: VibeTransfer
@@ -31,6 +33,14 @@ interface SortableVibeItemProps {
 }
 
 function SortableVibeItem({ vibe, onUpdate, onDelete }: SortableVibeItemProps) {
+    return (
+        <Provider>
+            <SortableVibeItemContent vibe={vibe} onUpdate={onUpdate} onDelete={onDelete} />
+        </Provider>
+    )
+}
+
+function SortableVibeItemContent({ vibe, onUpdate, onDelete }: SortableVibeItemProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: vibe.id,
     })
@@ -41,8 +51,10 @@ function SortableVibeItem({ vibe, onUpdate, onDelete }: SortableVibeItemProps) {
         opacity: isDragging ? 0.4 : 1,
     }
 
-    const [refStrength, setRefStrength] = useState(vibe.referenceStrength)
-    const [infoExtracted, setInfoExtracted] = useState(vibe.informationExtracted)
+    const [draftValue, setDraft] = useAtom(vibeTransferItemDraftAtom)
+    const draft = draftValue ?? createVibeTransferItemDraft(vibe)
+    const refStrength = draft.referenceStrength
+    const infoExtracted = draft.informationExtracted
 
     const onUpdateRef = useRef(onUpdate)
     onUpdateRef.current = onUpdate
@@ -54,17 +66,22 @@ function SortableVibeItem({ vibe, onUpdate, onDelete }: SortableVibeItemProps) {
     )
 
     useEffect(() => {
-        setRefStrength(vibe.referenceStrength)
-        setInfoExtracted(vibe.informationExtracted)
-    }, [vibe.referenceStrength, vibe.informationExtracted])
+        setDraft(createVibeTransferItemDraft(vibe))
+    }, [vibe, setDraft])
 
     function handleRefStrengthChange(value: number) {
-        setRefStrength(value)
+        setDraft((current) => ({
+            ...(current ?? createVibeTransferItemDraft(vibe)),
+            referenceStrength: value,
+        }))
         debouncedUpdate.current(vibe.id, { referenceStrength: value })
     }
 
     function handleInfoExtractedChange(value: number) {
-        setInfoExtracted(value)
+        setDraft((current) => ({
+            ...(current ?? createVibeTransferItemDraft(vibe)),
+            informationExtracted: value,
+        }))
         debouncedUpdate.current(vibe.id, { informationExtracted: value })
     }
 
@@ -155,6 +172,8 @@ interface VibeTransferEditorProps {
 export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
     const queryClient = useQueryClient()
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const items = useAtomValue(vibeTransferItemsAtom)
+    const setItems = useSetAtom(vibeTransferItemsAtom)
 
     const query = useQuery({
         queryKey: qk.vibeTransfers(projectId),
@@ -164,11 +183,9 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
         },
     })
 
-    const [items, setItems] = useState<VibeTransfer[]>([])
-
     useEffect(() => {
         if (query.data) setItems(query.data)
-    }, [query.data])
+    }, [query.data, setItems])
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -212,14 +229,16 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
         const { active, over } = event
         if (!over || active.id === over.id) return
 
-        const oldIndex = items.findIndex((v) => v.id === active.id)
-        const newIndex = items.findIndex((v) => v.id === over.id)
-        const newItems = arrayMove(items, oldIndex, newIndex)
-        setItems(newItems)
+        const activeId = Number(active.id)
+        const overId = Number(over.id)
 
-        const prevId = newIndex > 0 ? newItems[newIndex - 1].id : null
-        const nextId = newIndex < newItems.length - 1 ? newItems[newIndex + 1].id : null
-        reorderMutation.mutate({ id: active.id as number, prevId, nextId })
+        if (!Number.isFinite(activeId) || !Number.isFinite(overId)) return
+
+        const reordered = reorderItems(items, activeId, overId)
+        if (!reordered) return
+
+        setItems(reordered.items)
+        reorderMutation.mutate(reordered.orderPatch)
     }
 
     function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {

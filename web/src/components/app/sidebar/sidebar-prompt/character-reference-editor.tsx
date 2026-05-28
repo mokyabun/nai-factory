@@ -6,17 +6,13 @@ import {
     useSensor,
     useSensors,
 } from '@dnd-kit/core'
-import {
-    arrayMove,
-    SortableContext,
-    useSortable,
-    verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { CharacterReference, CharacterReferencePatchBody } from '@nai-factory/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { GripVertical, Trash2, Upload } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -31,12 +27,20 @@ import { Switch } from '@/components/ui/switch'
 import { api, imageUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+import {
+    characterReferenceItemDraftAtom,
+    characterReferenceItemsAtom,
+    createCharacterReferenceItemDraft,
+    reorderItems,
+} from './atom'
 
 const REFERENCE_MODES = [
     { value: 'character&style', label: '캐릭터+스타일' },
     { value: 'character', label: '캐릭터' },
     { value: 'style', label: '스타일' },
 ] as const
+
+type ReferenceMode = (typeof REFERENCE_MODES)[number]['value']
 
 interface SortableCharacterReferenceItemProps {
     reference: CharacterReference
@@ -45,6 +49,22 @@ interface SortableCharacterReferenceItemProps {
 }
 
 function SortableCharacterReferenceItem({
+    reference,
+    onUpdate,
+    onDelete,
+}: SortableCharacterReferenceItemProps) {
+    return (
+        <Provider>
+            <SortableCharacterReferenceItemContent
+                reference={reference}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+            />
+        </Provider>
+    )
+}
+
+function SortableCharacterReferenceItemContent({
     reference,
     onUpdate,
     onDelete,
@@ -59,10 +79,9 @@ function SortableCharacterReferenceItem({
         opacity: isDragging ? 0.4 : 1,
     }
 
-    const [strength, setStrength] = useState(reference.strength)
-    const [fidelity, setFidelity] = useState(reference.fidelity)
-    const [referenceMode, setReferenceMode] = useState(reference.referenceMode)
-    const [enabled, setEnabled] = useState(reference.enabled)
+    const [draftValue, setDraft] = useAtom(characterReferenceItemDraftAtom)
+    const draft = draftValue ?? createCharacterReferenceItemDraft(reference)
+    const { strength, fidelity, referenceMode, enabled } = draft
 
     const onUpdateRef = useRef(onUpdate)
     onUpdateRef.current = onUpdate
@@ -74,34 +93,45 @@ function SortableCharacterReferenceItem({
     )
 
     useEffect(() => {
-        setStrength(reference.strength)
-        setFidelity(reference.fidelity)
-        setReferenceMode(reference.referenceMode)
-        setEnabled(reference.enabled)
-    }, [reference.strength, reference.fidelity, reference.referenceMode, reference.enabled])
+        setDraft(createCharacterReferenceItemDraft(reference))
+    }, [reference, setDraft])
 
     function sliderValue(value: number | readonly number[], fallback: number) {
         return typeof value === 'number' ? value : (value[0] ?? fallback)
     }
 
     function handleStrengthChange(value: number) {
-        setStrength(value)
+        setDraft((current) => ({
+            ...(current ?? createCharacterReferenceItemDraft(reference)),
+            strength: value,
+        }))
         debouncedUpdate.current(reference.id, { strength: value })
     }
 
     function handleFidelityChange(value: number) {
-        setFidelity(value)
+        setDraft((current) => ({
+            ...(current ?? createCharacterReferenceItemDraft(reference)),
+            fidelity: value,
+        }))
         debouncedUpdate.current(reference.id, { fidelity: value })
     }
 
-    function handleReferenceModeChange(value: string) {
-        const mode = value as CharacterReferencePatchBody['referenceMode']
-        setReferenceMode(mode ?? 'character&style')
+    function handleReferenceModeChange(value: string | null) {
+        if (!value) return
+
+        const mode = value as ReferenceMode
+        setDraft((current) => ({
+            ...(current ?? createCharacterReferenceItemDraft(reference)),
+            referenceMode: mode,
+        }))
         onUpdate(reference.id, { referenceMode: mode })
     }
 
     function handleEnabledChange(value: boolean) {
-        setEnabled(value)
+        setDraft((current) => ({
+            ...(current ?? createCharacterReferenceItemDraft(reference)),
+            enabled: value,
+        }))
         onUpdate(reference.id, { enabled: value })
     }
 
@@ -207,6 +237,8 @@ interface CharacterReferenceEditorProps {
 export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditorProps) {
     const queryClient = useQueryClient()
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const items = useAtomValue(characterReferenceItemsAtom)
+    const setItems = useSetAtom(characterReferenceItemsAtom)
 
     const query = useQuery({
         queryKey: qk.characterReferences(projectId),
@@ -216,11 +248,9 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
         },
     })
 
-    const [items, setItems] = useState<CharacterReference[]>([])
-
     useEffect(() => {
         if (query.data) setItems(query.data)
-    }, [query.data])
+    }, [query.data, setItems])
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -272,14 +302,16 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
         const { active, over } = event
         if (!over || active.id === over.id) return
 
-        const oldIndex = items.findIndex((reference) => reference.id === active.id)
-        const newIndex = items.findIndex((reference) => reference.id === over.id)
-        const newItems = arrayMove(items, oldIndex, newIndex)
-        setItems(newItems)
+        const activeId = Number(active.id)
+        const overId = Number(over.id)
 
-        const prevId = newIndex > 0 ? newItems[newIndex - 1].id : null
-        const nextId = newIndex < newItems.length - 1 ? newItems[newIndex + 1].id : null
-        reorderMutation.mutate({ id: active.id as number, prevId, nextId })
+        if (!Number.isFinite(activeId) || !Number.isFinite(overId)) return
+
+        const reordered = reorderItems(items, activeId, overId)
+        if (!reordered) return
+
+        setItems(reordered.items)
+        reorderMutation.mutate(reordered.orderPatch)
     }
 
     function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {

@@ -76,7 +76,11 @@ function ImageViewerPage() {
                     size="icon"
                     className="text-white/70 hover:bg-white/10 hover:text-white"
                     onClick={() =>
-                        navigate({ to: '/scene/$sceneId/images', params: { sceneId }, replace: true })
+                        navigate({
+                            to: '/scene/$sceneId/images',
+                            params: { sceneId },
+                            replace: true,
+                        })
                     }
                     aria-label="이미지 목록으로 돌아가기"
                 >

@@ -1,6 +1,7 @@
 import type { Project, Parameters as ProjectParams } from '@nai-factory/types'
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -15,6 +16,7 @@ import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+import { sidebarParameterParamsAtom } from './atom'
 
 type ProjectData = Pick<Project, 'id' | 'parameters'>
 
@@ -48,7 +50,8 @@ interface ParameterEditorProps {
 
 export function ParameterEditor({ project }: ParameterEditorProps) {
     const queryClient = useQueryClient()
-    const [params, setParams] = useState<ProjectParams>({ ...project.parameters })
+    const params = useAtomValue(sidebarParameterParamsAtom) ?? project.parameters
+    const setParams = useSetAtom(sidebarParameterParamsAtom)
     const latestProjectIdRef = useRef(project.id)
     const latestParamsRef = useRef<ProjectParams>({ ...project.parameters })
     const dirtyRef = useRef(false)
@@ -77,7 +80,7 @@ export function ParameterEditor({ project }: ParameterEditorProps) {
             latestParamsRef.current = nextParams
             setParams(nextParams)
         }
-    }, [project.id, project.parameters])
+    }, [project.id, project.parameters, setParams])
 
     useEffect(() => {
         return () => {
@@ -86,13 +89,11 @@ export function ParameterEditor({ project }: ParameterEditorProps) {
     }, [])
 
     function set<K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) {
-        setParams((prev) => {
-            const nextParams = { ...prev, [key]: value }
-            latestParamsRef.current = nextParams
-            dirtyRef.current = true
-            saveParamsRef.current(project.id, nextParams)
-            return nextParams
-        })
+        const nextParams = { ...params, [key]: value }
+        latestParamsRef.current = nextParams
+        dirtyRef.current = true
+        setParams(nextParams)
+        saveParamsRef.current(project.id, nextParams)
     }
 
     function sliderValue(value: number | readonly number[], fallback: number) {

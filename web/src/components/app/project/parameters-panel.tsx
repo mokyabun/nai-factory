@@ -1,6 +1,7 @@
 import type { Project, Parameters as ProjectParams } from '@nai-factory/types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { Provider, useAtom } from 'jotai'
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,6 +26,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { VibeTransferEditor } from '../sidebar/sidebar-prompt/vibe-transfer-editor'
+import {
+    copyProjectParams,
+    parametersPanelActiveTabAtom,
+    parametersPanelParamsAtom,
+    updateProjectParams,
+} from './atom'
 
 type ProjectData = Pick<Project, 'id' | 'parameters' | 'characterPrompts'>
 
@@ -59,13 +66,22 @@ interface ParametersPanelProps {
 }
 
 export function ParametersPanel({ open, onOpenChange, project }: ParametersPanelProps) {
+    return (
+        <Provider>
+            <ParametersPanelContent open={open} onOpenChange={onOpenChange} project={project} />
+        </Provider>
+    )
+}
+
+function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanelProps) {
     const queryClient = useQueryClient()
-    const [params, setParams] = useState<ProjectParams>({ ...project.parameters })
-    const [activeTab, setActiveTab] = useState('params')
+    const [draftParams, setDraftParams] = useAtom(parametersPanelParamsAtom)
+    const params = draftParams ?? project.parameters
+    const [activeTab, setActiveTab] = useAtom(parametersPanelActiveTabAtom)
 
     useEffect(() => {
-        setParams({ ...project.parameters })
-    }, [project.parameters])
+        setDraftParams(copyProjectParams(project.parameters))
+    }, [project.parameters, setDraftParams])
 
     const saveParams = useMutation({
         mutationFn: () => api.projects({ projectId: project.id }).patch({ parameters: params }),
@@ -76,7 +92,9 @@ export function ParametersPanel({ open, onOpenChange, project }: ParametersPanel
     })
 
     function set<K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) {
-        setParams((prev) => ({ ...prev, [key]: value }))
+        setDraftParams((current) =>
+            updateProjectParams(current, { key, value, fallback: project.parameters }),
+        )
     }
 
     function sliderValue(value: number | readonly number[], fallback: number) {

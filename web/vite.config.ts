@@ -42,7 +42,11 @@ const config = defineConfig({
     },
     plugins: [
         tailwindcss(),
-        tanstackRouter({ target: 'react', autoCodeSplitting: true }),
+        tanstackRouter({
+            target: 'react',
+            autoCodeSplitting: true,
+            routeFileIgnorePattern: '(^|/)atom\\.ts$',
+        }),
         viteReact(),
         analyze &&
             visualizer({
