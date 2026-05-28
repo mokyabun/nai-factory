@@ -1,0 +1,19 @@
+services:
+  nai-factory:
+    build:
+      context: .
+      args:
+        VITE_API_URL: /api
+    container_name: nai-factory
+    environment:
+      PORT: "3000"
+      DATABASE_URL: /app/server/data/database.db
+      WEB_DIST_DIR: /app/web/dist
+    ports:
+      - "3000:3000"
+    volumes:
+      - nai_factory_data:/app/server/data
+    restart: unless-stopped
+
+volumes:
+  nai_factory_data:

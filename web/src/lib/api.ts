@@ -1,4 +1,5 @@
 import type {
+    AnyQueueItem,
     CharacterReference,
     CharacterReferenceOrderPatchBody,
     CharacterReferencePatchBody,
@@ -38,11 +39,13 @@ import type {
     VibeTransferOrderPatchBody,
     VibeTransferPatchBody,
     VibeTransferUploadBody,
-    AnyQueueItem,
 } from '@nai-factory/types'
 import ky, { HTTPError, type Options } from 'ky'
 
-export const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+export const BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000').replace(
+    /\/+$/,
+    '',
+)
 
 export const apiClient = ky.create({
     prefix: BASE_URL,
@@ -441,5 +444,5 @@ export const api = {
 }
 
 export function imageUrl(path: string): string {
-    return `${BASE_URL}/${path}`
+    return `${BASE_URL}/${path.replace(/^\/+/, '')}`
 }

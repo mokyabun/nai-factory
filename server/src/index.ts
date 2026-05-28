@@ -19,7 +19,44 @@ import {
 } from './domains'
 import logger from './logger'
 
-export function createApp() {
+const isProduction = process.env.NODE_ENV === 'production'
+const webDistDir = process.env.WEB_DIST_DIR ?? '../web/dist'
+
+function routeApi(app: Hono, prefix: string) {
+    return app
+        .route(`${prefix}/groups`, group)
+        .route(`${prefix}/projects`, project)
+        .route(`${prefix}/projects/:projectId/character-references`, characterReference)
+        .route(`${prefix}/projects/:projectId/vibe-transfers`, vibeTransfer)
+        .route(`${prefix}/scenes`, scene)
+        .route(`${prefix}/images`, image)
+        .route(`${prefix}/playground`, playground)
+        .route(`${prefix}/debug`, debug)
+        .route(`${prefix}/queue`, queue)
+        .route(`${prefix}/sd-studio`, sdStudio)
+        .route(`${prefix}/settings`, setting)
+        .route(prefix || '/', sse)
+        .route(`${prefix}/tags`, tag)
+        .get(`${prefix}/data/*`, serveStatic({ root: './' }))
+}
+
+function routeFrontend(app: Hono) {
+    app.get('*', serveStatic({ root: webDistDir }))
+    app.get('*', async (c) => {
+        const pathname = new URL(c.req.url).pathname
+        const filename = pathname.split('/').pop() ?? ''
+        const acceptsHtml = c.req.header('accept')?.includes('text/html') ?? false
+
+        if (filename.includes('.') && !acceptsHtml) {
+            return c.json({ message: 'Not found' }, 404)
+        }
+
+        return c.html(await Bun.file(`${webDistDir}/index.html`).text())
+    })
+}
+
+export function createApp(options: { production?: boolean } = {}) {
+    const production = options.production ?? isProduction
     const app = new Hono()
 
     app.use('*', cors())
@@ -36,21 +73,14 @@ export function createApp() {
     })
     app.notFound((c) => c.json({ message: 'Not found' }, 404))
 
+    routeApi(app, production ? '/api' : '')
+
+    if (production) {
+        app.all('/api/*', (c) => c.json({ message: 'Not found' }, 404))
+        routeFrontend(app)
+    }
+
     return app
-        .route('/groups', group)
-        .route('/projects', project)
-        .route('/projects/:projectId/character-references', characterReference)
-        .route('/projects/:projectId/vibe-transfers', vibeTransfer)
-        .route('/scenes', scene)
-        .route('/images', image)
-        .route('/playground', playground)
-        .route('/debug', debug)
-        .route('/queue', queue)
-        .route('/sd-studio', sdStudio)
-        .route('/settings', setting)
-        .route('/', sse)
-        .route('/tags', tag)
-        .get('/data/*', serveStatic({ root: './' }))
 }
 
 const port = Number(process.env.PORT ?? 3000)
