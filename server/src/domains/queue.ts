@@ -11,7 +11,7 @@ import { and, asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, playgroundQueueItems, projects, queueItems, scenes } from '../db'
-import { domainEvents, queueManager } from '../services'
+import { queueManager } from '../services'
 
 async function get(projectId?: number) {
     const sceneRows = await db
@@ -135,10 +135,6 @@ async function clear(sceneId?: number, sceneVariationId?: number) {
     return { cancelled: rows.length }
 }
 
-function invalidateQueue() {
-    domainEvents.invalidate('queue')
-}
-
 export const queue = new Hono()
     .get('/', zValidator('query', QueueGetQuery), async (c) => {
         const query = c.req.valid('query')
@@ -148,40 +144,33 @@ export const queue = new Hono()
     .post('/enqueue', zValidator('json', QueueEnqueueBody), async (c) => {
         const body = c.req.valid('json')
         const items = await enqueue(body.sceneId, body.position, body.sceneVariationId)
-        invalidateQueue()
         return c.json({ queued: items.length, items }, 201)
     })
     .post('/enqueue-all', zValidator('json', QueueEnqueueAllBody), async (c) => {
         const body = c.req.valid('json')
         const items = await enqueueAll(body.projectId, body.position)
-        invalidateQueue()
         return c.json({ queued: items.length, items }, 201)
     })
     .post('/enqueue-bulk', zValidator('json', QueueEnqueueBulkBody), async (c) => {
         const body = c.req.valid('json')
         const items = await enqueueBulk(body.sceneIds, body.position)
-        invalidateQueue()
         return c.json({ queued: items.length, items }, 201)
     })
     .post('/start', async (c) => {
         queueManager.start()
-        invalidateQueue()
         return c.json(await queueManager.status())
     })
     .post('/stop', async (c) => {
         queueManager.stop()
-        invalidateQueue()
         return c.json(await queueManager.status())
     })
     .delete('/', zValidator('query', QueueClearQuery), async (c) => {
         const query = c.req.valid('query')
         const result = await clear(query.sceneId, query.sceneVariationId)
-        invalidateQueue()
         return c.json(result)
     })
     .delete('/:id', zValidator('param', IdParams), async (c) => {
         const { id } = c.req.valid('param')
         await cancel(id)
-        invalidateQueue()
         return c.body(null, 204)
     })

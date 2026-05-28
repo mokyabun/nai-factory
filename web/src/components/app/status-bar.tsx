@@ -40,7 +40,12 @@ export function StatusBar() {
 
     const clearAll = useMutation({
         mutationFn: () => api.queue.delete(),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.queueStatus() }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            queryClient.invalidateQueries({
+                predicate: (query) => query.queryKey[0] === 'queue' && query.queryKey[1] === 'items',
+            })
+        },
     })
 
     const status = statusQuery.data ?? {

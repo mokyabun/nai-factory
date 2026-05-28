@@ -1,5 +1,5 @@
 import type { DebugSettings } from '@nai-factory/types'
-import { domainEvents } from './app/events'
+import { realtimeEvents } from './app/events'
 
 export type DebugRequestStatus = 'pending' | 'success' | 'error'
 
@@ -37,7 +37,7 @@ function trim(limit: number) {
 }
 
 function emitChange() {
-    domainEvents.invalidate('debug')
+    realtimeEvents.publish({ type: 'debug.requests.changed' })
 }
 
 function redact(value: unknown): unknown {

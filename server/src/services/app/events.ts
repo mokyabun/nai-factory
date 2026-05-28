@@ -1,18 +1,13 @@
 import { EventEmitter } from 'node:events'
+import type { RealtimeEvent } from '@nai-factory/types'
 
-export type EventDomain = 'queue' | 'images' | 'playground' | 'debug'
-
-export interface DomainChangeEvent {
-    domain: EventDomain
-}
-
-class DomainEventService extends EventEmitter {
-    private pending = new Set<EventDomain>()
+class RealtimeEventService extends EventEmitter {
+    private pending = new Map<string, RealtimeEvent>()
     private timer: ReturnType<typeof setTimeout> | null = null
 
-    /** Enqueue a domain change. Duplicate domains within the flush window are collapsed. */
-    invalidate(domain: EventDomain): void {
-        this.pending.add(domain)
+    /** Enqueue an event. Duplicate payloads within the flush window are collapsed. */
+    publish(event: RealtimeEvent): void {
+        this.pending.set(JSON.stringify(event), event)
         if (this.timer === null) {
             this.timer = setTimeout(() => this.flush(), 0)
         }
@@ -20,20 +15,20 @@ class DomainEventService extends EventEmitter {
 
     private flush(): void {
         this.timer = null
-        for (const domain of this.pending) {
-            this.emit('change', { domain } satisfies DomainChangeEvent)
+        for (const event of this.pending.values()) {
+            this.emit('change', event)
         }
         this.pending.clear()
     }
 
-    subscribe(listener: (event: DomainChangeEvent) => void): () => void {
+    subscribe(listener: (event: RealtimeEvent) => void): () => void {
         this.on('change', listener)
         return () => this.off('change', listener)
     }
 }
 
-const service = new DomainEventService()
+const service = new RealtimeEventService()
 // Allow up to 200 concurrent SSE clients without MaxListenersExceededWarning
 service.setMaxListeners(200)
 
-export const domainEvents = service
+export const realtimeEvents = service

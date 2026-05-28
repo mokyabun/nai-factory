@@ -9,7 +9,7 @@ import { StatusBar } from '@/components/app/status-bar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { useActiveProjectId } from '@/hooks/use-active-project-id'
 import { useJsonDrop } from '@/hooks/use-json-drop'
-import { useSse } from '@/hooks/use-sse'
+import { useRealtimeInvalidation } from '@/hooks/use-realtime-invalidation'
 
 interface AppShellProps {
     children: React.ReactNode
@@ -22,7 +22,7 @@ export function AppShell({ children }: AppShellProps) {
     const { isDragOver, pendingFile, dragHandlers, clearPendingFile } = useJsonDrop()
     const [importDialogOpen, setImportDialogOpen] = useState(false)
 
-    useSse(queryClient)
+    useRealtimeInvalidation(queryClient)
 
     useEffect(() => {
         if (pendingFile) setImportDialogOpen(true)

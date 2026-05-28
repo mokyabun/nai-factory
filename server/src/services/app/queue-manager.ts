@@ -1,7 +1,7 @@
 import { asc, count, eq, inArray, max, min } from 'drizzle-orm'
 import { db, playgroundQueueItems, queueItems, scenes, sceneVariations } from '#/db'
 import logger from '#/logger'
-import { domainEvents } from './events'
+import { realtimeEvents } from './events'
 import { runJob, runPlaygroundJob } from './queue-runner'
 
 export type EnqueuePosition = 'back' | 'front'
@@ -40,6 +40,10 @@ type PlaygroundJobDraft = {
     prompt: string
     negativePrompt: string
     parameters: typeof playgroundQueueItems.$inferInsert.parameters
+}
+
+function publishQueueChanged() {
+    realtimeEvents.publish({ type: 'queue.changed' })
 }
 
 class QueueManager {
@@ -285,12 +289,12 @@ class QueueManager {
                 startedAt: new Date(startedAtMs).toISOString(),
                 startedAtMs,
             }
+            publishQueueChanged()
             try {
                 const runner =
                     next.type === 'playground' ? runPlaygroundJob(next.id) : runJob(next.id)
                 for await (const variationDurationMs of runner) {
                     this.recordDurationMs(variationDurationMs)
-                    domainEvents.invalidate('queue')
                 }
                 this.completedCount += 1
                 this.recordHistory({
@@ -324,14 +328,14 @@ class QueueManager {
                 break
             } finally {
                 this.currentJob = null
-                domainEvents.invalidate('queue')
+                publishQueueChanged()
             }
         }
 
         this.running = false
         this.processing = false
         this.log.info('Queue finished')
-        domainEvents.invalidate('queue')
+        publishQueueChanged()
     }
 
     private recordDurationMs(milliseconds: number) {

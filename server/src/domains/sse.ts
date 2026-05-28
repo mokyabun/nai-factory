@@ -1,6 +1,7 @@
+import type { RealtimeEvent } from '@nai-factory/types'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { type DomainChangeEvent, domainEvents } from '#/services'
+import { realtimeEvents } from '#/services'
 
 const PING = Symbol('ping')
 const CLOSED = Symbol('closed')
@@ -23,16 +24,14 @@ class Channel<T> {
         const value = this.queue.shift()
         if (value !== undefined) return Promise.resolve(value)
 
-        return new Promise((resolve) => {
-            this.resolve = resolve
-        })
+        return new Promise((resolve) => (this.resolve = resolve))
     }
 }
 
 export const sse = new Hono().get('/sse', (c) =>
     streamSSE(c, async (stream) => {
-        const channel = new Channel<DomainChangeEvent | typeof PING | typeof CLOSED>()
-        const unsubscribe = domainEvents.subscribe((event) => channel.push(event))
+        const channel = new Channel<RealtimeEvent | typeof PING | typeof CLOSED>()
+        const unsubscribe = realtimeEvents.subscribe((event) => channel.push(event))
         const heartbeat = setInterval(() => channel.push(PING), 30_000)
 
         const close = () => {

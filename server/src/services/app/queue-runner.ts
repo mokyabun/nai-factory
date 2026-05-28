@@ -15,7 +15,7 @@ import * as characterReferenceService from '#/services/novelai/character-referen
 import * as novelAIService from '#/services/novelai/novelai'
 import * as vibeImageService from '#/services/novelai/vibe-image'
 import { nextDisplayOrder } from '#/shared'
-import { domainEvents } from './events'
+import { realtimeEvents } from './events'
 import * as imageService from './image'
 import { compilePrompts, compileVariables } from './prompt'
 import * as settingsService from './settings'
@@ -146,7 +146,6 @@ async function generateAndSaveImage(
         )
 
         await db.update(images).set({ filePath, thumbnailPath }).where(eq(images.id, image.id))
-        domainEvents.invalidate('images')
 
         log.debug({ imageId: image.id, filePath }, 'Image saved')
     } catch (error) {
@@ -226,7 +225,6 @@ async function generateAndSavePlaygroundImage(
             .update(playgroundImages)
             .set({ filePath, thumbnailPath })
             .where(eq(playgroundImages.id, image.id))
-        domainEvents.invalidate('playground')
 
         log.debug({ imageId: image.id, filePath }, 'Playground image saved')
     } catch (error) {
@@ -328,6 +326,11 @@ export async function* runJob(jobId: number) {
     }
 
     await db.delete(queueItems).where(eq(queueItems.id, jobId))
+    realtimeEvents.publish({
+        type: 'scene.images.changed',
+        projectId: project.id,
+        sceneId: scene.id,
+    })
     log.info({ jobId, duration: (Date.now() - startedAt) / 1000 }, 'Job completed')
 }
 
@@ -367,5 +370,6 @@ export async function* runPlaygroundJob(jobId: number) {
     yield Date.now() - variationStart
 
     await db.delete(playgroundQueueItems).where(eq(playgroundQueueItems.id, jobId))
+    realtimeEvents.publish({ type: 'playground.images.changed' })
     log.info({ jobId, duration: (Date.now() - startedAt) / 1000 }, 'Playground job completed')
 }

@@ -10,7 +10,7 @@ import { desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, playgroundImages, playgroundSettings } from '#/db'
-import { domainEvents, queueManager, remove as removeFile } from '#/services'
+import { queueManager, remove as removeFile } from '#/services'
 
 const DEFAULT_PARAMETERS: Parameters = {
     model: 'nai-diffusion-4-5-full',
@@ -84,7 +84,6 @@ export const playground = new Hono()
     .get('/settings', async (c) => c.json(await getSettings()))
     .patch('/settings', zValidator('json', PlaygroundSettingsPatchBody), async (c) => {
         const updated = await patchSettings(c.req.valid('json'))
-        domainEvents.invalidate('playground')
         return c.json(updated)
     })
     .get('/images', zValidator('query', PlaygroundImageGetQuery), async (c) => {
@@ -94,7 +93,6 @@ export const playground = new Hono()
     .post('/enqueue', zValidator('json', PlaygroundEnqueueBody), async (c) => {
         const body = c.req.valid('json')
         const item = await queueManager.addPlayground(body, body.position ?? 'back')
-        domainEvents.invalidate('queue')
         return c.json({ queued: 1, item }, 201)
     })
     .delete('/images/:id', zValidator('param', IdParams), async (c) => {
@@ -102,6 +100,5 @@ export const playground = new Hono()
             throw new HTTPException(404, { message: 'Playground image not found' })
         }
 
-        domainEvents.invalidate('playground')
         return c.body(null, 204)
     })
