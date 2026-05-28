@@ -28,7 +28,6 @@ const config = defineConfig({
                             name: 'base-ui-vendor',
                             test: /node_modules[\\/]@base-ui[\\/]/,
                             priority: 10,
-                            maxSize: 240_000,
                         },
                         {
                             name: 'vendor',
