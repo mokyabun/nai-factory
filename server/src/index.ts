@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
 import { cors } from 'hono/cors'
@@ -19,8 +20,9 @@ import {
 } from './domains'
 import logger from './logger'
 
-const isProduction = process.env.NODE_ENV === 'production'
-const webDistDir = process.env.WEB_DIST_DIR ?? '../web/dist'
+const isProduction = Bun.env.NODE_ENV === 'production'
+const webDistDir =
+    process.env.WEB_DIST_DIR ?? (isProduction ? join(import.meta.dir, 'public') : '../web/dist')
 
 function routeApi(app: Hono, prefix: string) {
     return app

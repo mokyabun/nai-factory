@@ -17,13 +17,19 @@ type TagSearchIndex = {
     searchAsync(query: string, limit: number): Promise<unknown[]>
 }
 
+const tagDbPath =
+    process.env.TAG_DB_PATH ??
+    (Bun.env.NODE_ENV === 'production'
+        ? join(import.meta.dir, 'assets/db.csv')
+        : join(import.meta.dir, '../../assets/db.csv'))
+
 let entries: TagEntry[] = []
 let searchIndex: TagSearchIndex | null = null
 
 async function ensureLoaded() {
     if (searchIndex !== null) return
 
-    const text = await Bun.file(join(import.meta.dir, '../../assets/db.csv')).text()
+    const text = await Bun.file(tagDbPath).text()
     const parsed: TagEntry[] = []
     for (const [id, rawLine] of text.split('\n').entries()) {
         const line = rawLine.trim()

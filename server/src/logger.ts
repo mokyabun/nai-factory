@@ -1,12 +1,15 @@
 import pino from 'pino'
 
-const logger = pino({
-    transport: {
-        target: 'pino-pretty',
-        options: {
-            colorize: true,
-        },
-    },
-})
+const logger =
+    Bun.env.NODE_ENV === 'production'
+        ? pino()
+        : pino({
+              transport: {
+                  target: 'pino-pretty',
+                  options: {
+                      colorize: true,
+                  },
+              },
+          })
 
 export default logger
