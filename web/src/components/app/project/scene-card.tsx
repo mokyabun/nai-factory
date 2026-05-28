@@ -60,7 +60,11 @@ export function SceneCard({
 
     const deleteScene = useMutation({
         mutationFn: () => api.scenes({ id: scene.id }).delete(),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
+            queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
+        },
     })
 
     const duplicateScene = useMutation({
@@ -94,7 +98,7 @@ export function SceneCard({
                     render={
                         <div
                             className={cn(
-                                'relative flex w-56 flex-col overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md',
+                                'group relative flex w-56 flex-col overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md',
                                 inQueue &&
                                     'border-primary shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_30%,transparent)]',
                                 selected && 'ring-2 ring-primary ring-offset-2',
@@ -110,14 +114,15 @@ export function SceneCard({
                     )}
 
                     {/* Selection checkbox */}
-                    {selectMode && onToggleSelect && (
+                    {onToggleSelect && (
                         <button
                             type="button"
+                            aria-label={selected ? `${scene.name} 선택 해제` : `${scene.name} 선택`}
                             className={cn(
-                                'absolute top-1.5 left-1.5 z-20 flex h-5 w-5 items-center justify-center rounded border-2 transition-colors',
+                                'absolute top-1.5 left-1.5 z-20 flex h-5 w-5 items-center justify-center rounded border-2 shadow-sm transition-colors',
                                 selected
                                     ? 'border-primary bg-primary text-primary-foreground'
-                                    : 'border-white/70 bg-black/30 text-transparent hover:border-primary',
+                                    : 'border-white/75 bg-black/35 text-transparent hover:border-primary hover:bg-primary hover:text-primary-foreground',
                             )}
                             onClick={(e) => {
                                 e.stopPropagation()
@@ -132,12 +137,17 @@ export function SceneCard({
                     <button
                         type="button"
                         className="group relative aspect-[3/4] w-full overflow-hidden bg-muted text-left"
-                        onClick={() =>
+                        onClick={() => {
+                            if (selectMode && onToggleSelect) {
+                                onToggleSelect(scene.id)
+                                return
+                            }
+
                             navigate({
                                 to: '/scene/$sceneId/images',
                                 params: { sceneId: String(scene.id) },
                             })
-                        }
+                        }}
                     >
                         {currentThumbImg === null ? (
                             <div className="flex h-full items-center justify-center">

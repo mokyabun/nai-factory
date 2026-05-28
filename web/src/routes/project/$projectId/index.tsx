@@ -9,8 +9,9 @@ import {
 import { arrayMove, rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { Images, ListPlus, Plus } from 'lucide-react'
+import { Check, Images, ListPlus, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
 import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
 import { Button } from '@/components/ui/button'
@@ -54,6 +55,7 @@ function ProjectPage() {
     const [items, setItems] = useState<SceneSummary[]>([])
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
     const [createSceneOpen, setCreateSceneOpen] = useState(false)
+    const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false)
     const [loadedProjectId, setLoadedProjectId] = useState<number | null>(null)
     const [slideshowImageCount, setSlideshowImageCount] = useState(4)
 
@@ -68,7 +70,14 @@ function ProjectPage() {
 
     // Sync items from query
     useEffect(() => {
-        if (scenesQuery.data) setItems(scenesQuery.data)
+        if (!scenesQuery.data) return
+
+        setItems(scenesQuery.data)
+        const availableIds = new Set(scenesQuery.data.map((scene) => scene.id))
+        setSelectedIds((prev) => {
+            const next = new Set([...prev].filter((id) => availableIds.has(id)))
+            return next.size === prev.size ? prev : next
+        })
     }, [scenesQuery.data])
 
     useEffect(() => {
@@ -108,7 +117,7 @@ function ProjectPage() {
     })
 
     const bulkEnqueue = useMutation({
-        mutationFn: () => api.queue['enqueue-bulk'].post({ sceneIds: [...selectedIds] }),
+        mutationFn: (sceneIds: number[]) => api.queue['enqueue-bulk'].post({ sceneIds }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
@@ -117,12 +126,18 @@ function ProjectPage() {
         },
     })
 
-    const enqueueAll = useMutation({
-        mutationFn: () => api.queue['enqueue-all'].post({ projectId: projId }),
+    const deleteSelectedScenes = useMutation({
+        mutationFn: async (sceneIds: number[]) => {
+            for (const id of sceneIds) {
+                await api.scenes({ id }).delete()
+            }
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
+            setSelectedIds(new Set())
+            setDeleteSelectedOpen(false)
         },
     })
 
@@ -149,38 +164,106 @@ function ProjectPage() {
         })
     }
 
+    function selectAllScenes() {
+        setSelectedIds(new Set(items.map((scene) => scene.id)))
+    }
+
+    function clearSelection() {
+        setSelectedIds(new Set())
+    }
+
     function handleSlideshowImageCountChange(value: string) {
         const nextCount = Math.min(10, Math.max(1, Number(value) || 1))
         setSlideshowImageCount(nextCount)
         if (loadedProjectId) saveProjectSettings.current(loadedProjectId, nextCount)
     }
 
-    const selectMode = selectedIds.size > 0
+    useEffect(() => {
+        function handleKeyDown(event: KeyboardEvent) {
+            if (isEditableTarget(event.target)) return
+
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+                if (items.length === 0) return
+                event.preventDefault()
+                setSelectedIds(new Set(items.map((scene) => scene.id)))
+                return
+            }
+
+            if (event.key === 'Escape') {
+                setSelectedIds(new Set())
+            }
+        }
+
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [items])
+
+    const selectedSceneIds = items
+        .filter((scene) => selectedIds.has(scene.id))
+        .map((scene) => scene.id)
+    const selectedCount = selectedSceneIds.length
+    const selectMode = selectedCount > 0
+    const hasScenes = items.length > 0
     const currentSceneId = queueStatusQuery.data?.currentSceneId ?? null
 
     return (
         <div className="flex h-full flex-col gap-4">
             {/* Toolbar */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    {hasScenes && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={selectAllScenes}
+                            disabled={selectedCount === items.length}
+                        >
+                            <Check className="h-4 w-4" />
+                            전체 선택
+                        </Button>
+                    )}
+                    {selectMode && (
+                        <span className="text-xs font-medium text-muted-foreground">
+                            {selectedCount}개 선택
+                        </span>
+                    )}
                     {selectMode && (
                         <Button
                             size="sm"
                             className="gap-1.5"
-                            onClick={() => bulkEnqueue.mutate()}
+                            onClick={() => bulkEnqueue.mutate(selectedSceneIds)}
                             disabled={bulkEnqueue.isPending}
                         >
                             <ListPlus className="h-4 w-4" />
-                            선택 씬 큐 추가 ({selectedIds.size})
+                            선택 큐 추가
                         </Button>
                     )}
                     {selectMode && (
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-                            선택 해제
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => setDeleteSelectedOpen(true)}
+                            disabled={deleteSelectedScenes.isPending}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            선택 삭제
+                        </Button>
+                    )}
+                    {selectMode && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={clearSelection}
+                        >
+                            <X className="h-4 w-4" />
+                            해제
                         </Button>
                     )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                     <div className="flex items-center gap-1.5 rounded-md border bg-background px-2 py-1">
                         <Images className="h-3.5 w-3.5 text-muted-foreground" />
                         <Label
@@ -199,16 +282,6 @@ function ProjectPage() {
                             className="h-6 w-12 px-1.5 text-xs"
                         />
                     </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={() => enqueueAll.mutate()}
-                        disabled={enqueueAll.isPending || items.length === 0}
-                    >
-                        <ListPlus className="h-4 w-4" />
-                        전체 큐 추가
-                    </Button>
                     <Button size="sm" className="gap-1.5" onClick={() => setCreateSceneOpen(true)}>
                         <Plus className="h-4 w-4" />새 씬
                     </Button>
@@ -254,6 +327,23 @@ function ProjectPage() {
                 onOpenChange={setCreateSceneOpen}
                 onCreate={(name) => createScene.mutate(name)}
             />
+            <ConfirmDeleteDialog
+                open={deleteSelectedOpen}
+                onOpenChange={setDeleteSelectedOpen}
+                title="선택 씬 삭제"
+                description={`선택한 씬 ${selectedCount}개와 모든 생성된 이미지를 삭제합니다. 되돌릴 수 없습니다.`}
+                onConfirm={() => deleteSelectedScenes.mutateAsync(selectedSceneIds)}
+            />
         </div>
+    )
+}
+
+function isEditableTarget(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return false
+    return (
+        target.isContentEditable ||
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
     )
 }
