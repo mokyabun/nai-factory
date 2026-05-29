@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useRouterState } from '@tanstack/react-router'
 import { useAtom } from 'jotai'
 import { FileJson } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { SdStudioImportDialog } from '@/components/app/dialogs/sd-studio-import-dialog'
 import { Header } from '@/components/app/header'
 import { Sidebar } from '@/components/app/sidebar'
@@ -11,7 +11,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { useActiveProjectId } from '@/hooks/use-active-project-id'
 import { useJsonDrop } from '@/hooks/use-json-drop'
 import { useRealtimeInvalidation } from '@/hooks/use-realtime-invalidation'
-import { importDialogOpenAtom } from './atom'
+import { activeProjectIdAtom, importDialogOpenAtom } from './atom'
 
 interface AppShellProps {
     children: React.ReactNode
@@ -23,8 +23,13 @@ export function AppShell({ children }: AppShellProps) {
     const activeProjectId = useActiveProjectId(pathname)
     const { isDragOver, pendingFile, dragHandlers, clearPendingFile } = useJsonDrop()
     const [importDialogOpen, setImportDialogOpen] = useAtom(importDialogOpenAtom)
+    const [storedProjectId, setStoredProjectId] = useAtom(activeProjectIdAtom)
 
     useRealtimeInvalidation(queryClient)
+
+    useLayoutEffect(() => {
+        if (activeProjectId !== null) setStoredProjectId(activeProjectId)
+    }, [activeProjectId, setStoredProjectId])
 
     useEffect(() => {
         if (pendingFile) setImportDialogOpen(true)
@@ -48,7 +53,7 @@ export function AppShell({ children }: AppShellProps) {
                 )}
 
                 <SidebarProvider style={{ '--sidebar-width': '350px' } as React.CSSProperties}>
-                    <Sidebar projectId={activeProjectId} />
+                    <Sidebar />
                     <SidebarInset className="flex flex-col overflow-hidden">
                         <Header />
                         <main className="flex flex-1 flex-col overflow-auto p-4">{children}</main>
@@ -61,7 +66,7 @@ export function AppShell({ children }: AppShellProps) {
                 open={importDialogOpen}
                 onOpenChange={handleImportDialogOpenChange}
                 file={pendingFile}
-                projectId={activeProjectId}
+                projectId={storedProjectId}
             />
         </>
     )

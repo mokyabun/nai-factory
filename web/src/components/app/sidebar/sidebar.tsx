@@ -1,5 +1,5 @@
 import { useNavigate, useRouterState } from '@tanstack/react-router'
-import { Provider, useAtom } from 'jotai'
+import { Provider, useAtom, useAtomValue } from 'jotai'
 import type { LucideIcon } from 'lucide-react'
 import { AlignLeft, File, FlaskConical, ListTodo, Settings } from 'lucide-react'
 import { type ComponentType, type LazyExoticComponent, lazy, Suspense, useEffect } from 'react'
@@ -12,9 +12,12 @@ import {
 } from '@/components/ui/sheet'
 import * as Base from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { activeProjectIdAtom } from '../atom'
 import { activeSidebarPanelAtom, type SidebarPanel } from './atom'
 import { SidebarFooter } from './sidebar-footer'
 import { SidebarHeader } from './sidebar-header'
+
+const SIDEBAR_PANELS = ['project', 'playground', 'prompt', 'queue', 'settings'] as const
 
 type PreloadablePanel<TProps = unknown> = LazyExoticComponent<ComponentType<TProps>> & {
     preload: () => Promise<{ default: ComponentType<TProps> }>
@@ -69,7 +72,9 @@ type SidebarItem = {
     to?: '/playground'
 }
 
-export function Sidebar({ projectId }: AppSidebarProps) {
+export function Sidebar() {
+    const projectId = useAtomValue(activeProjectIdAtom)
+
     return (
         <Provider>
             <SidebarContent projectId={projectId} />
@@ -97,16 +102,11 @@ function SidebarContent({ projectId }: AppSidebarProps) {
     useEffect(() => {
         const params = new URLSearchParams(search)
         const panel = params.get('sidebar') as SidebarPanel | null
-        if (panel && ['project', 'playground', 'prompt', 'queue', 'settings'].includes(panel)) {
-            preloadSidebarPanel(panel)
-            setActivePanel(panel)
-            return
-        }
-        if (pathname === '/playground') setActivePanel('playground')
-        else if (activePanel === 'playground') {
-            setActivePanel('project')
-        }
-    }, [search, pathname, activePanel, setActivePanel])
+        const nextPanel = panel && isSidebarPanel(panel) ? panel : getDefaultSidebarPanel(pathname)
+
+        preloadSidebarPanel(nextPanel)
+        setActivePanel(nextPanel)
+    }, [search, pathname, setActivePanel])
 
     const topItems: SidebarItem[] = [
         { title: '프로젝트', panel: 'project' as const, icon: File },
@@ -130,6 +130,14 @@ function SidebarContent({ projectId }: AppSidebarProps) {
     function handlePanelClick(panel: SidebarPanel, to?: '/playground') {
         preloadSidebarPanel(panel)
 
+        if (isProjectContextPanel(panel)) {
+            navigateToProjectContextPanel(panel)
+            setActivePanel(panel)
+            if (isMobile) setOpenMobile(true)
+            else setOpen(true)
+            return
+        }
+
         if (to && pathname !== to) {
             navigate({ to })
             setActivePanel(panel)
@@ -145,10 +153,29 @@ function SidebarContent({ projectId }: AppSidebarProps) {
             setActivePanel(panel)
             if (isMobile) setOpenMobile(true)
             else setOpen(true)
-            const url = new URL(window.location.href)
-            url.searchParams.set('sidebar', panel)
-            window.history.replaceState(null, '', url.toString())
+            navigate({
+                search: (prev) => ({ ...prev, sidebar: panel }),
+                replace: true,
+            })
         }
+    }
+
+    function navigateToProjectContextPanel(panel: SidebarPanel) {
+        if (projectId) {
+            navigate({
+                to: '/project/$projectId',
+                params: { projectId: String(projectId) },
+                search: (prev) => ({ ...prev, sidebar: panel }),
+                replace: isProjectPath(pathname),
+            })
+            return
+        }
+
+        navigate({
+            to: '/',
+            search: (prev) => ({ ...prev, sidebar: panel }),
+            replace: pathname === '/',
+        })
     }
 
     function renderIconRail(mobile = false) {
@@ -273,6 +300,28 @@ function preloadSidebarPanel(panel: SidebarPanel) {
     if (panel === 'prompt') SidebarPrompt.preload()
     if (panel === 'queue') SidebarQueue.preload()
     if (panel === 'settings') SidebarSettings.preload()
+}
+
+function isSidebarPanel(panel: string): panel is SidebarPanel {
+    return SIDEBAR_PANELS.includes(panel as SidebarPanel)
+}
+
+function getDefaultSidebarPanel(pathname: string): SidebarPanel {
+    if (pathname === '/playground') return 'playground'
+    if (isProjectPath(pathname) || isScenePath(pathname)) return 'prompt'
+    return 'project'
+}
+
+function isProjectContextPanel(panel: SidebarPanel) {
+    return panel === 'project' || panel === 'prompt' || panel === 'queue'
+}
+
+function isProjectPath(pathname: string) {
+    return pathname.startsWith('/project/')
+}
+
+function isScenePath(pathname: string) {
+    return pathname.startsWith('/scene/')
 }
 
 function SidebarPanelFallback() {

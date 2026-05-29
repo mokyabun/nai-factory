@@ -60,7 +60,10 @@ function SidebarProjectContent() {
     const createProject = useMutation({
         mutationFn: ({ groupId, name }: { groupId: number; name: string }) =>
             api.projects.post({ groupId, name }),
-        onSuccess: invalidateGroups,
+        onSuccess: (res) => {
+            invalidateGroups()
+            if (res.data) selectProject(res.data)
+        },
     })
 
     const deleteProject = useMutation({
@@ -82,7 +85,10 @@ function SidebarProjectContent() {
 
     const duplicateProject = useMutation({
         mutationFn: (projectId: number) => api.projects({ projectId }).duplicate.post(),
-        onSuccess: invalidateGroups,
+        onSuccess: (res) => {
+            invalidateGroups()
+            if (res.data) selectProject(res.data)
+        },
     })
 
     const [projectDialog, setProjectDialog] = useAtom(projectDialogAtom)
@@ -124,6 +130,7 @@ function SidebarProjectContent() {
             to: '/project/$projectId',
             params: { projectId: String(project.id) },
             search: (prev) => ({ ...prev, sidebar: 'prompt' }),
+            replace: currentProjectId === project.id,
         })
     }
 
