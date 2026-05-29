@@ -4,7 +4,7 @@ import type {
     Project,
     Parameters as ProjectParams,
     VibeTransfer,
-} from '@nai-factory/types'
+} from '@nai-factory/shared'
 import { atom } from 'jotai'
 
 export type ProjectPromptData = Pick<

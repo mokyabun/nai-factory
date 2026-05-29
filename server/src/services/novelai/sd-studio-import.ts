@@ -1,4 +1,4 @@
-import type { PromptVariable } from '@nai-factory/types'
+import type { PromptVariable } from '@nai-factory/shared'
 
 interface SdSelectedWorkflow {
     workflowType: string

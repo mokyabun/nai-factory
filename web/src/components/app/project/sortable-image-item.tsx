@@ -1,4 +1,4 @@
-import type { Image } from '@nai-factory/types'
+import type { Image } from '@nai-factory/shared'
 import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 

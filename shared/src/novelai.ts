@@ -1,31 +1,64 @@
 import * as z from 'zod'
 
-export const NovelAIModel = z.union([
-    z.literal('nai-diffusion-4-5-full'),
-    z.literal('nai-diffusion-4-5-curated'),
-    z.literal('nai-diffusion-4-full'),
-    z.literal('nai-diffusion-4-curated'),
-])
+/** Novel AI Model */
+export const NOVEL_AI_MODELS = [
+    'nai-diffusion-4-5-full',
+    'nai-diffusion-4-5-curated',
+    'nai-diffusion-4-full',
+    'nai-diffusion-4-curated',
+] as const
+
+export const NovelAIModel = z.enum(NOVEL_AI_MODELS)
 export type NovelAIModel = z.infer<typeof NovelAIModel>
 
-export const NovelAINoiseSchedule = z.union([
-    z.literal('native'),
-    z.literal('karras'),
-    z.literal('exponential'),
-    z.literal('polyexponential'),
-])
+export const NOVEL_AI_MODEL_OPTIONS = [
+    { label: 'NAI Diffusion 4.5 Full', value: 'nai-diffusion-4-5-full' },
+    { label: 'NAI Diffusion 4.5 Curated', value: 'nai-diffusion-4-5-curated' },
+    { label: 'NAI Diffusion 4 Full', value: 'nai-diffusion-4-full' },
+    { label: 'NAI Diffusion 4 Curated', value: 'nai-diffusion-4-curated' },
+] as const satisfies readonly { label: string; value: NovelAIModel }[]
+
+/** Noise Schedule */
+export const NOVEL_AI_NOISE_SCHEDULES = [
+    'native',
+    'karras',
+    'exponential',
+    'polyexponential',
+] as const
+
+export const NovelAINoiseSchedule = z.enum(NOVEL_AI_NOISE_SCHEDULES)
 export type NovelAINoiseSchedule = z.infer<typeof NovelAINoiseSchedule>
 
-export const NovelAISampler = z.union([
-    z.literal('k_euler_ancestral'),
-    z.literal('k_euler'),
-    z.literal('k_dpmpp_2s_ancestral'),
-    z.literal('k_dpmpp_2m'),
-    z.literal('k_dpmpp_sde'),
-    z.literal('k_dpmpp_2m_sde'),
-    z.literal('dimm_v3'),
-])
+export const NOVEL_AI_NOISE_SCHEDULE_OPTIONS = [
+    { label: 'Native', value: 'native' },
+    { label: 'Karras', value: 'karras' },
+    { label: 'Exponential', value: 'exponential' },
+    { label: 'Polyexponential', value: 'polyexponential' },
+] as const satisfies readonly { label: string; value: NovelAINoiseSchedule }[]
+
+/** Sampler */
+export const NOVEL_AI_SAMPLERS = [
+    'k_euler_ancestral',
+    'k_euler',
+    'k_dpmpp_2s_ancestral',
+    'k_dpmpp_2m',
+    'k_dpmpp_sde',
+    'k_dpmpp_2m_sde',
+    'dimm_v3',
+] as const
+
+export const NovelAISampler = z.enum(NOVEL_AI_SAMPLERS)
 export type NovelAISampler = z.infer<typeof NovelAISampler>
+
+export const NOVEL_AI_SAMPLER_OPTIONS = [
+    { label: 'Euler Ancestral', value: 'k_euler_ancestral' },
+    { label: 'Euler', value: 'k_euler' },
+    { label: 'DPM++ 2S Ancestral', value: 'k_dpmpp_2s_ancestral' },
+    { label: 'DPM++ 2M', value: 'k_dpmpp_2m' },
+    { label: 'DPM++ SDE', value: 'k_dpmpp_sde' },
+    { label: 'DPM++ 2M SDE', value: 'k_dpmpp_2m_sde' },
+    { label: 'DIMM v3', value: 'dimm_v3' },
+] as const satisfies readonly { label: string; value: NovelAISampler }[]
 
 export const NovelAICharacterPrompt = z.object({
     enabled: z.boolean(),

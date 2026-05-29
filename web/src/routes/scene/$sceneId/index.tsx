@@ -1,4 +1,4 @@
-import type { ScenePatchBody, SceneVariationDraft } from '@nai-factory/types'
+import type { ScenePatchBody, SceneVariationDraft } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Plus } from 'lucide-react'

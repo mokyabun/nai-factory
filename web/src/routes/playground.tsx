@@ -1,4 +1,4 @@
-import type { PlaygroundImage } from '@nai-factory/types'
+import type { PlaygroundImage } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { ImageIcon, Loader, Trash2 } from 'lucide-react'

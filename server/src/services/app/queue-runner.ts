@@ -1,4 +1,4 @@
-import type { ImageSettings, Prompt, SimpleNovelAIParameters } from '@nai-factory/types'
+import type { ImageSettings, Prompt, SimpleNovelAIParameters } from '@nai-factory/shared'
 import { desc, eq } from 'drizzle-orm'
 import {
     db,

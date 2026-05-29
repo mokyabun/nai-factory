@@ -4,7 +4,7 @@ import { dirname, extname, join } from 'node:path'
 import type {
     CharacterReferenceUploadFile,
     NovelAICharacterReferenceImage,
-} from '@nai-factory/types'
+} from '@nai-factory/shared'
 import { asc, desc, eq } from 'drizzle-orm'
 import sharp from 'sharp'
 import { CHARACTER_REFERENCES_DIR } from '#/config'

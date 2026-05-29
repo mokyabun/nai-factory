@@ -1,4 +1,4 @@
-import type { RealtimeEvent } from '@nai-factory/types'
+import type { RealtimeEvent } from '@nai-factory/shared'
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { BASE_URL } from '@/lib/api'

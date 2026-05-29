@@ -1,4 +1,4 @@
-import type { GlobalSettings } from '@nai-factory/types'
+import type { GlobalSettings } from '@nai-factory/shared'
 import { eq } from 'drizzle-orm'
 import { db, settings } from '#/db'
 

@@ -1,4 +1,4 @@
-import type { ImportOptions as SdStudioImportOptions } from '@nai-factory/types'
+import type { ImportOptions as SdStudioImportOptions } from '@nai-factory/shared'
 import { atom } from 'jotai'
 
 export type SdStudioImportStep = 'choose' | 'options' | 'project-name'

@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "types",
+      "name": "@nai-factory/shared",
       "dependencies": {
         "zod": "^4.4.3",
       },

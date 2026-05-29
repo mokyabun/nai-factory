@@ -15,7 +15,7 @@
     },
     "dependencies": {
         "@hono/zod-validator": "^0.8.0",
-        "@nai-factory/types": "workspace:*",
+        "@nai-factory/shared": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "fflate": "^0.8.3",
         "flexsearch": "^0.8.212",

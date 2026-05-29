@@ -39,7 +39,7 @@ import type {
     VibeTransferOrderPatchBody,
     VibeTransferPatchBody,
     VibeTransferUploadBody,
-} from '@nai-factory/types'
+} from '@nai-factory/shared'
 import ky, { HTTPError, type Options } from 'ky'
 
 export const BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000').replace(

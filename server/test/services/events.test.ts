@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { RealtimeEvent } from '@nai-factory/types'
+import type { RealtimeEvent } from '@nai-factory/shared'
 import { realtimeEvents } from '../../src/services/app/events'
 
 function waitForFlush() {

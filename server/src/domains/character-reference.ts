@@ -6,7 +6,7 @@ import {
     CharacterReferencePatchBody,
     CharacterReferenceUploadBody,
     ProjectIdParams,
-} from '@nai-factory/types'
+} from '@nai-factory/shared'
 import { eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'

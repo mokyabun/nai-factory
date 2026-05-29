@@ -1,4 +1,4 @@
-import type { GlobalSettings, ImageSaveType, SettingsPatchBody } from '@nai-factory/types'
+import type { GlobalSettings, ImageSaveType, SettingsPatchBody } from '@nai-factory/shared'
 import { atom } from 'jotai'
 
 export type ImageFormat = ImageSaveType['type']

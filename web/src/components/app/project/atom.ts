@@ -1,4 +1,4 @@
-import type { Parameters as ProjectParams } from '@nai-factory/types'
+import type { Parameters as ProjectParams } from '@nai-factory/shared'
 import { atom } from 'jotai'
 
 export const sceneCardThumbIndexAtom = atom(0)

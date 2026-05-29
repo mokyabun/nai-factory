@@ -7,7 +7,7 @@ FROM base AS deps
 COPY package.json bun.lock ./
 COPY server/package.json ./server/package.json
 COPY web/package.json ./web/package.json
-COPY types/package.json ./types/package.json
+COPY shared/package.json ./shared/package.json
 
 RUN bun install --frozen-lockfile
 
@@ -18,7 +18,7 @@ ENV NODE_ENV=production
 COPY package.json bun.lock ./
 COPY server/package.json ./server/package.json
 COPY web/package.json ./web/package.json
-COPY types/package.json ./types/package.json
+COPY shared/package.json ./shared/package.json
 
 RUN bun install --frozen-lockfile --production --filter @nai-factory/server --linker hoisted
 

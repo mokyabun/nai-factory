@@ -33,7 +33,7 @@ function lazyWithPreload<TProps = unknown>(
 }
 
 const SidebarPlayground = lazyWithPreload<Record<string, never>>(() =>
-    import('./sidebar-playground').then((mod) => ({
+    import('./playground').then((mod) => ({
         default: mod.SidebarPlayground as ComponentType<Record<string, never>>,
     })),
 )
@@ -185,7 +185,9 @@ function SidebarContent({ projectId }: AppSidebarProps) {
                                                 tooltip={item.title}
                                                 onMouseEnter={() => preloadSidebarPanel(item.panel)}
                                                 onFocus={() => preloadSidebarPanel(item.panel)}
-                                                onClick={() => handlePanelClick(item.panel)}
+                                                onClick={() =>
+                                                    handlePanelClick(item.panel, item.to)
+                                                }
                                                 isActive={activePanel === item.panel}
                                                 className={
                                                     mobile

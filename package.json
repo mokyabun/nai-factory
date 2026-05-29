@@ -12,7 +12,7 @@
     "workspaces": [
         "web",
         "server",
-        "types"
+        "shared"
     ],
     "devDependencies": {
         "concurrently": "^9.2.1",

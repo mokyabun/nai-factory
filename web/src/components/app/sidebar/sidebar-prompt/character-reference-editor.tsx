@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { CharacterReference, CharacterReferencePatchBody } from '@nai-factory/types'
+import type { CharacterReference, CharacterReferencePatchBody } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { GripVertical, Trash2, Upload } from 'lucide-react'

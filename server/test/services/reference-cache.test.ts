@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { isReferenceCacheFresh, REFERENCE_CACHE_TTL_MS } from '../../src/services/reference-cache'
+import {
+    isReferenceCacheFresh,
+    REFERENCE_CACHE_TTL_MS,
+} from '../../src/services/novelai/reference-cache'
 
 describe('reference cache TTL', () => {
     it('treats a fresh cache key as reusable', () => {

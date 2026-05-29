@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator'
-import { IdParams, ImageGetQuery, ImageOrderPatchBody, ImagePatchBody } from '@nai-factory/types'
+import { IdParams, ImageGetQuery, ImageOrderPatchBody, ImagePatchBody } from '@nai-factory/shared'
 import { desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'

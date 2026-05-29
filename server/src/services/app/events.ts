@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { RealtimeEvent } from '@nai-factory/types'
+import type { RealtimeEvent } from '@nai-factory/shared'
 
 class RealtimeEventService extends EventEmitter {
     private pending = new Map<string, RealtimeEvent>()

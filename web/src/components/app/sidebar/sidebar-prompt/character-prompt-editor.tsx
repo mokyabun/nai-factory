@@ -15,7 +15,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { CharacterPrompt } from '@nai-factory/types'
+import type { CharacterPrompt } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, GripVertical, Plus, Trash2, X } from 'lucide-react'
 import { useRef } from 'react'

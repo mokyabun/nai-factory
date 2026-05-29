@@ -5,7 +5,7 @@ import {
     GroupPostBody,
     type GroupProjectSummary,
     IdParams,
-} from '@nai-factory/types'
+} from '@nai-factory/shared'
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'

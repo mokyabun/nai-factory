@@ -13,7 +13,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { SceneVariationDraft } from '@nai-factory/types'
+import type { SceneVariationDraft } from '@nai-factory/shared'
 import { GripVertical, Plus, Trash2, X } from 'lucide-react'
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'

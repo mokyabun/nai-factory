@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator'
-import { SettingsPatchBody } from '@nai-factory/types'
+import { SettingsPatchBody } from '@nai-factory/shared'
 import { Hono } from 'hono'
 import * as settingsService from '#/services/app/settings'
 

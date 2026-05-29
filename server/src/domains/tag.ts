@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { zValidator } from '@hono/zod-validator'
-import { TagAutocompleteGetQuery } from '@nai-factory/types'
+import { TagAutocompleteGetQuery } from '@nai-factory/shared'
 import FlexSearch from 'flexsearch'
 import { Hono } from 'hono'
 

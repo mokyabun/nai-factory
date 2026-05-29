@@ -1,4 +1,4 @@
-# types
+# shared
 
 To install dependencies:
 

@@ -1,4 +1,4 @@
-import type { Image } from '@nai-factory/types'
+import type { Image } from '@nai-factory/shared'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, ChevronLeft, ChevronRight, Download } from 'lucide-react'

@@ -8,7 +8,7 @@ import {
     VibeTransferOrderPatchBody,
     VibeTransferPatchBody,
     VibeTransferUploadBody,
-} from '@nai-factory/types'
+} from '@nai-factory/shared'
 import { asc, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'

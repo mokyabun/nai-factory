@@ -1,4 +1,4 @@
-import type { SettingsPatchBody } from '@nai-factory/types'
+import type { SettingsPatchBody } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom, useAtomValue } from 'jotai'
 import { Bug, Eye, EyeOff, Plus, Save, Settings, Trash2, X } from 'lucide-react'

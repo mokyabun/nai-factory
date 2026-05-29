@@ -1,32 +1,16 @@
 import { zValidator } from '@hono/zod-validator'
 import {
+    DEFAULT_PLAYGROUND_PARAMETERS,
     IdParams,
-    type Parameters,
     PlaygroundEnqueueBody,
     PlaygroundImageGetQuery,
     PlaygroundSettingsPatchBody,
-} from '@nai-factory/types'
+} from '@nai-factory/shared'
 import { desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, playgroundImages, playgroundSettings } from '#/db'
 import { queueManager, remove as removeFile } from '#/services'
-
-const DEFAULT_PARAMETERS: Parameters = {
-    model: 'nai-diffusion-4-5-full',
-    qualityToggle: false,
-    width: 1024,
-    height: 1024,
-    steps: 28,
-    promptGuidance: 6,
-    varietyPlus: false,
-    seed: 0,
-    sampler: 'k_euler_ancestral',
-    promptGuidanceRescale: 0.7,
-    noiseSchedule: 'karras',
-    normalizeReferenceStrengthValues: false,
-    useCharacterPositions: false,
-}
 
 async function getImages(limit = 30) {
     return db
@@ -47,7 +31,7 @@ async function getSettings() {
 
     const [created] = await db
         .insert(playgroundSettings)
-        .values({ id: 1, parameters: DEFAULT_PARAMETERS })
+        .values({ id: 1, parameters: DEFAULT_PLAYGROUND_PARAMETERS })
         .returning()
 
     if (!created) throw new Error('Failed to create playground settings')

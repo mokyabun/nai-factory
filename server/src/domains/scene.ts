@@ -7,7 +7,7 @@ import {
     ScenePostBody,
     ScenePreviewGetQuery,
     type SceneVariationDraft,
-} from '@nai-factory/types'
+} from '@nai-factory/shared'
 import { asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'

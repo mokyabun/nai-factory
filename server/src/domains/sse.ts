@@ -1,4 +1,4 @@
-import type { RealtimeEvent } from '@nai-factory/types'
+import type { RealtimeEvent } from '@nai-factory/shared'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { realtimeEvents } from '#/services'

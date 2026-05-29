@@ -4,7 +4,7 @@ import {
     ProjectIdParams,
     ProjectPatchBody,
     ProjectPostBody,
-} from '@nai-factory/types'
+} from '@nai-factory/shared'
 import { asc, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'

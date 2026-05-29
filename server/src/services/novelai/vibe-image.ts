@@ -1,4 +1,4 @@
-import type { NovelAIModel, NovelAIVibeImage } from '@nai-factory/types'
+import type { NovelAIModel, NovelAIVibeImage } from '@nai-factory/shared'
 import { asc, eq } from 'drizzle-orm'
 import { db, vibeTransfers } from '#/db'
 import logger from '#/logger'

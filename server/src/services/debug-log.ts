@@ -1,4 +1,4 @@
-import type { DebugSettings } from '@nai-factory/types'
+import type { DebugSettings } from '@nai-factory/shared'
 import { realtimeEvents } from './app/events'
 
 export type DebugRequestStatus = 'pending' | 'success' | 'error'

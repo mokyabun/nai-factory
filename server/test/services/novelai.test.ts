@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import { rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { SimpleNovelAIParameters } from '@nai-factory/types'
+import type { SimpleNovelAIParameters } from '@nai-factory/shared'
 import { zipSync } from 'fflate'
 
 const arrayBufferMock = mock(() => Promise.resolve(new ArrayBuffer(0)))

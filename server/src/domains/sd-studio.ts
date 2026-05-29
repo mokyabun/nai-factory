@@ -1,22 +1,19 @@
 import { zValidator } from '@hono/zod-validator'
-import { type ImportOptions, type Parameters, SdStudioImportBody } from '@nai-factory/types'
+import {
+    type ImportOptions,
+    NOVEL_AI_NOISE_SCHEDULES,
+    NOVEL_AI_SAMPLERS,
+    type Parameters,
+    SdStudioImportBody,
+} from '@nai-factory/shared'
 import { desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db, projects, scenes, sceneVariations } from '#/db'
 import { parseSdStudioFile } from '#/services'
 import { nextDisplayOrder, requireEntity, withUpdatedAt } from '#/shared'
 
-const VALID_SAMPLERS = new Set([
-    'k_euler_ancestral',
-    'k_euler',
-    'k_dpmpp_2s_ancestral',
-    'k_dpmpp_2m',
-    'k_dpmpp_sde',
-    'k_dpmpp_2m_sde',
-    'dimm_v3',
-])
-
-const VALID_NOISE_SCHEDULES = new Set(['native', 'karras', 'exponential', 'polyexponential'])
+const VALID_SAMPLERS = new Set<string>(NOVEL_AI_SAMPLERS)
+const VALID_NOISE_SCHEDULES = new Set<string>(NOVEL_AI_NOISE_SCHEDULES)
 
 function promptTemplate(frontPrompt = '', backPrompt = '') {
     return [frontPrompt.trim(), '[[prompt]]', backPrompt.trim()].filter(Boolean).join(', ')

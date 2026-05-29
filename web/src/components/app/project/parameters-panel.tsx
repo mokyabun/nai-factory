@@ -1,4 +1,10 @@
-import type { Project, Parameters as ProjectParams } from '@nai-factory/types'
+import {
+    NOVEL_AI_MODEL_OPTIONS,
+    NOVEL_AI_NOISE_SCHEDULE_OPTIONS,
+    NOVEL_AI_SAMPLER_OPTIONS,
+    type Project,
+    type Parameters as ProjectParams,
+} from '@nai-factory/shared'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom } from 'jotai'
 import { useEffect } from 'react'
@@ -34,30 +40,6 @@ import {
 } from './atom'
 
 type ProjectData = Pick<Project, 'id' | 'parameters' | 'characterPrompts'>
-
-const MODELS = [
-    { value: 'nai-diffusion-4-5-full', label: 'NAI Diffusion 4.5 Full' },
-    { value: 'nai-diffusion-4-5-curated', label: 'NAI Diffusion 4.5 Curated' },
-    { value: 'nai-diffusion-4-full', label: 'NAI Diffusion 4 Full' },
-    { value: 'nai-diffusion-4-curated', label: 'NAI Diffusion 4 Curated' },
-]
-
-const SAMPLERS = [
-    { value: 'k_euler_ancestral', label: 'Euler Ancestral' },
-    { value: 'k_euler', label: 'Euler' },
-    { value: 'k_dpmpp_2s_ancestral', label: 'DPM++ 2S Ancestral' },
-    { value: 'k_dpmpp_2m', label: 'DPM++ 2M' },
-    { value: 'k_dpmpp_sde', label: 'DPM++ SDE' },
-    { value: 'k_dpmpp_2m_sde', label: 'DPM++ 2M SDE' },
-    { value: 'dimm_v3', label: 'DIMM v3' },
-]
-
-const NOISE_SCHEDULES = [
-    { value: 'native', label: 'Native' },
-    { value: 'karras', label: 'Karras' },
-    { value: 'exponential', label: 'Exponential' },
-    { value: 'polyexponential', label: 'Polyexponential' },
-]
 
 interface ParametersPanelProps {
     open: boolean
@@ -140,7 +122,7 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {MODELS.map((m) => (
+                                        {NOVEL_AI_MODEL_OPTIONS.map((m) => (
                                             <SelectItem key={m.value} value={m.value}>
                                                 {m.label}
                                             </SelectItem>
@@ -265,7 +247,7 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {SAMPLERS.map((s) => (
+                                        {NOVEL_AI_SAMPLER_OPTIONS.map((s) => (
                                             <SelectItem key={s.value} value={s.value}>
                                                 {s.label}
                                             </SelectItem>
@@ -288,7 +270,7 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {NOISE_SCHEDULES.map((n) => (
+                                        {NOVEL_AI_NOISE_SCHEDULE_OPTIONS.map((n) => (
                                             <SelectItem key={n.value} value={n.value}>
                                                 {n.label}
                                             </SelectItem>

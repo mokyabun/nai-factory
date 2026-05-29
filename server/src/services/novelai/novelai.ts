@@ -6,7 +6,7 @@ import type {
     NovelAIRequest,
     NovelAIVibeImage,
     SimpleNovelAIParameters,
-} from '@nai-factory/types'
+} from '@nai-factory/shared'
 import { unzipSync } from 'fflate'
 import ky from 'ky'
 import { beginDebugRequest } from '#/services/debug-log'
