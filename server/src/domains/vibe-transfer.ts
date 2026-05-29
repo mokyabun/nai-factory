@@ -15,7 +15,8 @@ import { HTTPException } from 'hono/http-exception'
 import { VIBES_DIR } from '#/config'
 import { db, projects, vibeTransfers } from '#/db'
 import { invalidateVibe } from '#/services'
-import { displayOrderBetween, nextDisplayOrder, requireEntity, withUpdatedAt } from '#/shared'
+import { nextDisplayOrder, planDisplayOrderUpdate } from '#/services/order'
+import { requireEntity, withUpdatedAt } from '#/shared'
 
 async function getProject(projectId: number) {
     const [project] = await db
@@ -23,22 +24,6 @@ async function getProject(projectId: number) {
         .from(projects)
         .where(eq(projects.id, projectId))
     return requireEntity(project, 'Project not found')
-}
-
-async function getSiblingOrder(id: number, projectId: number, label: string) {
-    const [vibe] = await db
-        .select({ projectId: vibeTransfers.projectId, displayOrder: vibeTransfers.displayOrder })
-        .from(vibeTransfers)
-        .where(eq(vibeTransfers.id, id))
-
-    const sibling = requireEntity(vibe, `${label} vibe transfer not found`)
-    if (sibling.projectId !== projectId) {
-        throw new HTTPException(400, {
-            message: `${label} vibe transfer belongs to another project`,
-        })
-    }
-
-    return sibling.displayOrder
 }
 
 async function list(projectId: number) {
@@ -115,13 +100,38 @@ async function reorder(
     if (!existing) return null
     if (existing.projectId !== projectId) return null
 
-    const prevOrder = prevId ? await getSiblingOrder(prevId, existing.projectId, 'Previous') : null
-    const nextOrder = nextId ? await getSiblingOrder(nextId, existing.projectId, 'Next') : null
-    const [updated] = await db
-        .update(vibeTransfers)
-        .set(withUpdatedAt({ displayOrder: displayOrderBetween(prevOrder, nextOrder) }))
-        .where(eq(vibeTransfers.id, id))
-        .returning()
+    const items = await db
+        .select({ id: vibeTransfers.id, displayOrder: vibeTransfers.displayOrder })
+        .from(vibeTransfers)
+        .where(eq(vibeTransfers.projectId, projectId))
+        .orderBy(asc(vibeTransfers.displayOrder), asc(vibeTransfers.id))
+    const plan = planDisplayOrderUpdate({
+        entity: 'vibe transfer',
+        items,
+        id,
+        prevId,
+        nextId,
+        logContext: { projectId },
+    })
+    if (!plan) return null
+
+    const updated = db.transaction(() => {
+        if (plan.type === 'rebalance') {
+            for (const update of plan.updates) {
+                db.update(vibeTransfers)
+                    .set(withUpdatedAt({ displayOrder: update.displayOrder }))
+                    .where(eq(vibeTransfers.id, update.id))
+                    .run()
+            }
+        } else {
+            db.update(vibeTransfers)
+                .set(withUpdatedAt({ displayOrder: plan.displayOrder }))
+                .where(eq(vibeTransfers.id, id))
+                .run()
+        }
+
+        return db.select().from(vibeTransfers).where(eq(vibeTransfers.id, id)).get()
+    })
 
     return updated ?? null
 }

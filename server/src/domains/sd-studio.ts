@@ -10,7 +10,8 @@ import { desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db, projects, scenes, sceneVariations } from '#/db'
 import { parseSdStudioFile } from '#/services'
-import { nextDisplayOrder, requireEntity, withUpdatedAt } from '#/shared'
+import { nextDisplayOrder } from '#/services/order'
+import { requireEntity, withUpdatedAt } from '#/shared'
 
 const VALID_SAMPLERS = new Set<string>(NOVEL_AI_SAMPLERS)
 const VALID_NOISE_SCHEDULES = new Set<string>(NOVEL_AI_NOISE_SCHEDULES)

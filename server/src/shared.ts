@@ -1,4 +1,3 @@
-import { generateKeyBetween } from 'fractional-indexing-jittered'
 import { HTTPException } from 'hono/http-exception'
 
 export function httpError(status: 400 | 404 | 500, message: string) {
@@ -16,12 +15,4 @@ export function nowIso() {
 
 export function withUpdatedAt<T extends object>(data: T) {
     return { ...data, updatedAt: nowIso() }
-}
-
-export function nextDisplayOrder(after?: string | null) {
-    return generateKeyBetween(after ?? null, null)
-}
-
-export function displayOrderBetween(prev?: string | null, next?: string | null) {
-    return generateKeyBetween(prev ?? null, next ?? null)
 }

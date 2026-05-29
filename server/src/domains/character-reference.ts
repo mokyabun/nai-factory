@@ -7,7 +7,7 @@ import {
     CharacterReferenceUploadBody,
     ProjectIdParams,
 } from '@nai-factory/shared'
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { CHARACTER_REFERENCES_DIR } from '#/config'
@@ -17,7 +17,8 @@ import {
     listCharacterReferences,
     uploadCharacterReference,
 } from '#/services'
-import { displayOrderBetween, requireEntity, withUpdatedAt } from '#/shared'
+import { planDisplayOrderUpdate } from '#/services/order'
+import { requireEntity, withUpdatedAt } from '#/shared'
 
 async function getProject(projectId: number) {
     const [project] = await db
@@ -25,25 +26,6 @@ async function getProject(projectId: number) {
         .from(projects)
         .where(eq(projects.id, projectId))
     return requireEntity(project, 'Project not found')
-}
-
-async function getSiblingOrder(id: number, projectId: number, label: string) {
-    const [ref] = await db
-        .select({
-            projectId: characterReferences.projectId,
-            displayOrder: characterReferences.displayOrder,
-        })
-        .from(characterReferences)
-        .where(eq(characterReferences.id, id))
-
-    const sibling = requireEntity(ref, `${label} character reference not found`)
-    if (sibling.projectId !== projectId) {
-        throw new HTTPException(400, {
-            message: `${label} character reference belongs to another project`,
-        })
-    }
-
-    return sibling.displayOrder
 }
 
 async function list(projectId: number) {
@@ -86,14 +68,38 @@ async function reorder(
     if (!existing) return null
     if (existing.projectId !== projectId) return null
 
-    const prevOrder = prevId ? await getSiblingOrder(prevId, projectId, 'Previous') : null
-    const nextOrder = nextId ? await getSiblingOrder(nextId, projectId, 'Next') : null
+    const items = await db
+        .select({ id: characterReferences.id, displayOrder: characterReferences.displayOrder })
+        .from(characterReferences)
+        .where(eq(characterReferences.projectId, projectId))
+        .orderBy(asc(characterReferences.displayOrder), asc(characterReferences.id))
+    const plan = planDisplayOrderUpdate({
+        entity: 'character reference',
+        items,
+        id,
+        prevId,
+        nextId,
+        logContext: { projectId },
+    })
+    if (!plan) return null
 
-    const [updated] = await db
-        .update(characterReferences)
-        .set(withUpdatedAt({ displayOrder: displayOrderBetween(prevOrder, nextOrder) }))
-        .where(eq(characterReferences.id, id))
-        .returning()
+    const updated = db.transaction(() => {
+        if (plan.type === 'rebalance') {
+            for (const update of plan.updates) {
+                db.update(characterReferences)
+                    .set(withUpdatedAt({ displayOrder: update.displayOrder }))
+                    .where(eq(characterReferences.id, update.id))
+                    .run()
+            }
+        } else {
+            db.update(characterReferences)
+                .set(withUpdatedAt({ displayOrder: plan.displayOrder }))
+                .where(eq(characterReferences.id, id))
+                .run()
+        }
+
+        return db.select().from(characterReferences).where(eq(characterReferences.id, id)).get()
+    })
 
     return updated ?? null
 }

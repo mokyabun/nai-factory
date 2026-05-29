@@ -1,25 +1,11 @@
 import { zValidator } from '@hono/zod-validator'
 import { IdParams, ImageGetQuery, ImageOrderPatchBody, ImagePatchBody } from '@nai-factory/shared'
-import { desc, eq } from 'drizzle-orm'
+import { asc, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, images, scenes } from '#/db'
 import { remove as removeFile } from '#/services'
-import { displayOrderBetween, requireEntity } from '#/shared'
-
-async function getSiblingOrder(id: number, sceneId: number, label: string) {
-    const [image] = await db
-        .select({ sceneId: images.sceneId, displayOrder: images.displayOrder })
-        .from(images)
-        .where(eq(images.id, id))
-
-    const sibling = requireEntity(image, `${label} image not found`)
-    if (sibling.sceneId !== sceneId) {
-        throw new HTTPException(400, { message: `${label} image belongs to another scene` })
-    }
-
-    return sibling.displayOrder
-}
+import { planDisplayOrderUpdate } from '#/services/order'
 
 async function getAllBySceneId(sceneId: number) {
     const [scene] = await db.select().from(scenes).where(eq(scenes.id, sceneId))
@@ -44,13 +30,38 @@ async function reorder(id: number, prevId: number | null, nextId: number | null)
         .where(eq(images.id, id))
     if (!image) throw new HTTPException(404, { message: 'Image not found' })
 
-    const prevOrder = prevId ? await getSiblingOrder(prevId, image.sceneId, 'Previous') : null
-    const nextOrder = nextId ? await getSiblingOrder(nextId, image.sceneId, 'Next') : null
-    const [updated] = await db
-        .update(images)
-        .set({ displayOrder: displayOrderBetween(prevOrder, nextOrder) })
-        .where(eq(images.id, id))
-        .returning()
+    const items = await db
+        .select({ id: images.id, displayOrder: images.displayOrder })
+        .from(images)
+        .where(eq(images.sceneId, image.sceneId))
+        .orderBy(asc(images.displayOrder), asc(images.id))
+    const plan = planDisplayOrderUpdate({
+        entity: 'image',
+        items,
+        id,
+        prevId,
+        nextId,
+        logContext: { sceneId: image.sceneId },
+    })
+    if (!plan) throw new HTTPException(404, { message: 'Image not found' })
+
+    const updated = db.transaction(() => {
+        if (plan.type === 'rebalance') {
+            for (const update of plan.updates) {
+                db.update(images)
+                    .set({ displayOrder: update.displayOrder })
+                    .where(eq(images.id, update.id))
+                    .run()
+            }
+        } else {
+            db.update(images)
+                .set({ displayOrder: plan.displayOrder })
+                .where(eq(images.id, id))
+                .run()
+        }
+
+        return db.select().from(images).where(eq(images.id, id)).get()
+    })
 
     return updated
 }

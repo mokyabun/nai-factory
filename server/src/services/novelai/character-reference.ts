@@ -10,7 +10,8 @@ import sharp from 'sharp'
 import { CHARACTER_REFERENCES_DIR } from '#/config'
 import { characterReferences, db } from '#/db'
 import logger from '#/logger'
-import { nextDisplayOrder, nowIso } from '#/shared'
+import { nextDisplayOrder } from '#/services/order'
+import { nowIso } from '#/shared'
 import { createUniqueReferenceCacheKey, isReferenceCacheFresh } from './reference-cache'
 
 const log = logger.child({ module: 'character-reference' })

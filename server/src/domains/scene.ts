@@ -13,8 +13,9 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, images, projects, scenes, sceneVariations, vibeTransfers } from '#/db'
 import { compilePrompts, compileVariables, removeByScene } from '#/services'
+import { nextDisplayOrder, planDisplayOrderUpdate } from '#/services/order'
 import * as settingsService from '#/services/app/settings'
-import { displayOrderBetween, nextDisplayOrder, requireEntity, withUpdatedAt } from '#/shared'
+import { requireEntity, withUpdatedAt } from '#/shared'
 
 type LatestImage = {
     id: number
@@ -118,20 +119,6 @@ async function getLastOrder(projectId: number) {
         .limit(1)
 
     return scene?.displayOrder ?? null
-}
-
-async function getSiblingOrder(id: number, projectId: number, label: string) {
-    const [scene] = await db
-        .select({ projectId: scenes.projectId, displayOrder: scenes.displayOrder })
-        .from(scenes)
-        .where(eq(scenes.id, id))
-
-    const sibling = requireEntity(scene, `${label} scene not found`)
-    if (sibling.projectId !== projectId) {
-        throw new HTTPException(400, { message: `${label} scene belongs to another project` })
-    }
-
-    return sibling.displayOrder
 }
 
 async function list(projectId: number) {
@@ -276,14 +263,40 @@ async function syncVariations(sceneId: number, drafts: SceneVariationDraft[]) {
 
 async function reorder(id: number, prevId: number | null, nextId: number | null) {
     const scene = await getScene(id)
-    const prevOrder = prevId ? await getSiblingOrder(prevId, scene.projectId, 'Previous') : null
-    const nextOrder = nextId ? await getSiblingOrder(nextId, scene.projectId, 'Next') : null
+    const items = await db
+        .select({ id: scenes.id, displayOrder: scenes.displayOrder })
+        .from(scenes)
+        .where(eq(scenes.projectId, scene.projectId))
+        .orderBy(asc(scenes.displayOrder), asc(scenes.id))
+    const plan = requireEntity(
+        planDisplayOrderUpdate({
+            entity: 'scene',
+            items,
+            id,
+            prevId,
+            nextId,
+            logContext: { projectId: scene.projectId },
+        }),
+        'Scene not found',
+    )
 
-    const [updated] = await db
-        .update(scenes)
-        .set(withUpdatedAt({ displayOrder: displayOrderBetween(prevOrder, nextOrder) }))
-        .where(eq(scenes.id, id))
-        .returning()
+    const updated = db.transaction(() => {
+        if (plan.type === 'rebalance') {
+            for (const update of plan.updates) {
+                db.update(scenes)
+                    .set(withUpdatedAt({ displayOrder: update.displayOrder }))
+                    .where(eq(scenes.id, update.id))
+                    .run()
+            }
+        } else {
+            db.update(scenes)
+                .set(withUpdatedAt({ displayOrder: plan.displayOrder }))
+                .where(eq(scenes.id, id))
+                .run()
+        }
+
+        return db.select().from(scenes).where(eq(scenes.id, id)).get()
+    })
 
     return requireEntity(updated, 'Scene not found')
 }
