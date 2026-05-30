@@ -38,6 +38,7 @@ export async function checkVibe(
                 updatedAt: nowIso(),
             })
             .where(eq(vibeTransfers.id, vibeTransferId))
+        log.debug({ vibeTransferId }, 'Vibe reference cache refreshed')
     } else {
         log.debug({ vibeTransferId }, 'Vibe reference cache hit')
     }
@@ -64,7 +65,10 @@ export async function checkVibesForProject(
         .where(eq(vibeTransfers.projectId, projectId))
         .orderBy(asc(vibeTransfers.displayOrder), asc(vibeTransfers.id))
 
-    if (vibes.length === 0) return []
+    if (vibes.length === 0) {
+        log.debug({ projectId }, 'No vibe transfers configured')
+        return []
+    }
 
     const results: NovelAIVibeImage[] = []
 
@@ -73,6 +77,16 @@ export async function checkVibesForProject(
         if (result.uploadFieldName) result.uploadFieldName = `ref_multiple_${index}`
         results.push(result)
     }
+
+    log.debug(
+        {
+            projectId,
+            model,
+            preparedCount: results.length,
+            uploadCount: results.filter((ref) => ref.uploadFieldName).length,
+        },
+        'Vibe transfers prepared',
+    )
 
     return results
 }
@@ -102,4 +116,5 @@ export async function markVibeCachesUploaded(ids: number[]) {
             .set({ cacheCreatedAt, updatedAt: cacheCreatedAt })
             .where(eq(vibeTransfers.id, id))
     }
+    log.debug({ ids }, 'Vibe caches marked uploaded')
 }

@@ -9,7 +9,10 @@ import type {
 } from '@nai-factory/shared'
 import { unzipSync } from 'fflate'
 import ky from 'ky'
+import logger from '#/logger'
 import { beginDebugRequest } from '#/services/debug-log'
+
+const log = logger.child({ module: 'novelai-service' })
 
 type GenerateImageDebugOptions = {
     settings: DebugSettings
@@ -17,6 +20,11 @@ type GenerateImageDebugOptions = {
 }
 
 export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Promise<string> {
+    const startedAt = Date.now()
+    log.debug(
+        { model: request.model, informationExtracted: request.information_extracted },
+        'Encoding vibe image',
+    )
     const form = new FormData()
     const imageBytes = Buffer.from(request.image, 'base64')
 
@@ -46,7 +54,17 @@ export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Pr
         })
         .arrayBuffer()
 
-    return Buffer.from(binary).toString('base64')
+    const encoded = Buffer.from(binary).toString('base64')
+    log.info(
+        {
+            model: request.model,
+            informationExtracted: request.information_extracted,
+            durationMs: Date.now() - startedAt,
+        },
+        'Vibe image encoded',
+    )
+
+    return encoded
 }
 
 function getMimeType(path: string) {
@@ -205,6 +223,25 @@ export async function generateImage(
 
     const uploadRefs = getUploadRefs(params)
     const shouldUseMultipart = vibeTransfers.length > 0 || characterReferences.length > 0
+    const startedAt = Date.now()
+    log.info(
+        {
+            model: params.model,
+            seed,
+            width: params.width,
+            height: params.height,
+            steps: params.steps,
+            sampler: params.sampler,
+            noiseSchedule: params.noiseSchedule,
+            characterPromptCount: enabledChars.length,
+            vibeTransferCount: vibeTransfers.length,
+            characterReferenceCount: characterReferences.length,
+            multipart: shouldUseMultipart,
+            uploadCount: uploadRefs.characterReferences.length + uploadRefs.vibes.length,
+            ...debug?.context,
+        },
+        'NovelAI image request started',
+    )
     const debugRequest = beginDebugRequest({
         settings: debug?.settings ?? { enabled: false, recentRequestLimit: 20 },
         method: 'POST',
@@ -288,10 +325,29 @@ export async function generateImage(
             imageName: imageEntry[0],
             imageBytes: imageEntry[1].byteLength,
         })
+        log.info(
+            {
+                seed,
+                zipBytes: zipData.byteLength,
+                imageBytes: imageEntry[1].byteLength,
+                durationMs: Date.now() - startedAt,
+                ...debug?.context,
+            },
+            'NovelAI image request completed',
+        )
 
         return { imageData: imageEntry[1], seed }
     } catch (error) {
         debugRequest?.error(error)
+        log.error(
+            {
+                seed,
+                durationMs: Date.now() - startedAt,
+                ...debug?.context,
+                err: error,
+            },
+            'NovelAI image request failed',
+        )
         throw error
     }
 }
@@ -301,8 +357,10 @@ export async function validateApiKey(apiKey: string): Promise<boolean> {
         const res = await fetch('https://api.novelai.net/user/subscription', {
             headers: { Authorization: `Bearer ${apiKey}` },
         })
+        log.debug({ ok: res.ok, status: res.status }, 'NovelAI API key validation completed')
         return res.ok
     } catch {
+        log.warn('NovelAI API key validation failed')
         return false
     }
 }

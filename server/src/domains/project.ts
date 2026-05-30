@@ -9,8 +9,11 @@ import { asc, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, projects, scenes, sceneVariations } from '../db'
+import logger from '../logger'
 import { removeByProject, removeCharacterReferencesByProject } from '../services'
 import { requireEntity, withUpdatedAt } from '../shared'
+
+const log = logger.child({ module: 'project-domain' })
 
 async function getAllByGroupId(groupId?: number | 'null' | 'ungrouped') {
     return db
@@ -34,6 +37,7 @@ async function getById(projectId: number) {
 async function create(body: ProjectPostBody) {
     const [project] = await db.insert(projects).values(body).returning()
     if (!project) throw new HTTPException(500, { message: 'Failed to create project' })
+    log.info({ projectId: project.id, groupId: project.groupId }, 'Project created')
     return project
 }
 
@@ -44,13 +48,16 @@ async function update(projectId: number, body: ProjectPatchBody) {
         .where(eq(projects.id, projectId))
         .returning()
 
-    return requireEntity(project, 'Project not found')
+    const result = requireEntity(project, 'Project not found')
+    log.info({ projectId, fields: Object.keys(body) }, 'Project updated')
+    return result
 }
 
 async function remove(projectId: number) {
     await getById(projectId)
     await Promise.all([removeByProject(projectId), removeCharacterReferencesByProject(projectId)])
     await db.delete(projects).where(eq(projects.id, projectId))
+    log.warn({ projectId }, 'Project deleted')
 }
 
 async function duplicate(projectId: number) {
@@ -113,6 +120,16 @@ async function duplicate(projectId: number) {
             )
         }
     }
+
+    log.info(
+        {
+            sourceProjectId: projectId,
+            projectId: project.id,
+            sceneCount: sourceScenes.length,
+            variationCount: sourceVariations.length,
+        },
+        'Project duplicated',
+    )
 
     return project
 }

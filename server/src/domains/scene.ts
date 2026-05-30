@@ -12,10 +12,13 @@ import { asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, images, projects, scenes, sceneVariations, vibeTransfers } from '#/db'
+import logger from '#/logger'
 import { compilePrompts, compileVariables, removeByScene } from '#/services'
-import { nextDisplayOrder, planDisplayOrderUpdate } from '#/services/order'
 import * as settingsService from '#/services/app/settings'
+import { nextDisplayOrder, planDisplayOrderUpdate } from '#/services/order'
 import { requireEntity, withUpdatedAt } from '#/shared'
+
+const log = logger.child({ module: 'scene-domain' })
 
 type LatestImage = {
     id: number
@@ -188,7 +191,7 @@ async function getPreviewPrompts(id: number, variationId?: number) {
               ]
     const settings = settingsService.get()
 
-    return compilePrompts(
+    const prompts = compilePrompts(
         {
             prompt: project.prompt,
             negativePrompt: project.negativePrompt,
@@ -196,6 +199,9 @@ async function getPreviewPrompts(id: number, variationId?: number) {
         },
         compileVariables(settings.globalVariables, project.variables, variables),
     )
+    log.debug({ sceneId: id, variationId, promptCount: prompts.length }, 'Preview prompts compiled')
+
+    return prompts
 }
 
 async function create(body: ScenePostBody) {
@@ -210,6 +216,7 @@ async function create(body: ScenePostBody) {
         .returning()
 
     if (!scene) throw new HTTPException(500, { message: 'Failed to create scene' })
+    log.info({ projectId: body.projectId, sceneId: scene.id }, 'Scene created')
     return { ...scene, variations: [] }
 }
 
@@ -225,6 +232,15 @@ async function update(id: number, body: ScenePatchBody) {
         await syncVariations(id, variations)
         await db.update(scenes).set(withUpdatedAt({})).where(eq(scenes.id, id))
     }
+
+    log.info(
+        {
+            sceneId: id,
+            fields: Object.keys(scenePatch),
+            variationCount: variations?.length,
+        },
+        'Scene updated',
+    )
 
     return getById(id)
 }
@@ -243,6 +259,9 @@ async function syncVariations(sceneId: number, drafts: SceneVariationDraft[]) {
         await db.delete(sceneVariations).where(inArray(sceneVariations.id, removedIds))
     }
 
+    let updatedCount = 0
+    let createdCount = 0
+
     for (const [index, variation] of drafts.entries()) {
         const values = {
             sceneId,
@@ -255,10 +274,23 @@ async function syncVariations(sceneId: number, drafts: SceneVariationDraft[]) {
                 .update(sceneVariations)
                 .set(withUpdatedAt(values))
                 .where(eq(sceneVariations.id, variation.id))
+            updatedCount += 1
         } else {
             await db.insert(sceneVariations).values(values)
+            createdCount += 1
         }
     }
+
+    log.debug(
+        {
+            sceneId,
+            createdCount,
+            updatedCount,
+            removedCount: removedIds.length,
+            totalCount: drafts.length,
+        },
+        'Scene variations synced',
+    )
 }
 
 async function reorder(id: number, prevId: number | null, nextId: number | null) {
@@ -298,13 +330,16 @@ async function reorder(id: number, prevId: number | null, nextId: number | null)
         return db.select().from(scenes).where(eq(scenes.id, id)).get()
     })
 
-    return requireEntity(updated, 'Scene not found')
+    const result = requireEntity(updated, 'Scene not found')
+    log.info({ sceneId: id, projectId: scene.projectId, planType: plan.type }, 'Scene reordered')
+    return result
 }
 
 async function remove(id: number) {
     const scene = await getScene(id)
     await removeByScene(scene.projectId, id)
     await db.delete(scenes).where(eq(scenes.id, id))
+    log.warn({ sceneId: id, projectId: scene.projectId }, 'Scene deleted')
 }
 
 async function duplicate(id: number) {
@@ -329,6 +364,16 @@ async function duplicate(id: number) {
             })),
         )
     }
+
+    log.info(
+        {
+            sourceSceneId: id,
+            sceneId: scene.id,
+            projectId: source.projectId,
+            variationCount: sourceVariations.length,
+        },
+        'Scene duplicated',
+    )
 
     return getById(scene.id)
 }

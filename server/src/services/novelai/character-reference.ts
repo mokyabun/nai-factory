@@ -102,6 +102,7 @@ export async function uploadCharacterReference(
     projectId: number,
     imageFile: CharacterReferenceUploadFile,
 ) {
+    const startedAt = Date.now()
     const ext = extname(imageFile.name) || '.png'
     const baseName = randomUUID()
     const sourceImagePath = join(CHARACTER_REFERENCES_DIR, String(projectId), `${baseName}${ext}`)
@@ -129,6 +130,15 @@ export async function uploadCharacterReference(
         .returning()
 
     if (!created) throw new Error('Failed to create character reference')
+    log.info(
+        {
+            projectId,
+            characterReferenceId: created.id,
+            sizeBytes: imageFile.size,
+            durationMs: Date.now() - startedAt,
+        },
+        'Character reference stored',
+    )
     return created
 }
 
@@ -150,6 +160,7 @@ export async function removeCharacterReferencesByProject(projectId: number) {
         recursive: true,
         force: true,
     })
+    log.warn({ projectId }, 'Character reference directory removed')
 }
 
 export async function prepareCharacterReferencesForProject(
@@ -163,7 +174,10 @@ export async function prepareCharacterReferencesForProject(
         .orderBy(asc(characterReferences.displayOrder), asc(characterReferences.id))
 
     const enabledRefs = refs.filter((ref) => ref.enabled)
-    if (enabledRefs.length === 0) return []
+    if (enabledRefs.length === 0) {
+        log.debug({ projectId }, 'No enabled character references')
+        return []
+    }
 
     if (!model.includes('4-5')) {
         throw new Error('Character Reference requires a V4.5 model')
@@ -178,6 +192,10 @@ export async function prepareCharacterReferencesForProject(
             : false
 
         if (!processedImagePath || !processedExists) {
+            log.debug(
+                { projectId, characterReferenceId: ref.id, processedExists },
+                'Processing character reference image',
+            )
             processedImagePath = await processCharacterReferenceImage(ref.sourceImagePath)
             await db
                 .update(characterReferences)
@@ -201,6 +219,10 @@ export async function prepareCharacterReferencesForProject(
                     updatedAt: nowIso(),
                 })
                 .where(eq(characterReferences.id, ref.id))
+            log.debug(
+                { projectId, characterReferenceId: ref.id },
+                'Character reference cache refreshed',
+            )
         }
 
         if (!cacheSecretKey) throw new Error(`Character reference ${ref.id} has no cache key`)
@@ -216,6 +238,16 @@ export async function prepareCharacterReferencesForProject(
         })
     }
 
+    log.debug(
+        {
+            projectId,
+            model,
+            preparedCount: prepared.length,
+            uploadCount: prepared.filter((ref) => ref.uploadFieldName).length,
+        },
+        'Character references prepared',
+    )
+
     return prepared
 }
 
@@ -229,4 +261,5 @@ export async function markCharacterReferenceCachesUploaded(ids: number[]) {
             .set({ cacheCreatedAt, updatedAt: cacheCreatedAt })
             .where(eq(characterReferences.id, id))
     }
+    log.debug({ ids }, 'Character reference caches marked uploaded')
 }

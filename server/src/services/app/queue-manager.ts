@@ -94,7 +94,16 @@ class QueueManager {
             .returning()
         if (items.length !== variations.length) throw new Error('Failed to create queue items')
 
-        this.log.debug({ sceneId, sceneVariationId, position, count: items.length }, 'Job enqueued')
+        this.log.debug(
+            {
+                projectId: scene.projectId,
+                sceneId,
+                sceneVariationId,
+                position,
+                count: items.length,
+            },
+            'Job enqueued',
+        )
 
         if (this.running && !this.processing) this.processQueue()
 
@@ -123,7 +132,10 @@ class QueueManager {
     }
 
     start() {
-        if (this.running) return
+        if (this.running) {
+            this.log.debug('Queue start ignored because queue is already running')
+            return
+        }
 
         this.running = true
         this.log.info('Queue started')
@@ -132,7 +144,10 @@ class QueueManager {
     }
 
     stop() {
-        if (!this.running) return
+        if (!this.running) {
+            this.log.debug('Queue stop ignored because queue is not running')
+            return
+        }
 
         this.running = false
         this.log.info('Queue stopped')
@@ -225,6 +240,7 @@ class QueueManager {
     private async processQueue(): Promise<void> {
         if (this.processing) return
         this.processing = true
+        this.log.debug('Queue processor entered')
 
         while (this.running) {
             // idc about same priority items being processed in random order
@@ -281,7 +297,10 @@ class QueueManager {
                         : nextPlayground
                     : (nextScene ?? nextPlayground)
 
-            if (!next) break
+            if (!next) {
+                this.log.debug('Queue processor found no pending jobs')
+                break
+            }
 
             const startedAtMs = Date.now()
             this.currentJob = {
@@ -290,6 +309,16 @@ class QueueManager {
                 startedAtMs,
             }
             publishQueueChanged()
+            this.log.info(
+                {
+                    jobId: next.id,
+                    type: next.type,
+                    projectId: next.projectId,
+                    sceneId: next.sceneId,
+                    sceneVariationId: next.sceneVariationId,
+                },
+                'Queue job started',
+            )
             try {
                 const runner =
                     next.type === 'playground' ? runPlaygroundJob(next.id) : runJob(next.id)
@@ -309,8 +338,27 @@ class QueueManager {
                     durationMs: Date.now() - startedAtMs,
                     error: null,
                 })
+                this.log.info(
+                    {
+                        jobId: next.id,
+                        type: next.type,
+                        durationMs: Date.now() - startedAtMs,
+                    },
+                    'Queue job completed',
+                )
             } catch (error) {
-                this.log.error({ jobId: next.id, err: error }, 'Job failed — stopping queue')
+                this.log.error(
+                    {
+                        jobId: next.id,
+                        type: next.type,
+                        projectId: next.projectId,
+                        sceneId: next.sceneId,
+                        sceneVariationId: next.sceneVariationId,
+                        durationMs: Date.now() - startedAtMs,
+                        err: error,
+                    },
+                    'Job failed — stopping queue',
+                )
                 this.failedCount += 1
                 this.recordHistory({
                     jobId: next.id,

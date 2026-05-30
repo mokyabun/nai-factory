@@ -12,6 +12,7 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { CHARACTER_REFERENCES_DIR } from '#/config'
 import { characterReferences, db, projects } from '#/db'
+import logger from '#/logger'
 import {
     deleteCharacterReferenceFiles,
     listCharacterReferences,
@@ -19,6 +20,8 @@ import {
 } from '#/services'
 import { planDisplayOrderUpdate } from '#/services/order'
 import { requireEntity, withUpdatedAt } from '#/shared'
+
+const log = logger.child({ module: 'character-reference-domain' })
 
 async function getProject(projectId: number) {
     const [project] = await db
@@ -35,7 +38,12 @@ async function list(projectId: number) {
 
 async function upload(projectId: number, image: CharacterReferenceUploadBody['image']) {
     await getProject(projectId)
-    return uploadCharacterReference(projectId, image)
+    const created = await uploadCharacterReference(projectId, image)
+    log.info(
+        { projectId, characterReferenceId: created.id, sizeBytes: image.size },
+        'Character reference uploaded',
+    )
+    return created
 }
 
 async function update(projectId: number, id: number, body: CharacterReferencePatchBody) {
@@ -51,6 +59,13 @@ async function update(projectId: number, id: number, body: CharacterReferencePat
         .set(withUpdatedAt(body))
         .where(eq(characterReferences.id, id))
         .returning()
+
+    if (updated) {
+        log.info(
+            { projectId, characterReferenceId: id, fields: Object.keys(body) },
+            'Character reference updated',
+        )
+    }
 
     return updated ?? null
 }
@@ -101,6 +116,13 @@ async function reorder(
         return db.select().from(characterReferences).where(eq(characterReferences.id, id)).get()
     })
 
+    if (updated) {
+        log.info(
+            { projectId, characterReferenceId: id, planType: plan.type },
+            'Character reference reordered',
+        )
+    }
+
     return updated ?? null
 }
 
@@ -121,6 +143,7 @@ async function remove(projectId: number, id: number) {
         // Directory still contains other references, or it is already gone.
     }
 
+    log.warn({ projectId, characterReferenceId: id }, 'Character reference deleted')
     return true
 }
 

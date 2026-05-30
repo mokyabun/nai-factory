@@ -9,9 +9,12 @@ import {
 import { desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db, projects, scenes, sceneVariations } from '#/db'
+import logger from '#/logger'
 import { parseSdStudioFile } from '#/services'
 import { nextDisplayOrder } from '#/services/order'
 import { requireEntity, withUpdatedAt } from '#/shared'
+
+const log = logger.child({ module: 'sd-studio-domain' })
 
 const VALID_SAMPLERS = new Set<string>(NOVEL_AI_SAMPLERS)
 const VALID_NOISE_SCHEDULES = new Set<string>(NOVEL_AI_NOISE_SCHEDULES)
@@ -91,9 +94,11 @@ async function importToProject(projectId: number, rawData: unknown, options: Imp
 
     if (Object.keys(updates).length > 0) {
         await db.update(projects).set(withUpdatedAt(updates)).where(eq(projects.id, projectId))
+        log.info({ projectId, fields: Object.keys(updates) }, 'Project preset imported')
     }
 
     const created = []
+    let variationCount = 0
     if (options.importScenes !== false) {
         let previousOrder = await getLastOrder(projectId)
         for (const item of pack.scenes) {
@@ -115,11 +120,23 @@ async function importToProject(projectId: number, rawData: unknown, options: Imp
                         variables,
                     })),
                 )
+                variationCount += item.variations.length
             }
             created.push({ ...scene, variations: [] })
             previousOrder = displayOrder
         }
     }
+
+    log.info(
+        {
+            projectId,
+            sourceName: pack.name,
+            importedScenes: created.length,
+            importedVariations: variationCount,
+            presetImported: Object.keys(updates).length > 0,
+        },
+        'SD Studio import completed',
+    )
 
     return { imported: created.length, scenes: created }
 }

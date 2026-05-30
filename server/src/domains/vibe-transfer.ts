@@ -14,9 +14,12 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { VIBES_DIR } from '#/config'
 import { db, projects, vibeTransfers } from '#/db'
+import logger from '#/logger'
 import { invalidateVibe } from '#/services'
 import { nextDisplayOrder, planDisplayOrderUpdate } from '#/services/order'
 import { requireEntity, withUpdatedAt } from '#/shared'
+
+const log = logger.child({ module: 'vibe-transfer-domain' })
 
 async function getProject(projectId: number) {
     const [project] = await db
@@ -63,6 +66,10 @@ async function upload(projectId: number, imageFile: ImageUploadFile) {
         .returning()
 
     if (!created) throw new HTTPException(500, { message: 'Failed to create vibe transfer' })
+    log.info(
+        { projectId, vibeTransferId: created.id, sizeBytes: imageFile.size },
+        'Vibe transfer uploaded',
+    )
     return created
 }
 
@@ -83,6 +90,10 @@ async function update(projectId: number, id: number, body: VibeTransferPatchBody
         .set(withUpdatedAt(body))
         .where(eq(vibeTransfers.id, id))
         .returning()
+
+    if (updated) {
+        log.info({ projectId, vibeTransferId: id, fields: Object.keys(body) }, 'Vibe updated')
+    }
 
     return updated ?? null
 }
@@ -133,6 +144,10 @@ async function reorder(
         return db.select().from(vibeTransfers).where(eq(vibeTransfers.id, id)).get()
     })
 
+    if (updated) {
+        log.info({ projectId, vibeTransferId: id, planType: plan.type }, 'Vibe reordered')
+    }
+
     return updated ?? null
 }
 
@@ -144,6 +159,7 @@ async function remove(projectId: number, id: number) {
     await db.delete(vibeTransfers).where(eq(vibeTransfers.id, id))
     await fs.rm(existing.sourceImagePath, { force: true })
 
+    log.warn({ projectId, vibeTransferId: id }, 'Vibe transfer deleted')
     return true
 }
 

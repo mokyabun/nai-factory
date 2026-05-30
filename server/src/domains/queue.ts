@@ -11,7 +11,10 @@ import { and, asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, playgroundQueueItems, projects, queueItems, scenes } from '../db'
+import logger from '../logger'
 import { queueManager } from '../services'
+
+const log = logger.child({ module: 'queue-domain' })
 
 async function get(projectId?: number) {
     const sceneRows = await db
@@ -53,7 +56,9 @@ async function enqueue(
     sceneVariationId?: number,
 ) {
     try {
-        return await queueManager.add(sceneId, position, sceneVariationId)
+        const items = await queueManager.add(sceneId, position, sceneVariationId)
+        log.info({ sceneId, sceneVariationId, position, queued: items.length }, 'Scene queued')
+        return items
     } catch (error) {
         throw new HTTPException(404, {
             message: error instanceof Error ? error.message : 'Scene not found',
@@ -81,6 +86,10 @@ async function enqueueAll(projectId: number, position: QueueEnqueueAllBody['posi
         items.push(...(await enqueue(scene.id, position)))
     }
 
+    log.info(
+        { projectId, position, sceneCount: rows.length, queued: items.length },
+        'Project queued',
+    )
     return items
 }
 
@@ -93,6 +102,7 @@ async function enqueueBulk(
     for (const sceneId of orderedSceneIds) {
         items.push(...(await enqueue(sceneId, position)))
     }
+    log.info({ position, sceneCount: sceneIds.length, queued: items.length }, 'Scenes queued')
     return items
 }
 
@@ -104,6 +114,7 @@ async function cancel(id: number) {
     if (!item) throw new HTTPException(404, { message: 'Queue item not found' })
 
     await queueManager.cancel([id])
+    log.warn({ jobId: id }, 'Queue item cancelled')
 }
 
 async function clear(sceneId?: number, sceneVariationId?: number) {
@@ -118,6 +129,10 @@ async function clear(sceneId?: number, sceneVariationId?: number) {
             db.delete(playgroundQueueItems),
         ])
 
+        log.warn(
+            { sceneQueueCount: sceneRows.length, playgroundQueueCount: playgroundRows.length },
+            'Queue cleared',
+        )
         return { cancelled: sceneRows.length + playgroundRows.length }
     }
 
@@ -132,6 +147,10 @@ async function clear(sceneId?: number, sceneVariationId?: number) {
         )
 
     await queueManager.cancel(rows.map((row) => row.id))
+    log.warn(
+        { sceneId, sceneVariationId, cancelled: rows.length },
+        'Queue filtered clear completed',
+    )
     return { cancelled: rows.length }
 }
 

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
@@ -24,7 +25,13 @@ const isProduction = Bun.env.NODE_ENV === 'production'
 const webDistDir =
     process.env.WEB_DIST_DIR ?? (isProduction ? join(import.meta.dir, 'public') : '../web/dist')
 
-function routeApi(app: Hono, prefix: string) {
+type AppEnv = {
+    Variables: {
+        requestId: string
+    }
+}
+
+function routeApi(app: Hono<AppEnv>, prefix: string) {
     return app
         .route(`${prefix}/groups`, group)
         .route(`${prefix}/projects`, project)
@@ -42,7 +49,7 @@ function routeApi(app: Hono, prefix: string) {
         .get(`${prefix}/data/*`, serveStatic({ root: './' }))
 }
 
-function routeFrontend(app: Hono) {
+function routeFrontend(app: Hono<AppEnv>) {
     app.get('*', serveStatic({ root: webDistDir }))
     app.get('*', async (c) => {
         const pathname = new URL(c.req.url).pathname
@@ -59,15 +66,25 @@ function routeFrontend(app: Hono) {
 
 export function createApp(options: { production?: boolean } = {}) {
     const production = options.production ?? isProduction
-    const app = new Hono()
+    const app = new Hono<AppEnv>()
 
+    app.use('*', async (c, next) => {
+        const requestId = c.req.header('x-request-id') ?? randomUUID()
+        c.set('requestId', requestId)
+        c.header('x-request-id', requestId)
+
+        await next()
+    })
     app.use('*', cors())
     app.onError((error, c) => {
+        const requestId = c.get('requestId')
+        const path = new URL(c.req.url).pathname
+
         if (error instanceof HTTPException) {
             return c.json({ message: error.message }, error.status)
         }
 
-        logger.error({ err: error }, 'Unhandled error')
+        logger.error({ requestId, method: c.req.method, path, err: error }, 'Unhandled error')
         return c.json(
             { message: error instanceof Error ? error.message : 'Internal server error' },
             500,

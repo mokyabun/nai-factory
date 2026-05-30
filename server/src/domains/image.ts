@@ -4,8 +4,11 @@ import { asc, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, images, scenes } from '#/db'
+import logger from '#/logger'
 import { remove as removeFile } from '#/services'
 import { planDisplayOrderUpdate } from '#/services/order'
+
+const log = logger.child({ module: 'image-domain' })
 
 async function getAllBySceneId(sceneId: number) {
     const [scene] = await db.select().from(scenes).where(eq(scenes.id, sceneId))
@@ -20,6 +23,11 @@ async function getAllBySceneId(sceneId: number) {
 
 async function update(id: number, data: ImagePatchBody) {
     const [updated] = await db.update(images).set(data).where(eq(images.id, id)).returning()
+    if (updated)
+        log.info(
+            { imageId: id, sceneId: updated.sceneId, fields: Object.keys(data) },
+            'Image updated',
+        )
     return updated ?? null
 }
 
@@ -63,6 +71,10 @@ async function reorder(id: number, prevId: number | null, nextId: number | null)
         return db.select().from(images).where(eq(images.id, id)).get()
     })
 
+    if (updated) {
+        log.info({ imageId: id, sceneId: image.sceneId, planType: plan.type }, 'Image reordered')
+    }
+
     return updated
 }
 
@@ -73,6 +85,7 @@ async function remove(id: number) {
     await db.delete(images).where(eq(images.id, id))
     await removeFile(image.filePath, image.thumbnailPath ?? null)
 
+    log.warn({ imageId: id, sceneId: image.sceneId }, 'Image deleted')
     return true
 }
 

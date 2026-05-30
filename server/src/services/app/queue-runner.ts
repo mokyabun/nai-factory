@@ -282,6 +282,14 @@ export async function* runJob(jobId: number) {
             project.parameters.model,
         ),
     ])
+    log.debug(
+        {
+            jobId,
+            vibeTransferCount: vibeTransfers.length,
+            characterReferenceCount: characterReferences.length,
+        },
+        'References prepared for generation',
+    )
 
     const sourcePrompt: Prompt = {
         prompt: project.prompt,
@@ -295,7 +303,7 @@ export async function* runJob(jobId: number) {
     const compiledPrompts = compilePrompts(sourcePrompt, compiledVars)
     log.debug({ jobId, promptCount: compiledPrompts.length }, 'Prompts compiled')
 
-    for (const prompt of compiledPrompts) {
+    for (const [index, prompt] of compiledPrompts.entries()) {
         const params: SimpleNovelAIParameters = {
             ...project.parameters,
 
@@ -308,7 +316,15 @@ export async function* runJob(jobId: number) {
             seed: project.parameters.seed ?? Math.floor(Math.random() * 1_000_000_000),
         }
 
-        log.debug({ jobId, seed: params.seed }, 'Generating image')
+        log.debug(
+            {
+                jobId,
+                promptIndex: index,
+                promptCount: compiledPrompts.length,
+                seed: params.seed,
+            },
+            'Generating image',
+        )
 
         const variationStart = Date.now()
         await generateAndSaveImage(
@@ -321,6 +337,15 @@ export async function* runJob(jobId: number) {
         )
         await markUploadedReferenceCaches(params)
         const variationDuration = Date.now() - variationStart
+        log.info(
+            {
+                jobId,
+                promptIndex: index,
+                promptCount: compiledPrompts.length,
+                durationMs: variationDuration,
+            },
+            'Image generation completed',
+        )
 
         yield variationDuration
     }
@@ -361,13 +386,16 @@ export async function* runPlaygroundJob(jobId: number) {
     }
 
     const variationStart = Date.now()
+    log.debug({ jobId, seed: params.seed }, 'Generating playground image')
     await generateAndSavePlaygroundImage(
         job,
         params,
         globalSettings.novelai.apiKey,
         globalSettings.image,
     )
-    yield Date.now() - variationStart
+    const durationMs = Date.now() - variationStart
+    log.info({ jobId, durationMs }, 'Playground image generation completed')
+    yield durationMs
 
     await db.delete(playgroundQueueItems).where(eq(playgroundQueueItems.id, jobId))
     realtimeEvents.publish({ type: 'playground.images.changed' })
