@@ -1,3 +1,22 @@
+CREATE TABLE `character_references` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`project_id` integer NOT NULL,
+	`display_order` text DEFAULT '' NOT NULL,
+	`source_image_path` text NOT NULL,
+	`thumbnail_path` text,
+	`processed_image_path` text,
+	`strength` real DEFAULT 0.6 NOT NULL,
+	`fidelity` real DEFAULT 0.5 NOT NULL,
+	`reference_mode` text DEFAULT 'character&style' NOT NULL,
+	`enabled` integer DEFAULT true NOT NULL,
+	`cache_secret_key` text,
+	`cache_created_at` text,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `character_references_project_id_display_order_idx` ON `character_references` (`project_id`,`display_order`);--> statement-breakpoint
 CREATE TABLE `groups` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
@@ -18,6 +37,36 @@ CREATE TABLE `images` (
 );
 --> statement-breakpoint
 CREATE INDEX `images_scene_id_display_order_idx` ON `images` (`scene_id`,`display_order`);--> statement-breakpoint
+CREATE TABLE `playground_images` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`prompt` text NOT NULL,
+	`negative_prompt` text DEFAULT '' NOT NULL,
+	`parameters` text NOT NULL,
+	`file_path` text NOT NULL,
+	`thumbnail_path` text,
+	`metadata` text DEFAULT '{}' NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `playground_images_created_at_idx` ON `playground_images` (`created_at`);--> statement-breakpoint
+CREATE TABLE `playground_queue_items` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`prompt` text NOT NULL,
+	`negative_prompt` text DEFAULT '' NOT NULL,
+	`parameters` text NOT NULL,
+	`sort_index` integer NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `playground_queue_items_sort_index_idx` ON `playground_queue_items` (`sort_index`);--> statement-breakpoint
+CREATE TABLE `playground_settings` (
+	`id` integer PRIMARY KEY DEFAULT 1 NOT NULL,
+	`prompt` text DEFAULT '' NOT NULL,
+	`negative_prompt` text DEFAULT '' NOT NULL,
+	`parameters` text DEFAULT '{"model":"nai-diffusion-4-5-full","qualityToggle":false,"width":1024,"height":1024,"steps":28,"promptGuidance":6,"varietyPlus":false,"seed":0,"sampler":"k_euler_ancestral","promptGuidanceRescale":0.7,"noiseSchedule":"karras","normalizeReferenceStrengthValues":false,"useCharacterPositions":false}' NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `projects` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`group_id` integer,
@@ -27,6 +76,7 @@ CREATE TABLE `projects` (
 	`variables` text DEFAULT '{}' NOT NULL,
 	`parameters` text DEFAULT '{"model":"nai-diffusion-4-5-full","qualityToggle":false,"width":512,"height":512,"steps":28,"promptGuidance":6,"varietyPlus":false,"seed":0,"sampler":"k_euler_ancestral","promptGuidanceRescale":0.7,"noiseSchedule":"karras","normalizeReferenceStrengthValues":false,"useCharacterPositions":false}' NOT NULL,
 	`character_prompts` text DEFAULT '[]' NOT NULL,
+	`settings` text DEFAULT '{"slideshowImageCount":4,"outputTemplate":"{character}-{scene}-{number}.{extension}"}' NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`group_id`) REFERENCES `groups`(`id`) ON UPDATE no action ON DELETE cascade
@@ -47,17 +97,6 @@ CREATE TABLE `queue_items` (
 CREATE INDEX `queue_items_sort_index_idx` ON `queue_items` (`sort_index`);--> statement-breakpoint
 CREATE INDEX `queue_items_scene_id_idx` ON `queue_items` (`scene_id`);--> statement-breakpoint
 CREATE INDEX `queue_items_scene_variation_id_idx` ON `queue_items` (`scene_variation_id`);--> statement-breakpoint
-CREATE TABLE `scenes` (
-	`id` integer PRIMARY KEY NOT NULL,
-	`project_id` integer NOT NULL,
-	`display_order` text NOT NULL,
-	`name` text NOT NULL,
-	`created_at` text DEFAULT (datetime('now')) NOT NULL,
-	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
-	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE INDEX `scenes_display_order_idx` ON `scenes` (`project_id`,`display_order`);--> statement-breakpoint
 CREATE TABLE `scene_variations` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`scene_id` integer NOT NULL,
@@ -69,11 +108,24 @@ CREATE TABLE `scene_variations` (
 );
 --> statement-breakpoint
 CREATE INDEX `scene_variations_scene_id_display_order_idx` ON `scene_variations` (`scene_id`,`display_order`);--> statement-breakpoint
+CREATE TABLE `scenes` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`project_id` integer NOT NULL,
+	`display_order` text NOT NULL,
+	`name` text NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `scenes_display_order_idx` ON `scenes` (`project_id`,`display_order`);--> statement-breakpoint
 CREATE TABLE `settings` (
 	`id` integer PRIMARY KEY DEFAULT 1 NOT NULL,
 	`global_variables` text DEFAULT '{}' NOT NULL,
 	`novelai` text DEFAULT '{"apiKey":""}' NOT NULL,
 	`image` text DEFAULT '{"sourceType":{"type":"png"},"thumbnailType":{"type":"webp","quality":60},"thumbnailSize":512}' NOT NULL,
+	`debug` text DEFAULT '{"enabled":false,"recentRequestLimit":20}' NOT NULL,
+	`export_settings` text DEFAULT '{"serverPath":""}' NOT NULL,
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
@@ -86,6 +138,8 @@ CREATE TABLE `vibe_transfers` (
 	`information_extracted` real DEFAULT 1 NOT NULL,
 	`encoded_data` text,
 	`encoded_information_extracted` real,
+	`cache_secret_key` text,
+	`cache_created_at` text,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
