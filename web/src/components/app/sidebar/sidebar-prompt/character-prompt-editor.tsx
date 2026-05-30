@@ -47,8 +47,11 @@ function SortableItem({ id, cp, onUpdate, onRemove }: SortableItemProps) {
 
     return (
         <div ref={setNodeRef} style={style}>
-            <Tabs defaultValue="prompt" className="flex flex-col overflow-hidden border">
-                <TabsList className="bg-transparent w-full justify-between my-1 pr-2">
+            <Tabs
+                defaultValue="prompt"
+                className="flex h-[200px] flex-col overflow-hidden border scrollbar-thin"
+            >
+                <TabsList className="bg-transparent w-full shrink-0 justify-between my-1 pr-2">
                     <div className="flex items-center">
                         <button
                             type="button"

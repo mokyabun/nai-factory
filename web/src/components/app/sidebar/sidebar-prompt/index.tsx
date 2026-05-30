@@ -148,7 +148,6 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
                             negativePrompt={negativePrompt}
                             onPromptChange={handlePromptChange}
                             onNegativePromptChange={handleNegativePromptChange}
-                            className="min-h-[300px]"
                         />
 
                         <span className="text-lg mt-4">캐릭터 프롬프트</span>
