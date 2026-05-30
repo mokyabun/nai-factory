@@ -3,10 +3,10 @@
     "version": "1.0.0",
     "private": true,
     "scripts": {
-        "dev": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"bun run dev:server\" \"bun run dev:web\"",
+        "dev": "bun run --parallel dev:server dev:web",
         "dev:server": "bun --filter '@nai-factory/server' dev",
         "dev:web": "wait-on tcp:localhost:3000 && bun --filter '@nai-factory/web' dev",
-        "build": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"bun run build:server\" \"bun run build:web\"",
+        "build": "bun run --parallel build:server build:web",
         "build:server": "bun --filter '@nai-factory/server' build",
         "build:web": "bun --filter '@nai-factory/web' build",
         "db:generate": "bun --filter '@nai-factory/server' db:generate",
@@ -19,7 +19,7 @@
         "lint:fix": "bun --filter @nai-factory/* lint:fix",
         "kill:server": "kill -9 $(lsof -t -i :3000)",
         "kill:web": "kill -9 $(lsof -t -i :5173)",
-        "kill": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"bun run kill:server\" \"bun run kill:web\""
+        "kill": "bun run --parallel kill:server kill:web"
     },
     "workspaces": [
         "web",
@@ -28,7 +28,6 @@
     ],
     "devDependencies": {
         "@biomejs/biome": "^2.4.15",
-        "concurrently": "^9.2.1",
         "wait-on": "^9.0.10"
     }
 }
