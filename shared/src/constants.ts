@@ -27,6 +27,7 @@ export const DEFAULT_PLAYGROUND_PARAMETERS: Parameters = {
 
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
     slideshowImageCount: 4,
+    outputTemplate: '{character}-{scene}-{number}.{extension}',
 }
 
 export const DEFAULT_PLAYGROUND_SETTINGS: PlaygroundSettings = {
@@ -50,5 +51,8 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
     debug: {
         enabled: false,
         recentRequestLimit: 20,
+    },
+    export: {
+        serverPath: '',
     },
 }

@@ -18,6 +18,8 @@ import type {
     PlaygroundSettings,
     PlaygroundSettingsPatchBody,
     Project,
+    ProjectExportBody,
+    ProjectExportResult,
     ProjectGetQuery,
     ProjectPatchBody,
     ProjectPostBody,
@@ -199,6 +201,21 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): ApiRes
     }
 }
 
+async function requestBlob(path: string, options: ApiRequestOptions = {}): ApiResult<Blob> {
+    try {
+        const response = await apiClient(apiPath(path), {
+            ...options,
+            searchParams: searchParams(options.searchParams),
+        })
+
+        return { data: await response.blob(), error: null }
+    } catch (error) {
+        if (error instanceof HTTPError) return { data: null, error: await readError(error) }
+
+        return { data: null, error: { status: 0, value: error } }
+    }
+}
+
 type ImageUploadBody = VibeTransferUploadBody | CharacterReferenceUploadBody
 
 async function formDataFromUpload(body: ImageUploadBody) {
@@ -307,6 +324,26 @@ const projects = Object.assign(
         delete: () => request<void>(`/projects/${projectId}`, { method: 'delete' }),
         duplicate: {
             post: () => request<Project>(`/projects/${projectId}/duplicate`, { method: 'post' }),
+        },
+        export: {
+            files: {
+                post: (json: ProjectExportBody) =>
+                    request<ProjectExportResult>(`/projects/${projectId}/export/files`, {
+                        method: 'post',
+                        json,
+                    }),
+            },
+            zip: {
+                post: (json: ProjectExportBody) =>
+                    requestBlob(`/projects/${projectId}/export/zip`, { method: 'post', json }),
+            },
+            server: {
+                post: (json: ProjectExportBody) =>
+                    request<ProjectExportResult>(`/projects/${projectId}/export/server`, {
+                        method: 'post',
+                        json,
+                    }),
+            },
         },
         'vibe-transfers': vibeTransfers(projectId),
         'character-references': characterReferences(projectId),

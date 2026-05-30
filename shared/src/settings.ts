@@ -26,6 +26,11 @@ export const DebugSettings = z.object({
     recentRequestLimit: z.number().int().min(1).max(500),
 })
 
+export type ExportSettings = z.infer<typeof ExportSettings>
+export const ExportSettings = z.object({
+    serverPath: z.string(),
+})
+
 export type NovelAISettings = z.infer<typeof NovelAISettings>
 export const NovelAISettings = z.object({
     apiKey: z.string(),
@@ -37,4 +42,5 @@ export const GlobalSettings = z.object({
     novelai: NovelAISettings,
     image: ImageSettings,
     debug: DebugSettings,
+    export: ExportSettings,
 })

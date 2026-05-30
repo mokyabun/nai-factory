@@ -3,7 +3,10 @@ import { CharacterPrompt, Parameters } from '../app'
 
 export const ProjectSettings = z.object({
     slideshowImageCount: z.number().int().min(1).max(10).default(4),
+    outputTemplate: z.string().min(1).default('{character}-{scene}-{number}.{extension}'),
 })
+
+export const ProjectSettingsPatch = ProjectSettings.partial()
 
 export const Project = z.object({
     id: z.number(),
@@ -41,7 +44,25 @@ export const ProjectPatchBody = z.object({
     variables: z.record(z.string(), z.string()).optional(),
     parameters: Parameters.optional(),
     characterPrompts: z.array(CharacterPrompt).optional(),
-    settings: ProjectSettings.optional(),
+    settings: ProjectSettingsPatch.optional(),
+})
+
+export const ProjectExportBody = z.object({
+    imageCount: z.number().int().min(1).max(500),
+    outputTemplate: z.string().min(1).optional(),
+})
+
+export const ProjectExportAsset = z.object({
+    id: z.number(),
+    sceneId: z.number(),
+    sceneName: z.string(),
+    filePath: z.string(),
+    filename: z.string(),
+})
+
+export const ProjectExportResult = z.object({
+    exported: z.number(),
+    assets: z.array(ProjectExportAsset),
 })
 
 export const ProjectListQuery = ProjectGetQuery
@@ -50,9 +71,13 @@ export const UpdateProjectBody = ProjectPatchBody
 
 export type Project = z.infer<typeof Project>
 export type ProjectSettings = z.infer<typeof ProjectSettings>
+export type ProjectSettingsPatch = z.infer<typeof ProjectSettingsPatch>
 export type ProjectGetQuery = z.infer<typeof ProjectGetQuery>
 export type ProjectPostBody = z.infer<typeof ProjectPostBody>
 export type ProjectPatchBody = z.infer<typeof ProjectPatchBody>
+export type ProjectExportBody = z.infer<typeof ProjectExportBody>
+export type ProjectExportAsset = z.infer<typeof ProjectExportAsset>
+export type ProjectExportResult = z.infer<typeof ProjectExportResult>
 export type ProjectListQuery = ProjectGetQuery
 export type CreateProjectBody = ProjectPostBody
 export type UpdateProjectBody = ProjectPatchBody

@@ -13,6 +13,7 @@ export type SettingsDraft = {
     thumbSize: number
     debugEnabled: boolean
     debugRequestLimit: number
+    serverExportPath: string
     loaded: boolean
 }
 
@@ -26,6 +27,7 @@ const defaultSettingsDraft: SettingsDraft = {
     thumbSize: 256,
     debugEnabled: false,
     debugRequestLimit: 20,
+    serverExportPath: '',
     loaded: false,
 }
 
@@ -87,6 +89,7 @@ export function createSettingsDraft(settings: GlobalSettings): SettingsDraft {
         thumbSize: settings.image?.thumbnailSize ?? 256,
         debugEnabled: settings.debug?.enabled ?? false,
         debugRequestLimit: settings.debug?.recentRequestLimit ?? 20,
+        serverExportPath: settings.export?.serverPath ?? '',
         loaded: true,
     }
 }
@@ -101,6 +104,7 @@ export function createSettingsPatch({
     thumbSize,
     debugEnabled,
     debugRequestLimit,
+    serverExportPath,
 }: SettingsDraft): SettingsPatchBody {
     const sourceType: ImageSaveType =
         sourceFormat === 'png' ? { type: 'png' } : { type: sourceFormat, quality: sourceQuality }
@@ -112,5 +116,6 @@ export function createSettingsPatch({
         globalVariables: Object.fromEntries(globalVars),
         image: { sourceType, thumbnailType, thumbnailSize: thumbSize },
         debug: { enabled: debugEnabled, recentRequestLimit: debugRequestLimit },
+        export: { serverPath: serverExportPath },
     }
 }

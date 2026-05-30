@@ -16,7 +16,10 @@
         "format": "bun --filter @nai-factory/* format .",
         "format:fix": "bun --filter @nai-factory/* format:fix",
         "lint": "bun --filter @nai-factory/* lint .",
-        "lint:fix": "bun --filter @nai-factory/* lint:fix"
+        "lint:fix": "bun --filter @nai-factory/* lint:fix",
+        "kill:server": "kill -9 $(lsof -t -i :3000)",
+        "kill:web": "kill -9 $(lsof -t -i :5173)",
+        "kill": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"bun run kill:server\" \"bun run kill:web\""
     },
     "workspaces": [
         "web",

@@ -279,5 +279,10 @@ export const settings = sqliteTable('settings', {
         .$type<GlobalSettings['debug']>()
         .default(DEFAULT_GLOBAL_SETTINGS.debug),
 
+    export: text('export_settings', { mode: 'json' })
+        .notNull()
+        .$type<GlobalSettings['export']>()
+        .default(DEFAULT_GLOBAL_SETTINGS.export),
+
     updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })

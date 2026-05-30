@@ -1,7 +1,7 @@
 import type { SettingsPatchBody } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom, useAtomValue } from 'jotai'
-import { Bug, Eye, EyeOff, Plus, Save, Settings, Trash2, X } from 'lucide-react'
+import { Bug, Eye, EyeOff, FolderInput, Plus, Save, Settings, Trash2, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -128,6 +128,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
         thumbSize,
         debugEnabled,
         debugRequestLimit,
+        serverExportPath,
         loaded,
     } = draft
 
@@ -462,6 +463,32 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                     }
                                     min={64}
                                     max={1024}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card size={compact ? 'sm' : 'default'}>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <FolderInput className="h-4 w-4" />
+                                Export
+                            </CardTitle>
+                            <CardDescription>
+                                서버 머신으로 복사할 때 사용할 대상 폴더
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex flex-col gap-1.5">
+                                <Label htmlFor="server-export-path">서버 export 경로</Label>
+                                <Input
+                                    id="server-export-path"
+                                    value={serverExportPath}
+                                    onChange={(e) =>
+                                        updateSettingsDraft({ serverExportPath: e.target.value })
+                                    }
+                                    placeholder="/path/to/export"
+                                    className="font-mono text-xs"
                                 />
                             </div>
                         </CardContent>

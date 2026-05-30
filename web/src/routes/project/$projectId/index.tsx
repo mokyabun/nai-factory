@@ -10,10 +10,11 @@ import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { Check, Images, ListPlus, Plus, Trash2, X } from 'lucide-react'
+import { Check, Download, Images, ListPlus, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
+import { ExportDialog } from '@/components/app/project/export-dialog'
 import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -303,6 +304,16 @@ function ProjectPageContent() {
                         />
                     </div>
                     <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setProjectDialog({ type: 'export' })}
+                        disabled={!projectQuery.data}
+                    >
+                        <Download className="h-4 w-4" />
+                        Export
+                    </Button>
+                    <Button
                         size="sm"
                         className="gap-1.5"
                         onClick={() => setProjectDialog({ type: 'create-scene' })}
@@ -361,6 +372,14 @@ function ProjectPageContent() {
                 title="선택 씬 삭제"
                 description={`선택한 씬 ${selectedCount}개와 모든 생성된 이미지를 삭제합니다. 되돌릴 수 없습니다.`}
                 onConfirm={() => deleteSelectedScenes.mutateAsync(selectedSceneIds)}
+            />
+            <ExportDialog
+                open={projectDialog?.type === 'export'}
+                onOpenChange={(open) => {
+                    if (!open) setProjectDialog(null)
+                }}
+                project={projectQuery.data ?? null}
+                scenes={items}
             />
         </div>
     )

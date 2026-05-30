@@ -8,7 +8,11 @@ export type SceneOrderPatch = {
     nextId: number | null
 }
 
-export type ProjectPageDialog = { type: 'create-scene' } | { type: 'delete-selected' } | null
+export type ProjectPageDialog =
+    | { type: 'create-scene' }
+    | { type: 'delete-selected' }
+    | { type: 'export' }
+    | null
 
 export const sceneItemsAtom = atom<SceneSummary[]>([])
 export const selectedSceneIdsSetAtom = atom<Set<number>>(new Set<number>())

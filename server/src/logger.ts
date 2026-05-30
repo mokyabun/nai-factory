@@ -4,6 +4,7 @@ const level = Bun.env.LOG_LEVEL ?? (Bun.env.NODE_ENV === 'production' ? 'info' :
 
 const baseOptions: pino.LoggerOptions = {
     level,
+    // Adding this even though there's no this kinda info in logs right now.
     redact: {
         paths: [
             'apiKey',
@@ -25,19 +26,23 @@ const baseOptions: pino.LoggerOptions = {
     },
 }
 
-const logger =
-    Bun.env.NODE_ENV === 'production'
-        ? pino(baseOptions)
-        : pino({
-              ...baseOptions,
-              transport: {
-                  target: 'pino-pretty',
-                  options: {
-                      colorize: true,
-                      ignore: 'pid,hostname',
-                      translateTime: 'SYS:standard',
-                  },
-              },
-          })
+const logger = (() => {
+    if (Bun.env.NODE_ENV === 'production') {
+        return pino(baseOptions)
+    }
+
+    return pino({
+        ...baseOptions,
+        // Only use pino-pretty in development.
+        transport: {
+            target: 'pino-pretty',
+            options: {
+                colorize: true,
+                ignore: 'pid,hostname',
+                translateTime: 'SYS:standard',
+            },
+        },
+    })
+})()
 
 export default logger
