@@ -5,13 +5,16 @@
     "types": "src/index.ts",
     "scripts": {
         "dev": "bun run --hot src/index.ts",
+        "build": "bun build src/index.ts --outdir=dist --target=bun --minify --sourcemap",
+        "start": "bun dist/index.js",
         "db:generate": "drizzle-kit generate",
         "db:migrate": "bun run src/db/migrate.ts",
-        "format": "biome format --write .",
+        "check": "biome check .",
+        "check:fix": "biome check --write .",
+        "format": "biome format .",
+        "format:fix": "biome format --write .",
         "lint": "biome lint .",
-        "check": "biome check --write .",
-        "build": "bun build src/index.ts --outdir=dist --target=bun --minify --sourcemap",
-        "start": "bun dist/index.js"
+        "lint:fix": "biome lint --write ."
     },
     "dependencies": {
         "@hono/zod-validator": "^0.8.0",
