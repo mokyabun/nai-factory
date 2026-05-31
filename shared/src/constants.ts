@@ -42,6 +42,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
     globalVariables: {},
     novelai: {
         apiKey: '',
+        mode: 'live',
     },
     image: {
         sourceType: { type: 'png' },

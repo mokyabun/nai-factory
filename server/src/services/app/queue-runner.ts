@@ -27,7 +27,7 @@ async function loadJobContext(jobId: number) {
     if (!job) throw new Error(`Job ${jobId} not found`)
 
     const globalSettings = settingsService.get()
-    if (!globalSettings.novelai.apiKey)
+    if (globalSettings.novelai.mode === 'live' && !globalSettings.novelai.apiKey)
         throw new Error('NovelAI API key not set in global settings')
 
     const [project, scene, variation] = await Promise.all([
@@ -68,6 +68,7 @@ async function generateAndSaveImage(
 ): Promise<void> {
     const { imageData } = await novelAIService.generateImage(apiKey, params, {
         settings: settingsService.get().debug,
+        mode: settingsService.get().novelai.mode,
         context: {
             jobId: job.id,
             projectId: project.id,
@@ -167,6 +168,7 @@ async function generateAndSavePlaygroundImage(
 ): Promise<void> {
     const { imageData } = await novelAIService.generateImage(apiKey, params, {
         settings: settingsService.get().debug,
+        mode: settingsService.get().novelai.mode,
         context: {
             jobId: job.id,
             source: 'playground',
@@ -368,7 +370,7 @@ export async function* runPlaygroundJob(jobId: number) {
     if (!job) throw new Error(`Playground job ${jobId} not found`)
 
     const globalSettings = settingsService.get()
-    if (!globalSettings.novelai.apiKey) {
+    if (globalSettings.novelai.mode === 'live' && !globalSettings.novelai.apiKey) {
         throw new Error('NovelAI API key not set in global settings')
     }
 

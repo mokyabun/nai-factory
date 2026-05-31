@@ -2,10 +2,12 @@ import type {
     DebugSettings,
     EncodeVibeRequest,
     NovelAICharacterReferenceImage,
+    NovelAIMode,
     NovelAIParameters,
     NovelAIRequest,
     NovelAIVibeImage,
     SimpleNovelAIParameters,
+    UserData,
 } from '@nai-factory/shared'
 import { unzipSync } from 'fflate'
 import ky from 'ky'
@@ -17,6 +19,12 @@ const log = logger.child({ module: 'novelai-service' })
 type GenerateImageDebugOptions = {
     settings: DebugSettings
     context?: Record<string, unknown>
+    mode?: NovelAIMode
+}
+
+export type NovelAIAnlasStatus = {
+    unlimited: boolean
+    anlas: number | null
 }
 
 export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Promise<string> {
@@ -115,9 +123,28 @@ export async function generateImage(
     debug?: GenerateImageDebugOptions,
 ) {
     const seed = params.seed ?? Math.floor(Math.random() * 2 ** 32)
+    const mode = debug?.mode ?? 'live'
     const enabledChars = params.characterPrompts.filter((c) => c.enabled)
     const vibeTransfers = params.vibeTransfers ?? []
     const characterReferences = params.characterReferences ?? []
+
+    if (mode === 'fail') {
+        throw new Error('NovelAI test failure mode is enabled')
+    }
+
+    if (mode === 'mock') {
+        log.info(
+            {
+                model: params.model,
+                seed,
+                width: params.width,
+                height: params.height,
+                ...debug?.context,
+            },
+            'NovelAI mock image generated',
+        )
+        return { imageData: createMockImage(params, seed), seed }
+    }
 
     const parameters: NovelAIParameters = {
         params_version: 3,
@@ -363,4 +390,59 @@ export async function validateApiKey(apiKey: string): Promise<boolean> {
         log.warn('NovelAI API key validation failed')
         return false
     }
+}
+
+export async function fetchAnlasStatus(apiKey: string): Promise<NovelAIAnlasStatus> {
+    const res = await fetch('https://api.novelai.net/user/data', {
+        headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    if (!res.ok) throw new Error(`NovelAI account status failed (${res.status})`)
+
+    const data = (await res.json()) as Partial<UserData>
+    const unlimited = data.subscription?.perks?.unlimited ?? false
+    const trainingStepsLeft = data.subscription?.trainingStepsLeft
+    const anlas =
+        trainingStepsLeft !== undefined
+            ? Math.max(
+                  0,
+                  (trainingStepsLeft.fixedTrainingStepsLeft ?? 0) +
+                      (trainingStepsLeft.purchasedTrainingSteps ?? 0),
+              )
+            : null
+
+    return { unlimited, anlas }
+}
+
+function createMockImage(params: SimpleNovelAIParameters, seed: number) {
+    const width = Math.max(64, params.width || 512)
+    const height = Math.max(64, params.height || 512)
+    const prompt = escapeXml(params.prompt.slice(0, 160) || 'Mock NovelAI image')
+    const model = escapeXml(params.model)
+
+    return Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4f4f5"/>
+      <stop offset="1" stop-color="#d4d4d8"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#bg)"/>
+  <rect x="24" y="24" width="${width - 48}" height="${height - 48}" fill="none" stroke="#71717a" stroke-width="2" stroke-dasharray="8 8"/>
+  <text x="40" y="64" fill="#18181b" font-family="Menlo, monospace" font-size="24" font-weight="700">NovelAI Mock</text>
+  <text x="40" y="104" fill="#3f3f46" font-family="Menlo, monospace" font-size="16">seed ${seed}</text>
+  <text x="40" y="132" fill="#3f3f46" font-family="Menlo, monospace" font-size="16">${model}</text>
+  <foreignObject x="40" y="168" width="${width - 80}" height="${height - 208}">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="font: 18px sans-serif; color: #27272a; line-height: 1.45; word-break: break-word;">${prompt}</div>
+  </foreignObject>
+</svg>`)
+}
+
+function escapeXml(value: string) {
+    return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;')
 }

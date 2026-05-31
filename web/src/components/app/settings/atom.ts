@@ -1,10 +1,16 @@
-import type { GlobalSettings, ImageSaveType, SettingsPatchBody } from '@nai-factory/shared'
+import type {
+    GlobalSettings,
+    ImageSaveType,
+    NovelAIMode,
+    SettingsPatchBody,
+} from '@nai-factory/shared'
 import { atom } from 'jotai'
 
 export type ImageFormat = ImageSaveType['type']
 
 export type SettingsDraft = {
     apiKey: string
+    novelAIMode: NovelAIMode
     globalVars: [string, string][]
     sourceFormat: ImageFormat
     sourceQuality: number
@@ -19,6 +25,7 @@ export type SettingsDraft = {
 
 const defaultSettingsDraft: SettingsDraft = {
     apiKey: '',
+    novelAIMode: 'live',
     globalVars: [],
     sourceFormat: 'png',
     sourceQuality: 90,
@@ -81,6 +88,7 @@ export function createSettingsDraft(settings: GlobalSettings): SettingsDraft {
 
     return {
         apiKey: settings.novelai?.apiKey ?? '',
+        novelAIMode: settings.novelai?.mode ?? 'live',
         globalVars: Object.entries(settings.globalVariables ?? {}),
         sourceFormat: sourceType?.type ?? 'png',
         sourceQuality: sourceType?.type === 'png' ? 90 : (sourceType?.quality ?? 90),
@@ -96,6 +104,7 @@ export function createSettingsDraft(settings: GlobalSettings): SettingsDraft {
 
 export function createSettingsPatch({
     apiKey,
+    novelAIMode,
     globalVars,
     sourceFormat,
     sourceQuality,
@@ -112,7 +121,7 @@ export function createSettingsPatch({
         thumbFormat === 'png' ? { type: 'png' } : { type: thumbFormat, quality: thumbQuality }
 
     return {
-        novelai: { apiKey },
+        novelai: { apiKey, mode: novelAIMode },
         globalVariables: Object.fromEntries(globalVars),
         image: { sourceType, thumbnailType, thumbnailSize: thumbSize },
         debug: { enabled: debugEnabled, recentRequestLimit: debugRequestLimit },

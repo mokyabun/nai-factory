@@ -25,6 +25,17 @@ describe('realtime invalidation', () => {
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: qk.images(20) })
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: qk.scene(20) })
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: qk.scenes(10) })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: qk.novelAIStatus() })
+    })
+
+    it('invalidates anlas status when playground images change', () => {
+        const queryClient = new QueryClient()
+        const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries')
+
+        handleRealtimeEvent(queryClient, { type: 'playground.images.changed' })
+
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: qk.playgroundImages() })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: qk.novelAIStatus() })
     })
 
     it('invalidates queue status and active queue lists only for queue events', () => {
@@ -52,6 +63,7 @@ describe('realtime invalidation', () => {
         const predicate = invalidateQueries.mock.calls[0]?.[0]?.predicate
         expect(predicate?.(mockQuery(qk.queueStatus()))).toBe(true)
         expect(predicate?.(mockQuery(qk.playgroundImages()))).toBe(true)
+        expect(predicate?.(mockQuery(qk.novelAIStatus()))).toBe(true)
         expect(predicate?.(mockQuery(qk.playgroundSettings()))).toBe(false)
         expect(predicate?.(mockQuery(qk.settings()))).toBe(false)
         expect(predicate?.(mockQuery(qk.images(1), false))).toBe(false)

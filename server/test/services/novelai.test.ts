@@ -11,7 +11,7 @@ mock.module('ky', () => ({
     default: { post: postMock },
 }))
 
-const { encodeVibe, generateImage } = await import('../../src/services/novelai')
+const { encodeVibe, fetchAnlasStatus, generateImage } = await import('../../src/services/novelai')
 
 function makeZip(entries: Record<string, Uint8Array>) {
     return (zipSync(entries) as Uint8Array).buffer as ArrayBuffer
@@ -150,6 +150,27 @@ describe('NovelAI cached reference requests', () => {
         ])
         expect(request.parameters.reference_strength_multiple).toEqual([0.6])
     })
+
+    it('returns a local mock image without calling NovelAI', async () => {
+        const result = await generateImage('key', baseParams, {
+            settings: { enabled: false, recentRequestLimit: 20 },
+            mode: 'mock',
+        })
+
+        expect(result.seed).toBe(12345)
+        expect(result.imageData.byteLength).toBeGreaterThan(100)
+        expect(postMock).not.toHaveBeenCalled()
+    })
+
+    it('throws a deterministic error in fail mode', async () => {
+        await expect(
+            generateImage('key', baseParams, {
+                settings: { enabled: false, recentRequestLimit: 20 },
+                mode: 'fail',
+            }),
+        ).rejects.toThrow('NovelAI test failure mode is enabled')
+        expect(postMock).not.toHaveBeenCalled()
+    })
 })
 
 describe('encodeVibe', () => {
@@ -178,6 +199,37 @@ describe('encodeVibe', () => {
         expect(request).toEqual({
             information_extracted: 0.7,
             model: 'nai-diffusion-4-5-full',
+        })
+    })
+})
+
+describe('fetchAnlasStatus', () => {
+    const originalFetch = globalThis.fetch
+
+    afterEach(() => {
+        globalThis.fetch = originalFetch
+    })
+
+    it('sums fixed and purchased training steps as Anlas', async () => {
+        globalThis.fetch = mock(() =>
+            Promise.resolve(
+                new Response(
+                    JSON.stringify({
+                        subscription: {
+                            perks: { unlimited: false },
+                            trainingStepsLeft: {
+                                fixedTrainingStepsLeft: 1200,
+                                purchasedTrainingSteps: 300,
+                            },
+                        },
+                    }),
+                ),
+            ),
+        ) as typeof fetch
+
+        await expect(fetchAnlasStatus('key')).resolves.toEqual({
+            unlimited: false,
+            anlas: 1500,
         })
     })
 })

@@ -5,6 +5,7 @@ import { FileJson } from 'lucide-react'
 import { useEffect, useLayoutEffect } from 'react'
 import { SdStudioImportDialog } from '@/components/app/dialogs/sd-studio-import-dialog'
 import { Header } from '@/components/app/header'
+import { QueueFailureAlerts } from '@/components/app/queue-failure-alerts'
 import { Sidebar } from '@/components/app/sidebar'
 import { StatusBar } from '@/components/app/status-bar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -60,6 +61,7 @@ export function AppShell({ children }: AppShellProps) {
                         <StatusBar />
                     </SidebarInset>
                 </SidebarProvider>
+                <QueueFailureAlerts />
             </div>
 
             <SdStudioImportDialog

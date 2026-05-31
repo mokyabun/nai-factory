@@ -15,6 +15,7 @@ function isActiveRealtimeQuery(queryKey: QueryKey) {
         hasRoot(queryKey, 'scene') ||
         hasRoot(queryKey, 'scenes') ||
         hasRoot(queryKey, 'playground', 'images') ||
+        hasRoot(queryKey, 'settings', 'novelai-status') ||
         hasRoot(queryKey, 'debug', 'requests')
     )
 }
@@ -58,9 +59,11 @@ export function handleRealtimeEvent(queryClient: QueryClient, event: RealtimeEve
             queryClient.invalidateQueries({ queryKey: qk.images(event.sceneId) })
             queryClient.invalidateQueries({ queryKey: qk.scene(event.sceneId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(event.projectId) })
+            queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
             break
         case 'playground.images.changed':
             queryClient.invalidateQueries({ queryKey: qk.playgroundImages() })
+            queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
             break
         case 'debug.requests.changed':
             queryClient.invalidateQueries({ queryKey: qk.debugRequests() })

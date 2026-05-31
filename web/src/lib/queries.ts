@@ -6,6 +6,7 @@ export const qk = {
     scenes: (projectId: number) => ['scenes', projectId] as const,
     images: (sceneId: number) => ['images', sceneId] as const,
     settings: () => ['settings'] as const,
+    novelAIStatus: () => ['settings', 'novelai-status'] as const,
     queueStatus: () => ['queue', 'status'] as const,
     queue: (projectId?: number | null) => ['queue', 'items', projectId ?? 'all'] as const,
     playgroundSettings: () => ['playground', 'settings'] as const,

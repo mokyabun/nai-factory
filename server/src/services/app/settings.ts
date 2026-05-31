@@ -1,8 +1,32 @@
-import type { GlobalSettings } from '@nai-factory/shared'
+import { DEFAULT_GLOBAL_SETTINGS, type GlobalSettings } from '@nai-factory/shared'
 import { eq } from 'drizzle-orm'
 import { db, settings } from '#/db'
 
 let cache: GlobalSettings = load()
+
+function normalize(setting: GlobalSettings): GlobalSettings {
+    return {
+        ...DEFAULT_GLOBAL_SETTINGS,
+        ...setting,
+        novelai: {
+            ...DEFAULT_GLOBAL_SETTINGS.novelai,
+            ...(setting.novelai ?? {}),
+        },
+        image: {
+            ...DEFAULT_GLOBAL_SETTINGS.image,
+            ...(setting.image ?? {}),
+        },
+        debug: {
+            ...DEFAULT_GLOBAL_SETTINGS.debug,
+            ...(setting.debug ?? {}),
+        },
+        export: {
+            ...DEFAULT_GLOBAL_SETTINGS.export,
+            ...(setting.export ?? {}),
+        },
+        globalVariables: setting.globalVariables ?? DEFAULT_GLOBAL_SETTINGS.globalVariables,
+    }
+}
 
 function load(): GlobalSettings {
     // check existence of settings row, if not create it with defaults
@@ -15,10 +39,10 @@ function load(): GlobalSettings {
             throw new Error('Failed to create default settings')
         }
 
-        return created
+        return normalize(created)
     }
 
-    return setting
+    return normalize(setting)
 }
 
 export function get(): Readonly<GlobalSettings> {
@@ -34,7 +58,7 @@ export function update(patch: Partial<GlobalSettings>) {
         throw new Error('Failed to update settings')
     }
 
-    cache = result
+    cache = normalize(result)
 
     return cache
 }
@@ -52,5 +76,5 @@ export function reset() {
         return created
     })
 
-    cache = created
+    cache = normalize(created)
 }

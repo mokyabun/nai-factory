@@ -12,6 +12,7 @@ import type {
     Image,
     ImageGetQuery,
     ImageOrderPatchBody,
+    NovelAIAccountStatus,
     PlaygroundEnqueueBody,
     PlaygroundImage,
     PlaygroundImageGetQuery,
@@ -469,6 +470,11 @@ export const api = {
     },
     settings: {
         get: () => request<GlobalSettings>('/settings'),
+        novelai: {
+            status: {
+                get: () => request<NovelAIAccountStatus>('/settings/novelai/status'),
+            },
+        },
         patch: (json: SettingsPatchBody) =>
             request<GlobalSettings>('/settings', { method: 'patch', json }),
     },

@@ -120,6 +120,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
     const settingsPatch = useAtomValue(settingsPatchAtom)
     const {
         apiKey,
+        novelAIMode,
         globalVars,
         sourceFormat,
         sourceQuality,
@@ -165,6 +166,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
         onSuccess: (res, patch) => {
             lastSavedJson.current = JSON.stringify(patch)
             if (res.data) queryClient.setQueryData(qk.settings(), res.data)
+            queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
         },
     })
 
@@ -263,7 +265,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                 이미지 생성에 사용할 NovelAI 계정의 API 키
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="flex flex-col gap-4">
                             <div className="relative">
                                 <Input
                                     type={showApiKey ? 'text' : 'password'}
@@ -285,6 +287,26 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                         <Eye className="h-4 w-4" />
                                     )}
                                 </button>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <Label>테스트 모드</Label>
+                                <Select
+                                    value={novelAIMode}
+                                    onValueChange={(value) =>
+                                        updateSettingsDraft({
+                                            novelAIMode: value as typeof novelAIMode,
+                                        })
+                                    }
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="live">Live</SelectItem>
+                                        <SelectItem value="mock">Mock success</SelectItem>
+                                        <SelectItem value="fail">Mock fail</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </CardContent>
                     </Card>

@@ -32,9 +32,23 @@ export const ExportSettings = z.object({
 })
 
 export type NovelAISettings = z.infer<typeof NovelAISettings>
+export const NovelAIMode = z.enum(['live', 'mock', 'fail'])
+export type NovelAIMode = z.infer<typeof NovelAIMode>
+
 export const NovelAISettings = z.object({
     apiKey: z.string(),
+    mode: NovelAIMode.default('live'),
 })
+
+export const NovelAIAccountStatus = z.object({
+    mode: NovelAIMode,
+    configured: z.boolean(),
+    unlimited: z.boolean(),
+    anlas: z.number().int().nonnegative().nullable(),
+    error: z.string().nullable(),
+    updatedAt: z.string(),
+})
+export type NovelAIAccountStatus = z.infer<typeof NovelAIAccountStatus>
 
 export type GlobalSettings = z.infer<typeof GlobalSettings>
 export const GlobalSettings = z.object({
