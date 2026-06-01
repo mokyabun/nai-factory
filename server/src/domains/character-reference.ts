@@ -39,10 +39,7 @@ async function list(projectId: number) {
 async function upload(projectId: number, image: CharacterReferenceUploadBody['image']) {
     await getProject(projectId)
     const created = await uploadCharacterReference(projectId, image)
-    log.info(
-        { projectId, characterReferenceId: created.id },
-        'Character reference uploaded',
-    )
+    log.info({ projectId, characterReferenceId: created.id }, 'Character reference uploaded')
     return created
 }
 

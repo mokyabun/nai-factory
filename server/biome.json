@@ -2,7 +2,14 @@
     "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
     "extends": "//",
     "files": {
-        "includes": ["package.json", "biome.json", "drizzle.config.ts", "src/**/*", "test/**/*"]
+        "includes": [
+            "package.json",
+            "biome.json",
+            "drizzle.config.ts",
+            "src/**/*",
+            "test/**/*",
+            "!src/db/migrations/**/*"
+        ]
     },
     "overrides": [
         {
