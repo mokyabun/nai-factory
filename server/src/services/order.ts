@@ -1,6 +1,6 @@
 import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing-jittered'
 import { HTTPException } from 'hono/http-exception'
-import logger from '#/logger'
+import logger from '@/logger'
 
 export const DISPLAY_ORDER_REBALANCE_LENGTH = 32
 

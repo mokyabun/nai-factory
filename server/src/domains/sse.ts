@@ -1,7 +1,7 @@
 import type { RealtimeEvent } from '@nai-factory/shared'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { realtimeEvents } from '#/services'
+import { realtimeEvents } from '@/services'
 
 const PING = Symbol('ping')
 const CLOSED = Symbol('closed')

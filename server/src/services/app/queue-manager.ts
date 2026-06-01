@@ -1,6 +1,6 @@
 import { asc, count, eq, inArray, max, min } from 'drizzle-orm'
-import { db, playgroundQueueItems, queueItems, scenes, sceneVariations } from '#/db'
-import logger from '#/logger'
+import { db, playgroundQueueItems, queueItems, scenes, sceneVariations } from '@/db'
+import logger from '@/logger'
 import { realtimeEvents } from './events'
 import { runJob, runPlaygroundJob } from './queue-runner'
 

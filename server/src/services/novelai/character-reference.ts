@@ -7,11 +7,11 @@ import type {
 } from '@nai-factory/shared'
 import { asc, desc, eq } from 'drizzle-orm'
 import sharp from 'sharp'
-import { CHARACTER_REFERENCES_DIR } from '#/config'
-import { characterReferences, db } from '#/db'
-import logger from '#/logger'
-import { nextDisplayOrder } from '#/services/order'
-import { nowIso } from '#/shared'
+import { CHARACTER_REFERENCES_DIR } from '@/config'
+import { characterReferences, db } from '@/db'
+import logger from '@/logger'
+import { nextDisplayOrder } from '@/services/order'
+import { nowIso } from '@/shared'
 import { createUniqueReferenceCacheKey, isReferenceCacheFresh } from './reference-cache'
 
 const log = logger.child({ module: 'character-reference' })

@@ -3,10 +3,10 @@ import { IdParams, ImageGetQuery, ImageOrderPatchBody, ImagePatchBody } from '@n
 import { asc, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { db, images, scenes } from '#/db'
-import logger from '#/logger'
-import { remove as removeFile } from '#/services'
-import { planDisplayOrderUpdate } from '#/services/order'
+import { db, images, scenes } from '@/db'
+import logger from '@/logger'
+import { remove as removeFile } from '@/services'
+import { planDisplayOrderUpdate } from '@/services/order'
 
 const log = logger.child({ module: 'image-domain' })
 

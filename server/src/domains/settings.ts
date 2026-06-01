@@ -1,9 +1,9 @@
 import { zValidator } from '@hono/zod-validator'
 import { SettingsPatchBody } from '@nai-factory/shared'
 import { Hono } from 'hono'
-import logger from '#/logger'
-import * as settingsService from '#/services/app/settings'
-import * as novelAIService from '#/services/novelai/novelai'
+import logger from '@/logger'
+import * as settingsService from '@/services/app/settings'
+import * as novelAIService from '@/services/novelai/novelai'
 
 const log = logger.child({ module: 'settings-domain' })
 

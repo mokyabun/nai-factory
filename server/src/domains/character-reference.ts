@@ -10,16 +10,16 @@ import {
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { CHARACTER_REFERENCES_DIR } from '#/config'
-import { characterReferences, db, projects } from '#/db'
-import logger from '#/logger'
+import { CHARACTER_REFERENCES_DIR } from '@/config'
+import { characterReferences, db, projects } from '@/db'
+import logger from '@/logger'
 import {
     deleteCharacterReferenceFiles,
     listCharacterReferences,
     uploadCharacterReference,
-} from '#/services'
-import { planDisplayOrderUpdate } from '#/services/order'
-import { requireEntity, withUpdatedAt } from '#/shared'
+} from '@/services'
+import { planDisplayOrderUpdate } from '@/services/order'
+import { requireEntity, withUpdatedAt } from '@/shared'
 
 const log = logger.child({ module: 'character-reference-domain' })
 
@@ -40,7 +40,7 @@ async function upload(projectId: number, image: CharacterReferenceUploadBody['im
     await getProject(projectId)
     const created = await uploadCharacterReference(projectId, image)
     log.info(
-        { projectId, characterReferenceId: created.id, sizeBytes: image.size },
+        { projectId, characterReferenceId: created.id },
         'Character reference uploaded',
     )
     return created

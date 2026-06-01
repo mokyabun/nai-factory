@@ -11,8 +11,8 @@ import type {
 } from '@nai-factory/shared'
 import { unzipSync } from 'fflate'
 import ky from 'ky'
-import logger from '#/logger'
-import { beginDebugRequest } from '#/services/debug-log'
+import logger from '@/logger'
+import { beginDebugRequest } from '@/services/debug-log'
 
 const log = logger.child({ module: 'novelai-service' })
 

@@ -9,9 +9,9 @@ import {
 import { desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { db, playgroundImages, playgroundSettings } from '#/db'
-import logger from '#/logger'
-import { queueManager, remove as removeFile } from '#/services'
+import { db, playgroundImages, playgroundSettings } from '@/db'
+import logger from '@/logger'
+import { queueManager, remove as removeFile } from '@/services'
 
 const log = logger.child({ module: 'playground-domain' })
 

@@ -9,10 +9,10 @@ import {
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { db, groups, projects } from '#/db'
-import logger from '#/logger'
-import { removeByProject } from '#/services'
-import { withUpdatedAt } from '#/shared'
+import { db, groups, projects } from '@/db'
+import logger from '@/logger'
+import { removeByProject } from '@/services'
+import { withUpdatedAt } from '@/shared'
 
 const log = logger.child({ module: 'group-domain' })
 

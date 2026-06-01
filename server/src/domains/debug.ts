@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
-import logger from '#/logger'
-import { clearDebugRequests, listDebugRequests } from '#/services/debug-log'
+import logger from '@/logger'
+import { clearDebugRequests, listDebugRequests } from '@/services/debug-log'
 
 const log = logger.child({ module: 'debug-domain' })
 

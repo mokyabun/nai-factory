@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { eq } from 'drizzle-orm'
-import { characterReferences, db, vibeTransfers } from '#/db'
+import { characterReferences, db, vibeTransfers } from '@/db'
 
 export const REFERENCE_CACHE_TTL_MS = 60 * 60 * 1000
 
