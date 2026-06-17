@@ -1,37 +1,57 @@
 # NAI Factory
 
+A local web app for organizing NovelAI image-generation work around projects, scenes, and queues.
 
-## About
+NAI Factory is built for managing image-generation workflows that involve many scenes and prompt variations. You can split work into projects, reuse global and scene-level variables, queue generation jobs, and keep generated images stored locally.
 
-NAI Factory is a local web app for organizing NovelAI image-generation projects.
-It helps you manage projects, scenes, prompt variables, references, generation
-queues, and saved outputs from one small workspace.
+> This is not an official NovelAI application.
 
-![Project screen](docs/images/project-screen.png)
-![Settings screen](docs/images/settings-screen.png)
-![Generated image screen](docs/images/generated-image-screen.png)
+## Screenshots
+
+Playground for quick one-off generations and reviewing recent outputs.
+
+![Playground](docs/playground.png)
+
+Scene variables can be reused inside prompts to keep repeated settings tidy.
+
+![Variables](docs/variable2.png)
+
+Project groups help keep related scenes organized.
+
+<img src="docs/project-group.png" alt="Project groups" width="70%">
+
+Prompt autocomplete helps with NovelAI tags while editing prompts.
+
+<img src="docs/autocomplete.png" alt="Prompt autocomplete" width="70%">
+
+The queue manager shows pending and running generation jobs.
+
+<img src="docs/queue-manager.png" alt="Queue manager" width="70%">
+
+Cached vibe transfer images can be reused without re-uploading them every time.
+
+<img src="docs/cached-vibe.png" alt="Cached vibe transfer" width="70%">
 
 ## Features
 
 - Project, group, scene, and variation management
 - Prompt and negative prompt editing
-- Global and per-scene prompt variables
+- Global and scene-level variables
+- Tag autocomplete
 - NovelAI image generation queue
 - Playground mode for quick generations
 - Character reference and vibe transfer support
-- Thumbnail generation and local image storage
-- SD Studio import support
-- Local SQLite database with automatic migrations
-- App settings for NovelAI API key, image format, thumbnails, and debug logs
+- Cached vibe transfer images
+- Local image and thumbnail storage
+- SD Studio import
+- Local SQLite database
 
-## Installation
+## Getting Started
 
-### Requirements
+Requirements:
 
 - [Bun](https://bun.sh/)
 - A NovelAI account with image generation access
-
-### Local Development
 
 Install dependencies:
 
@@ -39,78 +59,59 @@ Install dependencies:
 bun install
 ```
 
-Start the API server and web client:
+Start the development server:
 
 ```sh
 bun dev
 ```
 
-Open the app:
+Open the web app:
 
 ```text
 http://localhost:5173
 ```
 
-The API server runs at:
+The API server runs at `http://localhost:3000`.
 
-```text
-http://localhost:3000
-```
+## Docker
 
-Local data is stored in:
-
-```text
-server/data
-```
-
-### Docker
-
-Build and start the app:
+You can also run the app with Docker:
 
 ```sh
 docker compose up --build
 ```
 
-Open the Docker app:
+Open the app:
 
 ```text
 http://localhost:3000
 ```
 
-The Docker API runs under:
-
-```text
-http://localhost:3000/api
-```
-
-Generated images and the SQLite database are stored in the Docker volume
-`nai_factory_data`.
-
-To stop the app:
+Stop the container:
 
 ```sh
 docker compose down
 ```
 
-To remove saved Docker data as well:
+Remove saved Docker data as well:
 
 ```sh
 docker compose down -v
 ```
 
-## Usage
+## Settings
 
-1. Start the app.
-2. Open the web client.
-3. Go to Settings.
-4. Sign in to NovelAI in your browser and copy your NovelAI API key from your
-   NovelAI account settings.
-5. Paste the key into `NovelAI API Key`.
-6. The app saves settings automatically.
-7. Create a project.
-8. Add scenes, prompts, variables, character references, or vibe transfers.
-9. Add items to the queue or use Playground for quick tests.
-10. Generated images are saved locally.
+After starting the app, open Settings and enter your NovelAI API key. Settings are saved automatically.
 
-Keep your NovelAI API key private. Do not commit local databases, generated
-images, or `.env` files.
+In development mode, local data is stored under `server/data`. With Docker, data is stored in the `nai_factory_data` volume.
+
+Keep your API key, local database, generated images, and `.env` files out of public repositories.
+
+## Scripts
+
+```sh
+bun dev       # Start the API server and web dev server
+bun build     # Build for production
+bun test      # Run tests
+bun check     # Run Biome checks
+```
