@@ -2,7 +2,7 @@ import type { PromptVariable } from '@nai-factory/shared'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom } from 'jotai'
 import { AlignLeft } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { api } from '@/lib/api'
 import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
@@ -51,6 +51,14 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
         queryKey: qk.project(projectId),
         queryFn: async () => {
             const { data } = await api.projects({ projectId }).get()
+            return data ?? null
+        },
+    })
+
+    const settingsQuery = useQuery({
+        queryKey: qk.settings(),
+        queryFn: async () => {
+            const { data } = await api.settings.get()
             return data ?? null
         },
     })
@@ -110,6 +118,10 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
     }
 
     const project = projectQuery.data
+    const completionVariables = useMemo(
+        () => [...(settingsQuery.data?.globalVariables ?? []), ...variables],
+        [settingsQuery.data?.globalVariables, variables],
+    )
 
     return (
         <>
@@ -149,6 +161,7 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
                         <PromptEditor
                             prompt={prompt}
                             negativePrompt={negativePrompt}
+                            variables={completionVariables}
                             onPromptChange={handlePromptChange}
                             onNegativePromptChange={handleNegativePromptChange}
                         />
@@ -157,6 +170,7 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
                         <CharacterPromptEditor
                             projectId={project.id}
                             characterPrompts={project.characterPrompts ?? []}
+                            variables={completionVariables}
                         />
 
                         <span className="text-lg mt-4">변수</span>

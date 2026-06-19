@@ -66,6 +66,9 @@ export function CodeEditor({
                 // `completionSource` as a captured reactive value in this effect.
                 override: [(ctx) => completionSourceRef.current?.(ctx) ?? null],
                 activateOnTyping: true,
+                activateOnTypingDelay: 35,
+                interactionDelay: 35,
+                maxRenderedOptions: 50,
             }),
             // Render tooltips in document.body to avoid overflow/z-index clipping.
             tooltips({ parent: document.body }),

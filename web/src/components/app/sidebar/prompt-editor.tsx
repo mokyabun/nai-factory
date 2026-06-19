@@ -1,11 +1,14 @@
+import type { PromptVariable } from '@nai-factory/shared'
+import { useMemo } from 'react'
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { tagCompletionSource } from '@/lib/tag-autocomplete'
+import { createPromptCompletionSource } from '@/lib/tag-autocomplete'
 import { cn } from '@/lib/utils'
 
 interface PromptEditorProps {
     prompt: string
     negativePrompt: string
+    variables?: PromptVariable
     onPromptChange: (value: string) => void
     onNegativePromptChange: (value: string) => void
     className?: string
@@ -14,10 +17,13 @@ interface PromptEditorProps {
 export function PromptEditor({
     prompt,
     negativePrompt,
+    variables = [],
     onPromptChange,
     onNegativePromptChange,
     className,
 }: PromptEditorProps) {
+    const completionSource = useMemo(() => createPromptCompletionSource(variables), [variables])
+
     return (
         <Tabs
             defaultValue="prompt"
@@ -37,7 +43,7 @@ export function PromptEditor({
                     placeholder="프롬프트를 입력하세요..."
                     minLines={6}
                     className="h-full"
-                    completionSource={tagCompletionSource}
+                    completionSource={completionSource}
                     onChange={onPromptChange}
                 />
             </TabsContent>
@@ -47,7 +53,7 @@ export function PromptEditor({
                     placeholder="부정 프롬프트를 입력하세요..."
                     minLines={6}
                     className="h-full"
-                    completionSource={tagCompletionSource}
+                    completionSource={completionSource}
                     onChange={onNegativePromptChange}
                 />
             </TabsContent>

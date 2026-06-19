@@ -1,3 +1,4 @@
+import type { CompletionSource } from '@codemirror/autocomplete'
 import type { DragEndEvent } from '@dnd-kit/core'
 import {
     closestCenter,
@@ -15,26 +16,27 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { CharacterPrompt } from '@nai-factory/shared'
+import type { CharacterPrompt, PromptVariable } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, GripVertical, Plus, Trash2, X } from 'lucide-react'
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
-import { tagCompletionSource } from '@/lib/tag-autocomplete'
+import { createPromptCompletionSource } from '@/lib/tag-autocomplete'
 import { debounce } from '@/lib/utils'
 
 interface SortableItemProps {
     id: number
     cp: CharacterPrompt
+    completionSource: CompletionSource
     onUpdate: (updated: Partial<CharacterPrompt>) => void
     onRemove: () => void
 }
 
-function SortableItem({ id, cp, onUpdate, onRemove }: SortableItemProps) {
+function SortableItem({ id, cp, completionSource, onUpdate, onRemove }: SortableItemProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id,
     })
@@ -97,7 +99,7 @@ function SortableItem({ id, cp, onUpdate, onRemove }: SortableItemProps) {
                         placeholder="프롬프트를 입력하세요..."
                         minLines={6}
                         className="h-full"
-                        completionSource={tagCompletionSource}
+                        completionSource={completionSource}
                         onChange={(value) => onUpdate({ prompt: value })}
                     />
                 </TabsContent>
@@ -107,7 +109,7 @@ function SortableItem({ id, cp, onUpdate, onRemove }: SortableItemProps) {
                         placeholder="부정 프롬프트를 입력하세요..."
                         minLines={6}
                         className="h-full"
-                        completionSource={tagCompletionSource}
+                        completionSource={completionSource}
                         onChange={(value) => onUpdate({ uc: value })}
                     />
                 </TabsContent>
@@ -119,10 +121,16 @@ function SortableItem({ id, cp, onUpdate, onRemove }: SortableItemProps) {
 interface CharacterPromptProps {
     projectId: number
     characterPrompts: CharacterPrompt[]
+    variables?: PromptVariable
 }
 
-export function CharacterPromptEditor({ projectId, characterPrompts }: CharacterPromptProps) {
+export function CharacterPromptEditor({
+    projectId,
+    characterPrompts,
+    variables = [],
+}: CharacterPromptProps) {
     const queryClient = useQueryClient()
+    const completionSource = useMemo(() => createPromptCompletionSource(variables), [variables])
 
     // Keep a ref to latest characterPrompts for use inside the debounced save
     const characterPromptsRef = useRef(characterPrompts)
@@ -190,6 +198,7 @@ export function CharacterPromptEditor({ projectId, characterPrompts }: Character
                                     key={i}
                                     id={i}
                                     cp={cp}
+                                    completionSource={completionSource}
                                     onUpdate={(updated) => updateCharacter(i, updated)}
                                     onRemove={() => removeCharacter(i)}
                                 />
