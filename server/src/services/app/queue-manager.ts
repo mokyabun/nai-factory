@@ -27,7 +27,7 @@ type QueueHistoryEntry = {
     failureCategory: string | null
 }
 
-type CurrentJob = {
+type PendingQueueJob = {
     id: number
     type: 'scene' | 'playground'
     projectId: number | null
@@ -35,6 +35,10 @@ type CurrentJob = {
     sceneVariationId: number | null
     sceneName: string
     prompt: string | null
+    sortIndex: number
+}
+
+type CurrentJob = PendingQueueJob & {
     startedAt: string
     startedAtMs: number
 }
@@ -255,152 +259,158 @@ class QueueManager {
         this.log.debug('Queue processor entered')
 
         while (this.running) {
-            // idc about same priority items being processed in random order
-            const [nextScene, nextPlayground] = await Promise.all([
-                db
-                    .select({
-                        id: queueItems.id,
-                        projectId: queueItems.projectId,
-                        sceneId: queueItems.sceneId,
-                        sceneVariationId: queueItems.sceneVariationId,
-                        sceneName: scenes.name,
-                        sortIndex: queueItems.sortIndex,
-                    })
-                    .from(queueItems)
-                    .innerJoin(scenes, eq(queueItems.sceneId, scenes.id))
-                    .orderBy(asc(queueItems.sortIndex))
-                    .limit(1)
-                    .then((rows) =>
-                        rows[0]
-                            ? {
-                                  ...rows[0],
-                                  type: 'scene' as const,
-                                  prompt: null,
-                              }
-                            : null,
-                    ),
-                db
-                    .select({
-                        id: playgroundQueueItems.id,
-                        prompt: playgroundQueueItems.prompt,
-                        sortIndex: playgroundQueueItems.sortIndex,
-                    })
-                    .from(playgroundQueueItems)
-                    .orderBy(asc(playgroundQueueItems.sortIndex))
-                    .limit(1)
-                    .then((rows) =>
-                        rows[0]
-                            ? {
-                                  ...rows[0],
-                                  type: 'playground' as const,
-                                  projectId: null,
-                                  sceneId: null,
-                                  sceneVariationId: null,
-                                  sceneName: 'Playground',
-                              }
-                            : null,
-                    ),
-            ])
-
-            const next =
-                nextScene && nextPlayground
-                    ? nextScene.sortIndex <= nextPlayground.sortIndex
-                        ? nextScene
-                        : nextPlayground
-                    : (nextScene ?? nextPlayground)
-
+            const next = await this.fetchNextJob()
             if (!next) {
                 this.log.debug('Queue processor found no pending jobs')
                 break
             }
 
-            const startedAtMs = Date.now()
-            const startedAt = new Date(startedAtMs).toISOString()
-            this.currentJob = {
-                ...next,
-                startedAt,
-                startedAtMs,
-            }
-            publishQueueChanged()
-            this.log.info(
-                {
-                    jobId: next.id,
-                    type: next.type,
-                    projectId: next.projectId,
-                    sceneId: next.sceneId,
-                    sceneVariationId: next.sceneVariationId,
-                },
-                'Queue job started',
-            )
-            try {
-                const runner =
-                    next.type === 'playground' ? runPlaygroundJob(next.id) : runJob(next.id)
-                for await (const variationDurationMs of runner) {
-                    this.recordDurationMs(variationDurationMs)
-                }
-                this.completedCount += 1
-                this.recordHistory({
-                    jobId: next.id,
-                    type: next.type,
-                    projectId: next.projectId,
-                    sceneId: next.sceneId,
-                    sceneVariationId: next.sceneVariationId,
-                    sceneName: next.sceneName,
-                    prompt: next.prompt,
-                    status: 'completed',
-                    startedAt,
-                    durationMs: Date.now() - startedAtMs,
-                    error: null,
-                    failureCategory: null,
-                })
-                this.log.info(
-                    {
-                        jobId: next.id,
-                        type: next.type,
-                        durationMs: Date.now() - startedAtMs,
-                    },
-                    'Queue job completed',
-                )
-            } catch (error) {
-                this.log.error(
-                    {
-                        jobId: next.id,
-                        type: next.type,
-                        projectId: next.projectId,
-                        sceneId: next.sceneId,
-                        sceneVariationId: next.sceneVariationId,
-                        durationMs: Date.now() - startedAtMs,
-                        err: error,
-                    },
-                    'Job failed — stopping queue',
-                )
-                this.failedCount += 1
-                this.recordHistory({
-                    jobId: next.id,
-                    type: next.type,
-                    projectId: next.projectId,
-                    sceneId: next.sceneId,
-                    sceneVariationId: next.sceneVariationId,
-                    sceneName: next.sceneName,
-                    prompt: next.prompt,
-                    status: 'failed',
-                    startedAt,
-                    durationMs: Date.now() - startedAtMs,
-                    error: error instanceof Error ? error.message : String(error),
-                    failureCategory: failureCategory(error),
-                })
-                this.running = false
-                break
-            } finally {
-                this.currentJob = null
-                publishQueueChanged()
-            }
+            await this.runCurrentJob(next)
         }
 
         this.running = false
         this.processing = false
         this.log.info('Queue finished')
         publishQueueChanged()
+    }
+
+    private async fetchNextJob(): Promise<PendingQueueJob | null> {
+        // Equal sort indexes can resolve in either table order; both queues share one priority lane.
+        const [nextScene, nextPlayground] = await Promise.all([
+            db
+                .select({
+                    id: queueItems.id,
+                    projectId: queueItems.projectId,
+                    sceneId: queueItems.sceneId,
+                    sceneVariationId: queueItems.sceneVariationId,
+                    sceneName: scenes.name,
+                    sortIndex: queueItems.sortIndex,
+                })
+                .from(queueItems)
+                .innerJoin(scenes, eq(queueItems.sceneId, scenes.id))
+                .orderBy(asc(queueItems.sortIndex))
+                .limit(1)
+                .then((rows) =>
+                    rows[0]
+                        ? {
+                              ...rows[0],
+                              type: 'scene' as const,
+                              prompt: null,
+                          }
+                        : null,
+                ),
+            db
+                .select({
+                    id: playgroundQueueItems.id,
+                    prompt: playgroundQueueItems.prompt,
+                    sortIndex: playgroundQueueItems.sortIndex,
+                })
+                .from(playgroundQueueItems)
+                .orderBy(asc(playgroundQueueItems.sortIndex))
+                .limit(1)
+                .then((rows) =>
+                    rows[0]
+                        ? {
+                              ...rows[0],
+                              type: 'playground' as const,
+                              projectId: null,
+                              sceneId: null,
+                              sceneVariationId: null,
+                              sceneName: 'Playground',
+                          }
+                        : null,
+                ),
+        ])
+
+        if (!nextScene) return nextPlayground
+        if (!nextPlayground) return nextScene
+
+        return nextScene.sortIndex <= nextPlayground.sortIndex ? nextScene : nextPlayground
+    }
+
+    private async runCurrentJob(job: PendingQueueJob): Promise<void> {
+        const startedAtMs = Date.now()
+        const startedAt = new Date(startedAtMs).toISOString()
+        this.currentJob = { ...job, startedAt, startedAtMs }
+        publishQueueChanged()
+        this.log.info(
+            {
+                jobId: job.id,
+                type: job.type,
+                projectId: job.projectId,
+                sceneId: job.sceneId,
+                sceneVariationId: job.sceneVariationId,
+            },
+            'Queue job started',
+        )
+
+        try {
+            const runner = job.type === 'playground' ? runPlaygroundJob(job.id) : runJob(job.id)
+            for await (const variationDurationMs of runner) {
+                this.recordDurationMs(variationDurationMs)
+            }
+            this.recordCompletedJob(job, startedAt, Date.now() - startedAtMs)
+        } catch (error) {
+            this.recordFailedJob(job, startedAt, Date.now() - startedAtMs, error)
+            this.running = false
+        } finally {
+            this.currentJob = null
+            publishQueueChanged()
+        }
+    }
+
+    private recordCompletedJob(job: PendingQueueJob, startedAt: string, durationMs: number) {
+        this.completedCount += 1
+        this.recordHistory({
+            jobId: job.id,
+            type: job.type,
+            projectId: job.projectId,
+            sceneId: job.sceneId,
+            sceneVariationId: job.sceneVariationId,
+            sceneName: job.sceneName,
+            prompt: job.prompt,
+            status: 'completed',
+            startedAt,
+            durationMs,
+            error: null,
+            failureCategory: null,
+        })
+        this.log.info({ jobId: job.id, type: job.type, durationMs }, 'Queue job completed')
+    }
+
+    private recordFailedJob(
+        job: PendingQueueJob,
+        startedAt: string,
+        durationMs: number,
+        error: unknown,
+    ) {
+        this.log.error(
+            {
+                jobId: job.id,
+                type: job.type,
+                projectId: job.projectId,
+                sceneId: job.sceneId,
+                sceneVariationId: job.sceneVariationId,
+                durationMs,
+                err: error,
+            },
+            'Job failed — stopping queue',
+        )
+        this.failedCount += 1
+        this.recordHistory({
+            jobId: job.id,
+            type: job.type,
+            projectId: job.projectId,
+            sceneId: job.sceneId,
+            sceneVariationId: job.sceneVariationId,
+            sceneName: job.sceneName,
+            prompt: job.prompt,
+            status: 'failed',
+            startedAt,
+            durationMs,
+            error: error instanceof Error ? error.message : String(error),
+            failureCategory: failureCategory(error),
+        })
     }
 
     private recordDurationMs(milliseconds: number) {

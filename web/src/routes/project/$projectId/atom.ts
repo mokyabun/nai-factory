@@ -1,12 +1,6 @@
-import { arrayMove } from '@dnd-kit/sortable'
 import { atom } from 'jotai'
 import type { SceneSummary } from '@/lib/api'
-
-export type SceneOrderPatch = {
-    id: number
-    prevId: number | null
-    nextId: number | null
-}
+import { type OrderPatch, reorderById } from '@/lib/reorder'
 
 export type ProjectPageDialog =
     | { type: 'create-scene' }
@@ -35,22 +29,6 @@ export function reorderSceneItems(
     items: SceneSummary[],
     activeId: number,
     overId: number,
-): { items: SceneSummary[]; orderPatch: SceneOrderPatch } | null {
-    if (activeId === overId) return null
-
-    const oldIndex = items.findIndex((scene) => scene.id === activeId)
-    const newIndex = items.findIndex((scene) => scene.id === overId)
-
-    if (oldIndex === -1 || newIndex === -1) return null
-
-    const nextItems = arrayMove(items, oldIndex, newIndex)
-
-    return {
-        items: nextItems,
-        orderPatch: {
-            id: activeId,
-            prevId: newIndex > 0 ? nextItems[newIndex - 1].id : null,
-            nextId: newIndex < nextItems.length - 1 ? nextItems[newIndex + 1].id : null,
-        },
-    }
+): { items: SceneSummary[]; orderPatch: OrderPatch } | null {
+    return reorderById(items, activeId, overId)
 }
