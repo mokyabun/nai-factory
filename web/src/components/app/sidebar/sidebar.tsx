@@ -84,7 +84,7 @@ export function Sidebar() {
 
 function SidebarContent({ projectId }: AppSidebarProps) {
     const { setOpen, open, isMobile, openMobile, setOpenMobile } = Base.useSidebar()
-    const navigate = useNavigate()
+    const navigate = useNavigate({ from: '/' })
     const [activePanel, setActivePanel] = useAtom(activeSidebarPanelAtom)
 
     const search = useRouterState({ select: (s) => s.location.search })
@@ -117,7 +117,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
         },
         { title: 'Queue', panel: 'queue' as const, icon: ListTodo },
     ]
-    const bottomItems = [
+    const bottomItems: SidebarItem[] = [
         {
             title: 'Playground',
             panel: 'playground' as const,

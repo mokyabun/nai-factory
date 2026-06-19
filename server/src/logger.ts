@@ -1,23 +1,10 @@
 import pino from 'pino'
-
-const level = Bun.env.LOG_LEVEL ?? (Bun.env.NODE_ENV === 'production' ? 'info' : 'debug')
+import { appConfig } from './config'
 
 const baseOptions: pino.LoggerOptions = {
-    level,
-    // Adding this even though there's no this kinda info in logs right now.
+    level: appConfig.logging.level,
     redact: {
-        paths: [
-            'apiKey',
-            '*.apiKey',
-            '*.authorization',
-            'headers.authorization',
-            'req.headers.authorization',
-            'request.headers.authorization',
-            'token',
-            '*.token',
-            'secret',
-            '*.secret',
-        ],
+        paths: appConfig.logging.redactPaths,
         censor: '[redacted]',
     },
     serializers: {
@@ -27,17 +14,16 @@ const baseOptions: pino.LoggerOptions = {
 }
 
 const logger = (() => {
-    if (Bun.env.NODE_ENV === 'production') {
+    if (!appConfig.logging.pretty) {
         return pino(baseOptions)
     }
 
     return pino({
         ...baseOptions,
-        // Only use pino-pretty in development.
         transport: {
             target: 'pino-pretty',
             options: {
-                colorize: true,
+                colorize: appConfig.logging.colorize,
                 ignore: 'pid,hostname',
                 translateTime: 'SYS:standard',
             },

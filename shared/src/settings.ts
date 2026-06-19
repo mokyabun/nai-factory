@@ -1,4 +1,5 @@
 import * as z from 'zod'
+import { PromptVariable } from './app'
 
 const PngImageSaveType = z.object({ type: z.literal('png') })
 const WebpImageSaveType = z.object({
@@ -52,7 +53,7 @@ export type NovelAIAccountStatus = z.infer<typeof NovelAIAccountStatus>
 
 export type GlobalSettings = z.infer<typeof GlobalSettings>
 export const GlobalSettings = z.object({
-    globalVariables: z.record(z.string(), z.string()),
+    globalVariables: PromptVariable,
     novelai: NovelAISettings,
     image: ImageSettings,
     debug: DebugSettings,

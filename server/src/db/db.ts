@@ -2,21 +2,22 @@ import { Database } from 'bun:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
+import { appConfig } from '../config'
 import { migrate } from './migrate'
 import * as schema from './schema'
 
-const DB_PATH = process.env.DATABASE_URL ?? './data/database.db'
-
 interface DbOptions {
     inMemory?: boolean
+    path?: string
     wal?: boolean
     cacheSize?: number
 }
 
 const defaultOptions: DbOptions = {
     inMemory: false,
-    wal: true,
-    cacheSize: 10000,
+    path: appConfig.database.url,
+    wal: appConfig.database.wal,
+    cacheSize: appConfig.database.cacheSize,
 }
 
 export function createDb(options: DbOptions = {}) {
@@ -29,9 +30,13 @@ export function createDb(options: DbOptions = {}) {
         return { db: drizzle(sqlite, { schema }), sqlite, ...schema }
     }
 
-    mkdirSync(dirname(DB_PATH), { recursive: true })
+    if (!mergedOptions.path) {
+        throw new Error('Database path is required')
+    }
 
-    const sqlite = new Database(DB_PATH)
+    mkdirSync(dirname(mergedOptions.path), { recursive: true })
+
+    const sqlite = new Database(mergedOptions.path)
     if (mergedOptions.wal) {
         sqlite.run('PRAGMA journal_mode = WAL;')
     }

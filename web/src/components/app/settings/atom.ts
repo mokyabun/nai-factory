@@ -2,6 +2,7 @@ import type {
     GlobalSettings,
     ImageSaveType,
     NovelAIMode,
+    PromptVariable,
     SettingsPatchBody,
 } from '@nai-factory/shared'
 import { atom } from 'jotai'
@@ -11,7 +12,7 @@ export type ImageFormat = ImageSaveType['type']
 export type SettingsDraft = {
     apiKey: string
     novelAIMode: NovelAIMode
-    globalVars: [string, string][]
+    globalVars: PromptVariable
     sourceFormat: ImageFormat
     sourceQuality: number
     thumbFormat: ImageFormat
@@ -63,7 +64,10 @@ export function updateGlobalVar(draft: SettingsDraft, update: GlobalVarUpdate): 
         globalVars: draft.globalVars.map((entry, index) => {
             if (index !== update.index) return entry
 
-            return [update.key ?? entry[0], update.value ?? entry[1]] satisfies [string, string]
+            return {
+                key: update.key ?? entry.key,
+                value: update.value ?? entry.value,
+            }
         }),
     }
 }
@@ -71,7 +75,7 @@ export function updateGlobalVar(draft: SettingsDraft, update: GlobalVarUpdate): 
 export function addGlobalVar(draft: SettingsDraft): SettingsDraft {
     return {
         ...draft,
-        globalVars: [...draft.globalVars, ['', '']],
+        globalVars: [...draft.globalVars, { key: '', value: '' }],
     }
 }
 
@@ -89,7 +93,7 @@ export function createSettingsDraft(settings: GlobalSettings): SettingsDraft {
     return {
         apiKey: settings.novelai?.apiKey ?? '',
         novelAIMode: settings.novelai?.mode ?? 'live',
-        globalVars: Object.entries(settings.globalVariables ?? {}),
+        globalVars: settings.globalVariables ?? [],
         sourceFormat: sourceType?.type ?? 'png',
         sourceQuality: sourceType?.type === 'png' ? 90 : (sourceType?.quality ?? 90),
         thumbFormat: thumbnailType?.type ?? 'webp',
@@ -122,7 +126,10 @@ export function createSettingsPatch({
 
     return {
         novelai: { apiKey, mode: novelAIMode },
-        globalVariables: Object.fromEntries(globalVars),
+        globalVariables: globalVars.map((variable) => ({
+            key: variable.key.trim(),
+            value: variable.value,
+        })),
         image: { sourceType, thumbnailType, thumbnailSize: thumbSize },
         debug: { enabled: debugEnabled, recentRequestLimit: debugRequestLimit },
         export: { serverPath: serverExportPath },

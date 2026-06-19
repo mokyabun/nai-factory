@@ -41,7 +41,7 @@ export const projects = sqliteTable(
         variables: text('variables', { mode: 'json' })
             .notNull()
             .$type<PromptVariable>()
-            .default({}),
+            .default([]),
 
         parameters: text('parameters', { mode: 'json' })
             .notNull()
@@ -156,7 +156,7 @@ export const sceneVariations = sqliteTable(
         variables: text('variables', { mode: 'json' })
             .notNull()
             .$type<PromptVariable>()
-            .default({}),
+            .default([]),
 
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
         updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),

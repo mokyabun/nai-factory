@@ -118,7 +118,7 @@ function expandScene(
         .filter((group) => group.length > 0)
 
     if (enabledGroups.length === 0) {
-        return { name, variations: [{ prompt: '' }] }
+        return { name, variations: [[{ key: 'prompt', value: '' }]] }
     }
 
     const variations: PromptVariable[] = cartesianProduct(enabledGroups).map((combo) => {
@@ -130,7 +130,7 @@ function expandScene(
                 return pieceValues.get(`${libName}.${pieceName}`) ?? ''
             })
 
-        return { prompt: cleanPrompt(combined) }
+        return [{ key: 'prompt', value: cleanPrompt(combined) }]
     })
 
     return { name, variations }

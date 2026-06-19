@@ -1,3 +1,4 @@
+import { normalizePromptVariables } from '@nai-factory/shared'
 import { HTTPException } from 'hono/http-exception'
 
 export function httpError(status: 400 | 404 | 500, message: string) {
@@ -15,4 +16,12 @@ export function nowIso() {
 
 export function withUpdatedAt<T extends object>(data: T) {
     return { ...data, updatedAt: nowIso() }
+}
+
+export function withNormalizedVariables<T extends { variables: unknown }>(entity: T) {
+    return { ...entity, variables: normalizePromptVariables(entity.variables) }
+}
+
+export function withNormalizedGlobalVariables<T extends { globalVariables: unknown }>(entity: T) {
+    return { ...entity, globalVariables: normalizePromptVariables(entity.globalVariables) }
 }

@@ -15,6 +15,7 @@ import * as characterReferenceService from '@/services/novelai/character-referen
 import * as novelAIService from '@/services/novelai/novelai'
 import * as vibeImageService from '@/services/novelai/vibe-image'
 import { nextDisplayOrder } from '@/services/order'
+import { withNormalizedVariables } from '@/shared'
 import { realtimeEvents } from './events'
 import * as imageService from './image'
 import { compilePrompts, compileVariables } from './prompt'
@@ -55,7 +56,13 @@ async function loadJobContext(jobId: number) {
     if (!scene) throw new Error(`Scene ${job.sceneId} not found`)
     if (!variation) throw new Error(`Scene variation ${job.sceneVariationId} not found`)
 
-    return { job, project, scene, variation, globalSettings }
+    return {
+        job,
+        project: withNormalizedVariables(project),
+        scene,
+        variation: withNormalizedVariables(variation),
+        globalSettings,
+    }
 }
 
 async function generateAndSaveImage(

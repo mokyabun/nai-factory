@@ -17,12 +17,16 @@ import { db, images, projects, scenes, sceneVariations } from '../db'
 import logger from '../logger'
 import { removeByProject, removeCharacterReferencesByProject } from '../services'
 import * as settingsService from '../services/app/settings'
-import { requireEntity, withUpdatedAt } from '../shared'
+import { requireEntity, withNormalizedVariables, withUpdatedAt } from '../shared'
 
 const log = logger.child({ module: 'project-domain' })
 
+function normalizeProject<T extends typeof projects.$inferSelect>(project: T) {
+    return withNormalizedVariables(project)
+}
+
 async function getAllByGroupId(groupId?: number | 'null' | 'ungrouped') {
-    return db
+    const rows = await db
         .select()
         .from(projects)
         .where(
@@ -33,33 +37,33 @@ async function getAllByGroupId(groupId?: number | 'null' | 'ungrouped') {
                   : eq(projects.groupId, groupId),
         )
         .orderBy(asc(projects.id))
+
+    return rows.map(normalizeProject)
 }
 
 async function getById(projectId: number) {
     const [project] = await db.select().from(projects).where(eq(projects.id, projectId))
-    return requireEntity(project, 'Project not found')
+    return normalizeProject(requireEntity(project, 'Project not found'))
 }
 
 async function create(body: ProjectPostBody) {
     const [project] = await db.insert(projects).values(body).returning()
     if (!project) throw new HTTPException(500, { message: 'Failed to create project' })
     log.info({ projectId: project.id, groupId: project.groupId }, 'Project created')
-    return project
+    return normalizeProject(project)
 }
 
 async function update(projectId: number, body: ProjectPatchBody) {
     const current = body.settings ? await getById(projectId) : null
-    const patch: ProjectPatchBody = current
-        ? { ...body, settings: { ...current.settings, ...body.settings } }
-        : body
+    const patch = current ? { ...body, settings: { ...current.settings, ...body.settings } } : body
 
     const [project] = await db
         .update(projects)
-        .set(withUpdatedAt(patch))
+        .set(withUpdatedAt(patch as Partial<typeof projects.$inferInsert>))
         .where(eq(projects.id, projectId))
         .returning()
 
-    const result = requireEntity(project, 'Project not found')
+    const result = normalizeProject(requireEntity(project, 'Project not found'))
     log.info({ projectId, fields: Object.keys(patch) }, 'Project updated')
     return result
 }
@@ -142,7 +146,7 @@ async function duplicate(projectId: number) {
         'Project duplicated',
     )
 
-    return project
+    return normalizeProject(project)
 }
 
 type ExportAsset = {

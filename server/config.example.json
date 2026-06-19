@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "nodeEnv": "development",
+  "port": 3000,
+  "paths": {
+    "dataDir": "./data"
+  },
+  "database": {
+    "url": "./data/database.db",
+    "wal": true,
+    "cacheSize": 10000
+  },
+  "logging": {
+    "level": "debug",
+    "pretty": true,
+    "colorize": true
+  }
+}

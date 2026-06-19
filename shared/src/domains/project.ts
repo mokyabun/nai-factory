@@ -1,5 +1,5 @@
 import * as z from 'zod'
-import { CharacterPrompt, Parameters } from '../app'
+import { CharacterPrompt, Parameters, PromptVariable } from '../app'
 
 export const ProjectSettings = z.object({
     slideshowImageCount: z.number().int().min(1).max(10).default(4),
@@ -16,7 +16,7 @@ export const Project = z.object({
     prompt: z.string(),
     negativePrompt: z.string(),
 
-    variables: z.record(z.string(), z.string()),
+    variables: PromptVariable,
     parameters: Parameters,
     characterPrompts: z.array(CharacterPrompt),
     settings: ProjectSettings,
@@ -41,7 +41,7 @@ export const ProjectPatchBody = z.object({
     name: z.string().min(1).optional(),
     prompt: z.string().optional(),
     negativePrompt: z.string().optional(),
-    variables: z.record(z.string(), z.string()).optional(),
+    variables: PromptVariable.optional(),
     parameters: Parameters.optional(),
     characterPrompts: z.array(CharacterPrompt).optional(),
     settings: ProjectSettingsPatch.optional(),

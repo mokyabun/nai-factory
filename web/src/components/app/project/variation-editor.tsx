@@ -13,11 +13,12 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { SceneVariationDraft } from '@nai-factory/shared'
+import type { PromptVariable, SceneVariationDraft } from '@nai-factory/shared'
 import { GripVertical, Plus, Trash2, X } from 'lucide-react'
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { variableValidationMessage } from '@/lib/prompt-variables'
 
 interface VariationEditorProps {
     variations: SceneVariationDraft[]
@@ -30,9 +31,9 @@ type SortableVariationProps = {
     varIdx: number
     onAddKey: (varIdx: number) => void
     onRemoveVariation: (varIdx: number) => void
-    onRemoveKey: (varIdx: number, key: string) => void
-    onUpdateKey: (varIdx: number, oldKey: string, newKey: string) => void
-    onUpdateValue: (varIdx: number, key: string, value: string) => void
+    onRemoveKey: (varIdx: number, keyIdx: number) => void
+    onUpdateKey: (varIdx: number, keyIdx: number, newKey: string) => void
+    onUpdateValue: (varIdx: number, keyIdx: number, value: string) => void
 }
 
 function itemId(variation: SceneVariationDraft, index: number) {
@@ -57,6 +58,7 @@ function SortableVariation({
         transform: CSS.Transform.toString(transform),
         transition,
     }
+    const validationMessage = variableValidationMessage(variation.variables)
 
     return (
         <div
@@ -100,24 +102,26 @@ function SortableVariation({
 
                 <div className="rounded-md border bg-background p-3">
                     <div className="flex flex-col gap-2">
-                        {Object.entries(variation.variables).map(([key, value]) => (
-                            <div key={key} className="flex flex-col gap-1">
+                        {variation.variables.map(({ key, value }, keyIdx) => (
+                            <div
+                                // biome-ignore lint/suspicious/noArrayIndexKey: variable draft rows can share empty keys until edited.
+                                key={keyIdx}
+                                className="flex flex-col gap-1"
+                            >
                                 <div className="flex items-center gap-1.5">
                                     <Input
                                         className="h-7 flex-1 px-2 font-mono text-xs"
-                                        defaultValue={key}
+                                        value={key}
                                         placeholder="변수명"
-                                        onBlur={(e) => onUpdateKey(varIdx, key, e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter')
-                                                onUpdateKey(varIdx, key, e.currentTarget.value)
-                                        }}
+                                        onChange={(e) =>
+                                            onUpdateKey(varIdx, keyIdx, e.target.value)
+                                        }
                                     />
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         className="h-6 w-6 shrink-0 text-muted-foreground"
-                                        onClick={() => onRemoveKey(varIdx, key)}
+                                        onClick={() => onRemoveKey(varIdx, keyIdx)}
                                     >
                                         <X className="h-3 w-3" />
                                     </Button>
@@ -126,10 +130,13 @@ function SortableVariation({
                                     value={value}
                                     placeholder="값 (태그, 프롬프트 등)..."
                                     minLines={2}
-                                    onChange={(v) => onUpdateValue(varIdx, key, v)}
+                                    onChange={(v) => onUpdateValue(varIdx, keyIdx, v)}
                                 />
                             </div>
                         ))}
+                        {validationMessage && (
+                            <p className="text-[11px] text-destructive">{validationMessage}</p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -142,7 +149,7 @@ export function VariationEditor({ variations, onChange }: VariationEditorProps) 
     const ids = variations.map(itemId)
 
     function addVariation() {
-        onChange([...variations, { variables: {} }])
+        onChange([...variations, { variables: [] }])
     }
 
     function removeVariation(i: number) {
@@ -153,33 +160,36 @@ export function VariationEditor({ variations, onChange }: VariationEditorProps) 
         const updated = [...variations]
         updated[varIdx] = {
             ...updated[varIdx],
-            variables: { ...updated[varIdx].variables, '': '' },
+            variables: [...updated[varIdx].variables, { key: '', value: '' }],
         }
         onChange(updated)
     }
 
-    function removeKey(varIdx: number, key: string) {
-        const updated = [...variations]
-        const { [key]: _, ...rest } = updated[varIdx].variables
-        updated[varIdx] = { ...updated[varIdx], variables: rest }
-        onChange(updated)
-    }
-
-    function updateKey(varIdx: number, oldKey: string, newKey: string) {
-        const updated = [...variations]
-        const obj = { ...updated[varIdx].variables }
-        const value = obj[oldKey] ?? ''
-        delete obj[oldKey]
-        obj[newKey] = value
-        updated[varIdx] = { ...updated[varIdx], variables: obj }
-        onChange(updated)
-    }
-
-    function updateValue(varIdx: number, key: string, value: string) {
+    function removeKey(varIdx: number, keyIdx: number) {
         const updated = [...variations]
         updated[varIdx] = {
             ...updated[varIdx],
-            variables: { ...updated[varIdx].variables, [key]: value },
+            variables: updated[varIdx].variables.filter((_, index) => index !== keyIdx),
+        }
+        onChange(updated)
+    }
+
+    function updateKey(varIdx: number, keyIdx: number, newKey: string) {
+        const updated = [...variations]
+        const variables: PromptVariable = updated[varIdx].variables.map((variable, index) =>
+            index === keyIdx ? { ...variable, key: newKey } : variable,
+        )
+        updated[varIdx] = { ...updated[varIdx], variables }
+        onChange(updated)
+    }
+
+    function updateValue(varIdx: number, keyIdx: number, value: string) {
+        const updated = [...variations]
+        updated[varIdx] = {
+            ...updated[varIdx],
+            variables: updated[varIdx].variables.map((variable, index) =>
+                index === keyIdx ? { ...variable, value } : variable,
+            ),
         }
         onChange(updated)
     }

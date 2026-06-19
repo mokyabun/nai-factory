@@ -7,7 +7,7 @@ import type {
 } from '@nai-factory/shared'
 import { asc, desc, eq } from 'drizzle-orm'
 import sharp from 'sharp'
-import { CHARACTER_REFERENCES_DIR } from '@/config'
+import { appConfig } from '@/config'
 import { characterReferences, db } from '@/db'
 import logger from '@/logger'
 import { nextDisplayOrder } from '@/services/order'
@@ -105,8 +105,16 @@ export async function uploadCharacterReference(
     const startedAt = Date.now()
     const ext = extname(imageFile.name) || '.png'
     const baseName = randomUUID()
-    const sourceImagePath = join(CHARACTER_REFERENCES_DIR, String(projectId), `${baseName}${ext}`)
-    const thumbnailPath = join(CHARACTER_REFERENCES_DIR, String(projectId), `${baseName}_thumb.png`)
+    const sourceImagePath = join(
+        appConfig.paths.characterReferencesDir,
+        String(projectId),
+        `${baseName}${ext}`,
+    )
+    const thumbnailPath = join(
+        appConfig.paths.characterReferencesDir,
+        String(projectId),
+        `${baseName}_thumb.png`,
+    )
 
     await ensureDir(sourceImagePath)
     await fs.writeFile(sourceImagePath, Buffer.from(await imageFile.arrayBuffer()))
@@ -156,7 +164,7 @@ export async function deleteCharacterReferenceFiles(
 }
 
 export async function removeCharacterReferencesByProject(projectId: number) {
-    await fs.rm(join(CHARACTER_REFERENCES_DIR, String(projectId)), {
+    await fs.rm(join(appConfig.paths.characterReferencesDir, String(projectId)), {
         recursive: true,
         force: true,
     })

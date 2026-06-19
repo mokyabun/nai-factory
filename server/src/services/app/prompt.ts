@@ -1,14 +1,75 @@
 import type { CharacterPrompt, Prompt, PromptVariable } from '@nai-factory/shared'
+import Handlebars from 'handlebars'
 
-// regex to match [[variableName]] in prompt templates
-const TEMPLATE_VAR_RE = /\[\[([a-zA-Z_$][a-zA-Z0-9_$]*)\]\]/g
+const HANDLEBARS_LITERAL_RE = /{{{[\s\S]*?}}}|{{[\s\S]*?}}/g
+const NAI_TEMPLATE_RE = /<<([\s\S]*?)>>/g
+const RENDER_PASSES = 3
 
-function render(template: string, vars: PromptVariable): string {
-    return template.replace(TEMPLATE_VAR_RE, (_, key) => vars[key] ?? '')
+type PromptVariableContext = Record<string, string>
+
+export class PromptRenderError extends Error {
+    readonly category = 'template'
+
+    constructor(
+        message: string,
+        override readonly cause?: unknown,
+    ) {
+        super(message)
+        this.name = 'PromptRenderError'
+    }
 }
 
-function renderMultiple(template: string, vars: PromptVariable, count = 2): string {
-    let result: string = template
+function toContext(variables: PromptVariable): PromptVariableContext {
+    const context: PromptVariableContext = {}
+    for (const variable of variables) {
+        context[variable.key] = variable.value
+    }
+    return context
+}
+
+function prepareTemplate(template: string) {
+    const literals: string[] = []
+    const protectedTemplate = template.replace(HANDLEBARS_LITERAL_RE, (literal) => {
+        const token = `@@NAI_FACTORY_LITERAL_${literals.length}@@`
+        literals.push(literal)
+        return token
+    })
+
+    return {
+        template: protectedTemplate.replace(NAI_TEMPLATE_RE, (_, content: string) => {
+            return `{{${content}}}`
+        }),
+        literals,
+    }
+}
+
+function restoreLiterals(rendered: string, literals: string[]) {
+    return literals.reduce(
+        (result, literal, index) => result.replaceAll(`@@NAI_FACTORY_LITERAL_${index}@@`, literal),
+        rendered,
+    )
+}
+
+function render(template: string, vars: PromptVariableContext): string {
+    const prepared = prepareTemplate(template)
+
+    try {
+        const compiled = Handlebars.compile(prepared.template, { noEscape: true })
+        return restoreLiterals(compiled(vars), prepared.literals)
+    } catch (error) {
+        throw new PromptRenderError(
+            error instanceof Error ? error.message : 'Failed to render prompt template',
+            error,
+        )
+    }
+}
+
+function renderMultiple(
+    template: string,
+    vars: PromptVariableContext,
+    count = RENDER_PASSES,
+): string {
+    let result = template
 
     for (let i = 0; i < count; i++) {
         result = render(result, vars)
@@ -17,7 +78,7 @@ function renderMultiple(template: string, vars: PromptVariable, count = 2): stri
     return result
 }
 
-export function compilePrompts(source: Prompt, variables: PromptVariable[]): Prompt[] {
+export function compilePrompts(source: Prompt, variables: PromptVariableContext[]): Prompt[] {
     const results: Prompt[] = []
     for (const vars of variables) {
         const characterPrompts: CharacterPrompt[] = source.characterPrompts.map((char) => ({
@@ -41,10 +102,10 @@ export function compileVariables(
     globalVars: PromptVariable,
     projectVars: PromptVariable,
     variationVars: PromptVariable[],
-): PromptVariable[] {
+): PromptVariableContext[] {
     return variationVars.map((variation) => ({
-        ...globalVars,
-        ...projectVars,
-        ...variation,
+        ...toContext(globalVars),
+        ...toContext(projectVars),
+        ...toContext(variation),
     }))
 }

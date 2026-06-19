@@ -73,7 +73,7 @@ CREATE TABLE `projects` (
 	`name` text NOT NULL,
 	`prompt` text DEFAULT '' NOT NULL,
 	`negative_prompt` text DEFAULT '' NOT NULL,
-	`variables` text DEFAULT '{}' NOT NULL,
+	`variables` text DEFAULT '[]' NOT NULL,
 	`parameters` text DEFAULT '{"model":"nai-diffusion-4-5-full","qualityToggle":false,"width":512,"height":512,"steps":28,"promptGuidance":6,"varietyPlus":false,"seed":0,"sampler":"k_euler_ancestral","promptGuidanceRescale":0.7,"noiseSchedule":"karras","normalizeReferenceStrengthValues":false,"useCharacterPositions":false}' NOT NULL,
 	`character_prompts` text DEFAULT '[]' NOT NULL,
 	`settings` text DEFAULT '{"slideshowImageCount":4,"outputTemplate":"{character}-{scene}-{number}.{extension}"}' NOT NULL,
@@ -101,7 +101,7 @@ CREATE TABLE `scene_variations` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`scene_id` integer NOT NULL,
 	`display_order` text NOT NULL,
-	`variables` text DEFAULT '{}' NOT NULL,
+	`variables` text DEFAULT '[]' NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`scene_id`) REFERENCES `scenes`(`id`) ON UPDATE no action ON DELETE cascade
@@ -121,7 +121,7 @@ CREATE TABLE `scenes` (
 CREATE INDEX `scenes_display_order_idx` ON `scenes` (`project_id`,`display_order`);--> statement-breakpoint
 CREATE TABLE `settings` (
 	`id` integer PRIMARY KEY DEFAULT 1 NOT NULL,
-	`global_variables` text DEFAULT '{}' NOT NULL,
+	`global_variables` text DEFAULT '[]' NOT NULL,
 	`novelai` text DEFAULT '{"apiKey":""}' NOT NULL,
 	`image` text DEFAULT '{"sourceType":{"type":"png"},"thumbnailType":{"type":"webp","quality":60},"thumbnailSize":512}' NOT NULL,
 	`debug` text DEFAULT '{"enabled":false,"recentRequestLimit":20}' NOT NULL,

@@ -3,6 +3,7 @@ import { OptionalOrderBody, ProjectIdParams } from './common'
 
 export type ImageUploadFile = {
     name: string
+    size: number
     type: string
     arrayBuffer(): Promise<ArrayBuffer>
 }
@@ -13,6 +14,7 @@ function isImageUploadFile(value: unknown): value is ImageUploadFile {
     const file = value as Partial<ImageUploadFile>
     return (
         typeof file.name === 'string' &&
+        typeof file.size === 'number' &&
         typeof file.type === 'string' &&
         file.type.startsWith('image/') &&
         typeof file.arrayBuffer === 'function'

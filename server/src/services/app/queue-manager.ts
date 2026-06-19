@@ -2,6 +2,7 @@ import { asc, count, eq, inArray, max, min } from 'drizzle-orm'
 import { db, playgroundQueueItems, queueItems, scenes, sceneVariations } from '@/db'
 import logger from '@/logger'
 import { realtimeEvents } from './events'
+import { PromptRenderError } from './prompt'
 import { runJob, runPlaygroundJob } from './queue-runner'
 
 export type EnqueuePosition = 'back' | 'front'
@@ -19,9 +20,11 @@ type QueueHistoryEntry = {
     sceneName: string
     prompt: string | null
     status: 'completed' | 'failed'
+    startedAt: string
     durationMs: number
     completedAt: string
     error: string | null
+    failureCategory: string | null
 }
 
 type CurrentJob = {
@@ -44,6 +47,15 @@ type PlaygroundJobDraft = {
 
 function publishQueueChanged() {
     realtimeEvents.publish({ type: 'queue.changed' })
+}
+
+function failureCategory(error: unknown) {
+    if (error instanceof PromptRenderError) return error.category
+    if (error instanceof Error && /api key/i.test(error.message)) return 'configuration'
+    if (error instanceof Error && /NovelAI|fetch|HTTP|network|timeout/i.test(error.message)) {
+        return 'network'
+    }
+    return 'runtime'
 }
 
 class QueueManager {
@@ -303,9 +315,10 @@ class QueueManager {
             }
 
             const startedAtMs = Date.now()
+            const startedAt = new Date(startedAtMs).toISOString()
             this.currentJob = {
                 ...next,
-                startedAt: new Date(startedAtMs).toISOString(),
+                startedAt,
                 startedAtMs,
             }
             publishQueueChanged()
@@ -335,8 +348,10 @@ class QueueManager {
                     sceneName: next.sceneName,
                     prompt: next.prompt,
                     status: 'completed',
+                    startedAt,
                     durationMs: Date.now() - startedAtMs,
                     error: null,
+                    failureCategory: null,
                 })
                 this.log.info(
                     {
@@ -369,8 +384,10 @@ class QueueManager {
                     sceneName: next.sceneName,
                     prompt: next.prompt,
                     status: 'failed',
+                    startedAt,
                     durationMs: Date.now() - startedAtMs,
                     error: error instanceof Error ? error.message : String(error),
+                    failureCategory: failureCategory(error),
                 })
                 this.running = false
                 break

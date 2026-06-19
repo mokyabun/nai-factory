@@ -3,6 +3,7 @@ import type {
     CharacterReference,
     Project,
     Parameters as ProjectParams,
+    PromptVariable,
     VibeTransfer,
 } from '@nai-factory/shared'
 import { atom } from 'jotai'
@@ -16,7 +17,7 @@ export type SidebarPromptDraft = {
     loadedProjectId: number | null
     prompt: string
     negativePrompt: string
-    variables: [string, string][]
+    variables: PromptVariable
 }
 
 export type OrderPatch = {
@@ -50,7 +51,7 @@ export function createSidebarPromptDraft(project: ProjectPromptData): SidebarPro
         loadedProjectId: project.id,
         prompt: project.prompt ?? '',
         negativePrompt: project.negativePrompt ?? '',
-        variables: Object.entries(project.variables ?? {}),
+        variables: project.variables ?? [],
     }
 }
 

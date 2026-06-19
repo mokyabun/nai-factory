@@ -232,7 +232,7 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
                             <OptionRow
                                 id="importPrompt"
                                 label="프롬프트"
-                                description="frontPrompt + [[prompt]] + backPrompt 형태로 프로젝트 프롬프트 설정"
+                                description="frontPrompt + <<prompt>> + backPrompt 형태로 프로젝트 프롬프트 설정"
                                 checked={options.importPrompt}
                                 disabled={!parsed.hasPreset}
                                 onChange={() => toggleOption('importPrompt')}

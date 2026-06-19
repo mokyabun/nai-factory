@@ -39,7 +39,7 @@ export const DEFAULT_PLAYGROUND_SETTINGS: PlaygroundSettings = {
 }
 
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
-    globalVariables: {},
+    globalVariables: [],
     novelai: {
         apiKey: '',
         mode: 'live',

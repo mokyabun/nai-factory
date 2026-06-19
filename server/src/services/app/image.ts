@@ -2,12 +2,10 @@ import fs from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { ImageSaveType, ImageSettings } from '@nai-factory/shared'
 import sharp from 'sharp'
-import { IMAGES_DIR, THUMBNAILS_DIR } from '@/config'
+import { appConfig } from '@/config'
 import baseLogger from '@/logger'
 
 const logger = baseLogger.child({ module: 'image-service' })
-
-export { IMAGES_DIR, THUMBNAILS_DIR }
 
 async function ensureDir(path: string) {
     return fs.mkdir(dirname(path), { recursive: true })
@@ -84,8 +82,11 @@ export async function save(
     metadata?: Record<string, unknown>,
 ) {
     const base = join(String(projectId), String(sceneId), String(imageId))
-    const filePath = join(IMAGES_DIR, `${base}.${imageSettings.sourceType.type}`)
-    const thumbnailPath = join(THUMBNAILS_DIR, `${base}.${imageSettings.thumbnailType.type}`)
+    const filePath = join(appConfig.paths.imagesDir, `${base}.${imageSettings.sourceType.type}`)
+    const thumbnailPath = join(
+        appConfig.paths.thumbnailsDir,
+        `${base}.${imageSettings.thumbnailType.type}`,
+    )
 
     await Promise.all([ensureDir(filePath), ensureDir(thumbnailPath)])
 
@@ -115,8 +116,11 @@ export async function savePlayground(
     metadata?: Record<string, unknown>,
 ) {
     const base = join('playground', String(imageId))
-    const filePath = join(IMAGES_DIR, `${base}.${imageSettings.sourceType.type}`)
-    const thumbnailPath = join(THUMBNAILS_DIR, `${base}.${imageSettings.thumbnailType.type}`)
+    const filePath = join(appConfig.paths.imagesDir, `${base}.${imageSettings.sourceType.type}`)
+    const thumbnailPath = join(
+        appConfig.paths.thumbnailsDir,
+        `${base}.${imageSettings.thumbnailType.type}`,
+    )
 
     await Promise.all([ensureDir(filePath), ensureDir(thumbnailPath)])
 
@@ -152,8 +156,12 @@ export async function remove(filePath: string, thumbnailPath: string | null) {
 }
 
 export async function removeByScene(projectId: number, sceneId: number) {
-    const scenePath = join(IMAGES_DIR, String(projectId), String(sceneId))
-    const thumbnailScenePath = join(THUMBNAILS_DIR, String(projectId), String(sceneId))
+    const scenePath = join(appConfig.paths.imagesDir, String(projectId), String(sceneId))
+    const thumbnailScenePath = join(
+        appConfig.paths.thumbnailsDir,
+        String(projectId),
+        String(sceneId),
+    )
 
     try {
         await Promise.all([
@@ -168,8 +176,8 @@ export async function removeByScene(projectId: number, sceneId: number) {
 }
 
 export async function removeByProject(projectId: number) {
-    const projectPath = join(IMAGES_DIR, String(projectId))
-    const thumbnailProjectPath = join(THUMBNAILS_DIR, String(projectId))
+    const projectPath = join(appConfig.paths.imagesDir, String(projectId))
+    const thumbnailProjectPath = join(appConfig.paths.thumbnailsDir, String(projectId))
 
     try {
         await Promise.all([

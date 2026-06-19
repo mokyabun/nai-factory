@@ -1,30 +1,32 @@
 import { DEFAULT_GLOBAL_SETTINGS, type GlobalSettings } from '@nai-factory/shared'
 import { eq } from 'drizzle-orm'
 import { db, settings } from '@/db'
+import { withNormalizedGlobalVariables } from '@/shared'
 
 let cache: GlobalSettings = load()
 
 function normalize(setting: GlobalSettings): GlobalSettings {
+    const normalized = withNormalizedGlobalVariables(setting)
     return {
         ...DEFAULT_GLOBAL_SETTINGS,
-        ...setting,
+        ...normalized,
         novelai: {
             ...DEFAULT_GLOBAL_SETTINGS.novelai,
-            ...(setting.novelai ?? {}),
+            ...(normalized.novelai ?? {}),
         },
         image: {
             ...DEFAULT_GLOBAL_SETTINGS.image,
-            ...(setting.image ?? {}),
+            ...(normalized.image ?? {}),
         },
         debug: {
             ...DEFAULT_GLOBAL_SETTINGS.debug,
-            ...(setting.debug ?? {}),
+            ...(normalized.debug ?? {}),
         },
         export: {
             ...DEFAULT_GLOBAL_SETTINGS.export,
-            ...(setting.export ?? {}),
+            ...(normalized.export ?? {}),
         },
-        globalVariables: setting.globalVariables ?? DEFAULT_GLOBAL_SETTINGS.globalVariables,
+        globalVariables: normalized.globalVariables ?? DEFAULT_GLOBAL_SETTINGS.globalVariables,
     }
 }
 

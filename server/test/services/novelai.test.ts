@@ -4,8 +4,15 @@ import { join } from 'node:path'
 import type { SimpleNovelAIParameters } from '@nai-factory/shared'
 import { zipSync } from 'fflate'
 
+type KyPostOptions = {
+    json?: unknown
+    body?: FormData
+}
+
 const arrayBufferMock = mock(() => Promise.resolve(new ArrayBuffer(0)))
-const postMock = mock(() => ({ arrayBuffer: arrayBufferMock }))
+const postMock = mock((_url: string, _options?: KyPostOptions) => ({
+    arrayBuffer: arrayBufferMock,
+}))
 
 mock.module('ky', () => ({
     default: { post: postMock },
@@ -45,6 +52,12 @@ async function getRequestFromForm(form: FormData) {
     const request = form.get('request')
     expect(request).toBeInstanceOf(Blob)
     return JSON.parse(await (request as Blob).text())
+}
+
+function getPostOptions() {
+    const options = postMock.mock.calls[0]?.[1]
+    if (!options) throw new Error('Expected ky.post options')
+    return options
 }
 
 describe('NovelAI cached reference requests', () => {
@@ -90,7 +103,7 @@ describe('NovelAI cached reference requests', () => {
             ],
         })
 
-        const [, options] = postMock.mock.calls[0]!
+        const options = getPostOptions()
         const form = options.body as FormData
         expect([...form.keys()]).toEqual(['director_ref_0', 'request'])
 
@@ -116,7 +129,7 @@ describe('NovelAI cached reference requests', () => {
             ],
         })
 
-        const [, options] = postMock.mock.calls[0]!
+        const options = getPostOptions()
         const form = options.body as FormData
         expect([...form.keys()]).toEqual(['request'])
 
@@ -140,7 +153,7 @@ describe('NovelAI cached reference requests', () => {
             ],
         })
 
-        const [, options] = postMock.mock.calls[0]!
+        const options = getPostOptions()
         const form = options.body as FormData
         expect([...form.keys()]).toEqual(['ref_multiple_0', 'request'])
 
@@ -191,7 +204,7 @@ describe('encodeVibe', () => {
 
         expect(result).toBe(Buffer.from('Hello').toString('base64'))
 
-        const [, options] = postMock.mock.calls[0]!
+        const options = getPostOptions()
         const form = options.body as FormData
         expect([...form.keys()]).toEqual(['image', 'request'])
 
@@ -225,7 +238,7 @@ describe('fetchAnlasStatus', () => {
                     }),
                 ),
             ),
-        ) as typeof fetch
+        ) as unknown as typeof fetch
 
         await expect(fetchAnlasStatus('key')).resolves.toEqual({
             unlimited: false,

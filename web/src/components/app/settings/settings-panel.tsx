@@ -18,6 +18,7 @@ import {
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { Switch } from '@/components/ui/switch'
 import { api, type DebugRequestEntry } from '@/lib/api'
+import { variableValidationMessage } from '@/lib/prompt-variables'
 import { qk } from '@/lib/queries'
 import { cn, debounce } from '@/lib/utils'
 import {
@@ -171,7 +172,10 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
     })
 
     const debouncedSaveSettings = useRef(
-        debounce((patch: SettingsPatchBody) => saveSettings.mutate(patch), 600),
+        debounce((patch: SettingsPatchBody) => {
+            if (patch.globalVariables && variableValidationMessage(patch.globalVariables)) return
+            saveSettings.mutate(patch)
+        }, 600),
     )
 
     useEffect(() => {
@@ -211,7 +215,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
     const saveButton = (
         <Button
             className="gap-1.5"
-            disabled={saveSettings.isPending}
+            disabled={saveSettings.isPending || !!variableValidationMessage(globalVars)}
             onClick={() => debouncedSaveSettings.current.flush()}
             size={compact ? 'sm' : 'default'}
         >
@@ -320,7 +324,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardHeader>
                         <CardContent>
                             <div className="flex flex-col gap-2">
-                                {globalVars.map(([key, value], i) => (
+                                {globalVars.map(({ key, value }, i) => (
                                     <div
                                         // biome-ignore lint/suspicious/noArrayIndexKey: draft settings rows can share empty keys until edited.
                                         key={i}
@@ -381,6 +385,11 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                     <Plus className="h-3.5 w-3.5" />
                                     변수 추가
                                 </Button>
+                                {variableValidationMessage(globalVars) && (
+                                    <p className="text-[11px] text-destructive">
+                                        {variableValidationMessage(globalVars)}
+                                    </p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

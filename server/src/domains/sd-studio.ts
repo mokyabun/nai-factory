@@ -20,7 +20,7 @@ const VALID_SAMPLERS = new Set<string>(NOVEL_AI_SAMPLERS)
 const VALID_NOISE_SCHEDULES = new Set<string>(NOVEL_AI_NOISE_SCHEDULES)
 
 function promptTemplate(frontPrompt = '', backPrompt = '') {
-    return [frontPrompt.trim(), '[[prompt]]', backPrompt.trim()].filter(Boolean).join(', ')
+    return [frontPrompt.trim(), '<<prompt>>', backPrompt.trim()].filter(Boolean).join(', ')
 }
 
 async function getProject(projectId: number) {

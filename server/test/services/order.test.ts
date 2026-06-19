@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { HTTPException } from 'hono/http-exception'
-import { planDisplayOrderUpdate } from '#/services'
+import { planDisplayOrderUpdate } from '../../src/services'
 
 const items = [
     { id: 1, displayOrder: 'a0' },

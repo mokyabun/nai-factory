@@ -13,10 +13,10 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, images, projects, scenes, sceneVariations, vibeTransfers } from '@/db'
 import logger from '@/logger'
-import { compilePrompts, compileVariables, removeByScene } from '@/services'
+import { compilePrompts, compileVariables, PromptRenderError, removeByScene } from '@/services'
 import * as settingsService from '@/services/app/settings'
 import { nextDisplayOrder, planDisplayOrderUpdate } from '@/services/order'
-import { requireEntity, withUpdatedAt } from '@/shared'
+import { requireEntity, withNormalizedVariables, withUpdatedAt } from '@/shared'
 
 const log = logger.child({ module: 'scene-domain' })
 
@@ -77,11 +77,13 @@ function parseSummary<T extends { latestImages: string | null }>(
 }
 
 async function getVariations(sceneId: number) {
-    return db
+    const rows = await db
         .select()
         .from(sceneVariations)
         .where(eq(sceneVariations.sceneId, sceneId))
         .orderBy(asc(sceneVariations.displayOrder))
+
+    return rows.map(withNormalizedVariables)
 }
 
 async function getVariationsBySceneIds(sceneIds: number[]) {
@@ -94,7 +96,7 @@ async function getVariationsBySceneIds(sceneIds: number[]) {
         .orderBy(asc(sceneVariations.sceneId), asc(sceneVariations.displayOrder))
 
     const bySceneId = new Map<number, (typeof sceneVariations.$inferSelect)[]>()
-    for (const row of rows) {
+    for (const row of rows.map(withNormalizedVariables)) {
         const items = bySceneId.get(row.sceneId) ?? []
         items.push(row)
         bySceneId.set(row.sceneId, items)
@@ -105,7 +107,7 @@ async function getVariationsBySceneIds(sceneIds: number[]) {
 
 async function getProject(projectId: number) {
     const [project] = await db.select().from(projects).where(eq(projects.id, projectId))
-    return requireEntity(project, 'Project not found')
+    return withNormalizedVariables(requireEntity(project, 'Project not found'))
 }
 
 async function getScene(id: number) {
@@ -191,17 +193,38 @@ async function getPreviewPrompts(id: number, variationId?: number) {
               ]
     const settings = settingsService.get()
 
-    const prompts = compilePrompts(
-        {
-            prompt: project.prompt,
-            negativePrompt: project.negativePrompt,
-            characterPrompts: project.characterPrompts,
-        },
-        compileVariables(settings.globalVariables, project.variables, variables),
-    )
-    log.debug({ sceneId: id, variationId, promptCount: prompts.length }, 'Preview prompts compiled')
+    try {
+        const prompts = compilePrompts(
+            {
+                prompt: project.prompt,
+                negativePrompt: project.negativePrompt,
+                characterPrompts: project.characterPrompts,
+            },
+            compileVariables(settings.globalVariables, project.variables, variables),
+        )
+        log.debug(
+            { sceneId: id, variationId, promptCount: prompts.length },
+            'Preview prompts compiled',
+        )
 
-    return prompts
+        return { ok: true as const, prompts }
+    } catch (error) {
+        log.warn({ sceneId: id, variationId, err: error }, 'Preview prompt render failed')
+        if (error instanceof PromptRenderError) {
+            return {
+                ok: false as const,
+                error: { message: error.message, category: error.category },
+            }
+        }
+
+        return {
+            ok: false as const,
+            error: {
+                message: error instanceof Error ? error.message : String(error),
+                category: 'unknown',
+            },
+        }
+    }
 }
 
 async function create(body: ScenePostBody) {

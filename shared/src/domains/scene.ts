@@ -1,7 +1,30 @@
 import * as z from 'zod'
+import { CharacterPrompt, PromptVariable } from '../app'
 import { IdParams, OptionalOrderBody } from './common'
 
-export const PromptVariation = z.record(z.string(), z.string())
+export const PromptVariation = PromptVariable
+
+export const ScenePreviewPrompt = z.object({
+    prompt: z.string(),
+    negativePrompt: z.string(),
+    characterPrompts: z.array(CharacterPrompt),
+})
+
+export const ScenePreviewRenderError = z.object({
+    message: z.string(),
+    category: z.string(),
+})
+
+export const ScenePreviewResult = z.discriminatedUnion('ok', [
+    z.object({
+        ok: z.literal(true),
+        prompts: z.array(ScenePreviewPrompt),
+    }),
+    z.object({
+        ok: z.literal(false),
+        error: ScenePreviewRenderError,
+    }),
+])
 
 export const SceneVariation = z.object({
     id: z.number(),
@@ -58,6 +81,9 @@ export const ReorderSceneBody = SceneOrderPatchBody
 export const ScenePreviewQuery = ScenePreviewGetQuery
 
 export type PromptVariation = z.infer<typeof PromptVariation>
+export type ScenePreviewPrompt = z.infer<typeof ScenePreviewPrompt>
+export type ScenePreviewRenderError = z.infer<typeof ScenePreviewRenderError>
+export type ScenePreviewResult = z.infer<typeof ScenePreviewResult>
 export type SceneVariation = z.infer<typeof SceneVariation>
 export type SceneVariationDraft = z.infer<typeof SceneVariationDraft>
 export type Scene = z.infer<typeof Scene>

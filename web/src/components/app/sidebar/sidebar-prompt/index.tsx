@@ -1,9 +1,11 @@
+import type { PromptVariable } from '@nai-factory/shared'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom } from 'jotai'
 import { AlignLeft } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { api } from '@/lib/api'
+import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
 import { createSidebarPromptDraft, sidebarPromptDraftAtom } from './atom'
@@ -62,10 +64,11 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
     )
 
     const saveVariablesRef = useRef(
-        debounce(async (projectId: number, vars: [string, string][]) => {
-            const { data } = await api
-                .projects({ projectId })
-                .patch({ variables: Object.fromEntries(vars) })
+        debounce(async (projectId: number, vars: PromptVariable) => {
+            if (variableValidationMessage(vars)) return
+            const { data } = await api.projects({ projectId }).patch({
+                variables: normalizeVariableDraft(vars),
+            })
 
             if (data) queryClient.setQueryData(qk.project(projectId), data)
         }, 600),
@@ -101,7 +104,7 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
         if (loadedProjectId) savePromptRef.current(loadedProjectId, prompt, value)
     }
 
-    function handleVariablesChange(value: [string, string][]) {
+    function handleVariablesChange(value: PromptVariable) {
         setDraft((current) => ({ ...current, variables: value }))
         if (loadedProjectId) saveVariablesRef.current(loadedProjectId, value)
     }

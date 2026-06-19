@@ -4,6 +4,7 @@ import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
 import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
+import { appConfig } from './config'
 import {
     characterReference,
     debug,
@@ -20,10 +21,6 @@ import {
     vibeTransfer,
 } from './domains'
 import logger from './logger'
-
-const isProduction = Bun.env.NODE_ENV === 'production'
-const webDistDir =
-    process.env.WEB_DIST_DIR ?? (isProduction ? join(import.meta.dir, 'public') : '../web/dist')
 
 type AppEnv = {
     Variables: {
@@ -50,7 +47,7 @@ function routeApi(app: Hono<AppEnv>, prefix: string) {
 }
 
 function routeFrontend(app: Hono<AppEnv>) {
-    app.get('*', serveStatic({ root: webDistDir }))
+    app.get('*', serveStatic({ root: appConfig.webDistDir }))
     app.get('*', async (c) => {
         const pathname = new URL(c.req.url).pathname
         const filename = pathname.split('/').pop() ?? ''
@@ -60,12 +57,12 @@ function routeFrontend(app: Hono<AppEnv>) {
             return c.json({ message: 'Not found' }, 404)
         }
 
-        return c.html(await Bun.file(`${webDistDir}/index.html`).text())
+        return c.html(await Bun.file(join(appConfig.webDistDir, 'index.html')).text())
     })
 }
 
 export function createApp(options: { production?: boolean } = {}) {
-    const production = options.production ?? isProduction
+    const production = options.production ?? appConfig.isProduction
     const app = new Hono<AppEnv>()
 
     app.use('*', async (c, next) => {
@@ -102,7 +99,7 @@ export function createApp(options: { production?: boolean } = {}) {
     return app
 }
 
-const port = Number(process.env.PORT ?? 3000)
+const port = appConfig.port
 const app = createApp()
 
 logger.info({ port }, 'NAI Factory Hono server running')

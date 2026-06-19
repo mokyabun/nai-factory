@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { RealtimeEvent } from '@nai-factory/shared'
-import { realtimeEvents } from '#/services'
+import { realtimeEvents } from '../../src/services'
 
 function waitForFlush() {
     return new Promise((resolve) => setTimeout(resolve, 5))

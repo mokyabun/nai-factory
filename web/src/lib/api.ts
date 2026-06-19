@@ -34,6 +34,8 @@ import type {
     SceneOrderPatchBody,
     ScenePatchBody,
     ScenePostBody,
+    ScenePreviewGetQuery,
+    ScenePreviewResult,
     SdStudioImportBody,
     SettingsPatchBody,
     Tag,
@@ -124,9 +126,11 @@ export type QueueHistoryEntry = {
     sceneName: string
     prompt: string | null
     status: 'completed' | 'failed'
+    startedAt: string
     durationMs: number
     completedAt: string
     error: string | null
+    failureCategory: string | null
 }
 
 export type DebugRequestEntry = {
@@ -370,6 +374,12 @@ const scenes = Object.assign(
         },
         duplicate: {
             post: () => request<Scene>(`/scenes/${id}/duplicate`, { method: 'post' }),
+        },
+        'preview-prompt': {
+            get: ({ query }: { query?: ScenePreviewGetQuery } = {}) =>
+                request<ScenePreviewResult>(`/scenes/${id}/preview-prompt`, {
+                    searchParams: query,
+                }),
         },
     }),
     {

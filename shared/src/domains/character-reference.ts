@@ -3,6 +3,7 @@ import { OptionalOrderBody, ProjectIdParams } from './common'
 
 export type CharacterReferenceUploadFile = {
     name: string
+    size: number
     type: string
     arrayBuffer(): Promise<ArrayBuffer>
 }
@@ -13,6 +14,7 @@ function isCharacterReferenceUploadFile(value: unknown): value is CharacterRefer
     const file = value as Partial<CharacterReferenceUploadFile>
     return (
         typeof file.name === 'string' &&
+        typeof file.size === 'number' &&
         typeof file.type === 'string' &&
         file.type.startsWith('image/') &&
         typeof file.arrayBuffer === 'function'

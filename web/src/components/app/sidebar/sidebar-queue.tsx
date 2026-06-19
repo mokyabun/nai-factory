@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Clock3, ListTodo, Loader, Play, Square, Trash2 } from 'lucide-react'
+import { BarChart3, Clock3, ListTodo, Loader, Play, Square, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SidebarHeader } from '@/components/ui/sidebar'
@@ -125,6 +125,8 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                     />
                 </div>
 
+                <DurationChart entries={status.recent} />
+
                 <section className="rounded border bg-background/40 p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 text-xs font-medium">
@@ -227,9 +229,16 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                                     {entry.status === 'completed' ? '완료' : '실패'}
                                 </Badge>
                                 <div className="min-w-0 flex-1 truncate">
-                                    {entry.type === 'playground'
-                                        ? (entry.prompt ?? 'Playground')
-                                        : entry.sceneName}
+                                    <div className="truncate">
+                                        {entry.type === 'playground'
+                                            ? (entry.prompt ?? 'Playground')
+                                            : entry.sceneName}
+                                    </div>
+                                    {entry.status === 'failed' && entry.failureCategory && (
+                                        <div className="truncate text-[10px] text-muted-foreground">
+                                            {entry.failureCategory}: {entry.error}
+                                        </div>
+                                    )}
                                 </div>
                                 <span className="shrink-0 text-[11px] text-muted-foreground">
                                     {formatDuration(entry.durationMs)}
@@ -240,6 +249,39 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                 </section>
             </div>
         </div>
+    )
+}
+
+function DurationChart({ entries }: { entries: QueueStatus['recent'] }) {
+    const samples = [...entries].slice(0, 18).reverse()
+    const maxDuration = Math.max(1, ...samples.map((entry) => entry.durationMs))
+
+    return (
+        <section className="rounded border bg-background/40 p-3">
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium">
+                <BarChart3 className="h-3.5 w-3.5" />
+                최근 생성 시간
+            </div>
+            {samples.length === 0 ? (
+                <div className="text-xs text-muted-foreground">기록 없음</div>
+            ) : (
+                <div className="flex h-16 items-end gap-1">
+                    {samples.map((entry) => (
+                        <div
+                            key={entry.id}
+                            title={`${entry.status} · ${formatDuration(entry.durationMs)}`}
+                            className={[
+                                'min-w-0 flex-1 rounded-t',
+                                entry.status === 'failed' ? 'bg-destructive/70' : 'bg-primary/70',
+                            ].join(' ')}
+                            style={{
+                                height: `${Math.max(8, (entry.durationMs / maxDuration) * 100)}%`,
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
+        </section>
     )
 }
 

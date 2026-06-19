@@ -12,7 +12,7 @@ import {
 import { asc, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { VIBES_DIR } from '@/config'
+import { appConfig } from '@/config'
 import { db, projects, vibeTransfers } from '@/db'
 import logger from '@/logger'
 import { invalidateVibe } from '@/services'
@@ -43,7 +43,7 @@ async function upload(projectId: number, imageFile: ImageUploadFile) {
     await getProject(projectId)
 
     const ext = extname(imageFile.name) || '.png'
-    const filePath = join(VIBES_DIR, String(projectId), `${Date.now()}${ext}`)
+    const filePath = join(appConfig.paths.vibesDir, String(projectId), `${Date.now()}${ext}`)
     await fs.mkdir(dirname(filePath), { recursive: true })
     await fs.writeFile(filePath, Buffer.from(await imageFile.arrayBuffer()))
 

@@ -3,6 +3,10 @@
     "version": "0.0.1",
     "module": "src/index.js",
     "types": "src/index.ts",
+    "imports": {
+        "#/services": "./src/services/index.ts",
+        "#/*": "./src/*"
+    },
     "scripts": {
         "dev": "bun run --hot src/index.ts",
         "build": "bun build src/index.ts --outdir=dist --target=bun --minify --sourcemap",
@@ -24,10 +28,12 @@
         "fflate": "^0.8.3",
         "flexsearch": "^0.8.212",
         "fractional-indexing-jittered": "^1.0.0",
+        "handlebars": "^4.7.9",
         "hono": "^4.12.21",
         "ky": "^2.0.2",
         "pino": "^10.3.1",
-        "sharp": "^0.34.5"
+        "sharp": "^0.34.5",
+        "zod": "^4.4.3"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.4.15",

@@ -2,10 +2,14 @@ import type { Database } from 'bun:sqlite'
 import logger from '../logger'
 
 import Initial from './migrations/0000_initial.sql'
+import OrderedVariables from './migrations/0001_ordered_variables.sql'
 
 const log = logger.child({ module: 'migrate' })
 
-const migrations: { tag: string; sql: string }[] = [{ tag: '0000_initial', sql: Initial }]
+const migrations: { tag: string; sql: string }[] = [
+    { tag: '0000_initial', sql: Initial },
+    { tag: '0001_ordered_variables', sql: OrderedVariables },
+]
 
 export function migrate(db: Database) {
     log.info('Running migrations')

@@ -11,7 +11,7 @@ const [{ createApp }, dbModule] = await Promise.all([
     import('../../src/db'),
 ])
 
-const { characterReferences, db, groups, projects } = dbModule
+const { characterReferences, db, groups, projects, scenes } = dbModule
 
 beforeAll(async () => {
     await rm(tempImagePath, { force: true })
@@ -128,8 +128,13 @@ describe('group domain', () => {
         const response = await app.request('/groups')
         expect(response.status).toBe(200)
 
-        const body = await response.json()
+        const body = (await response.json()) as Array<{
+            id: number | null
+            type: string
+            projects?: unknown[]
+        }>
         const ungrouped = body.find((item: { type: string }) => item.type === 'ungrouped')
+        if (!ungrouped) throw new Error('Expected ungrouped project tree item')
         expect(ungrouped).toMatchObject({
             type: 'ungrouped',
             id: null,
@@ -164,9 +169,56 @@ describe('group domain', () => {
         const response = await app.request('/projects?groupId=ungrouped')
         expect(response.status).toBe(200)
 
-        const body = await response.json()
+        const body = (await response.json()) as unknown[]
         expect(body).toContainEqual(
             expect.objectContaining({ id: project.id, groupId: null, name: 'ungrouped query' }),
         )
+    })
+})
+
+describe('variable validation', () => {
+    const app = createApp()
+
+    it('rejects duplicate project variable keys', async () => {
+        const project = await seedProject()
+
+        const response = await app.request(`/projects/${project.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                variables: [
+                    { key: 'prompt', value: 'a' },
+                    { key: 'prompt', value: 'b' },
+                ],
+            }),
+        })
+
+        expect(response.status).toBe(400)
+    })
+
+    it('rejects duplicate scene variation variable keys', async () => {
+        const project = await seedProject()
+        const [scene] = await db
+            .insert(scenes)
+            .values({ projectId: project.id, name: 'scene', displayOrder: 'a0' })
+            .returning()
+        if (!scene) throw new Error('Failed to seed scene')
+
+        const response = await app.request(`/scenes/${scene.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                variations: [
+                    {
+                        variables: [
+                            { key: 'prompt', value: 'a' },
+                            { key: 'prompt', value: 'b' },
+                        ],
+                    },
+                ],
+            }),
+        })
+
+        expect(response.status).toBe(400)
     })
 })

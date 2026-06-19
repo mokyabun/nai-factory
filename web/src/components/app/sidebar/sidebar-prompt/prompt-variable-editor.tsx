@@ -1,17 +1,21 @@
+import type { PromptVariable } from '@nai-factory/shared'
 import { Plus, X } from 'lucide-react'
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { variableValidationMessage } from '@/lib/prompt-variables'
 import { tagCompletionSource } from '@/lib/tag-autocomplete'
 
 type PromptVariableEditorProps = {
-    variables: [string, string][]
-    onChange: (vars: [string, string][]) => void
+    variables: PromptVariable
+    onChange: (vars: PromptVariable) => void
 }
 
 export function PromptVariableEditor({ variables, onChange }: PromptVariableEditorProps) {
+    const validationMessage = variableValidationMessage(variables)
+
     function addVariable() {
-        onChange([...variables, ['', '']])
+        onChange([...variables, { key: '', value: '' }])
     }
 
     function removeVariable(i: number) {
@@ -19,21 +23,18 @@ export function PromptVariableEditor({ variables, onChange }: PromptVariableEdit
     }
 
     function updateVarKey(i: number, key: string) {
-        const next = variables.map((v, idx) => (idx === i ? [key, v[1]] : v)) as [string, string][]
+        const next = variables.map((v, idx) => (idx === i ? { ...v, key } : v))
         onChange(next)
     }
 
     function updateVarValue(i: number, value: string) {
-        const next = variables.map((v, idx) => (idx === i ? [v[0], value] : v)) as [
-            string,
-            string,
-        ][]
+        const next = variables.map((v, idx) => (idx === i ? { ...v, value } : v))
         onChange(next)
     }
 
     return (
         <div className="flex flex-col gap-2">
-            {variables.map(([key, value], i) => (
+            {variables.map(({ key, value }, i) => (
                 <div
                     // biome-ignore lint/suspicious/noArrayIndexKey: draft variable rows can share empty keys until edited.
                     key={i}
@@ -73,6 +74,9 @@ export function PromptVariableEditor({ variables, onChange }: PromptVariableEdit
                 <Plus className="h-3.5 w-3.5" />
                 변수 추가
             </Button>
+            {validationMessage && (
+                <p className="text-[11px] text-destructive">{validationMessage}</p>
+            )}
         </div>
     )
 }
