@@ -81,6 +81,12 @@ You can also run the app with Docker:
 docker compose up --build
 ```
 
+Published images are available from GitHub Container Registry:
+
+```sh
+docker pull ghcr.io/mokyabun/nai-factory:latest
+```
+
 Open the app:
 
 ```text
