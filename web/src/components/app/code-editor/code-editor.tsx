@@ -10,6 +10,7 @@ import {
 } from '@codemirror/view'
 import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
+import { promptEmphasisHighlight } from './prompt-emphasis-extension'
 import { shadcnTheme } from './theme'
 
 const LINE_HEIGHT = 19.5
@@ -73,6 +74,7 @@ export function CodeEditor({
             // Render tooltips in document.body to avoid overflow/z-index clipping.
             tooltips({ parent: document.body }),
             shadcnTheme,
+            promptEmphasisHighlight,
             EditorView.updateListener.of((update) => {
                 if (update.docChanged) {
                     onChangeRef.current?.(update.state.doc.toString())
