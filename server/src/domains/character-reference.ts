@@ -10,7 +10,7 @@ import {
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { appConfig } from '@/config'
+import { envConfig } from '@/config'
 import { characterReferences, db, projects } from '@/db'
 import logger from '@/logger'
 import {
@@ -135,7 +135,7 @@ async function remove(projectId: number, id: number) {
     await deleteCharacterReferenceFiles(existing)
 
     try {
-        await fs.rmdir(`${appConfig.paths.characterReferencesDir}/${projectId}`)
+        await fs.rmdir(`${envConfig.NAI_FACTORY_CHARACTER_REFERENCES_DIR}/${projectId}`)
     } catch {
         // Directory still contains other references, or it is already gone.
     }

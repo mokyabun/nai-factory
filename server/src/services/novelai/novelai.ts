@@ -11,6 +11,7 @@ import type {
 } from '@nai-factory/shared'
 import { unzipSync } from 'fflate'
 import ky from 'ky'
+import * as dataStorage from '@/data'
 import logger from '@/logger'
 import { beginDebugRequest } from '@/services/debug-log'
 
@@ -90,13 +91,13 @@ function cachedRef(cacheSecretKey: string, uploadFieldName?: string) {
 }
 
 async function appendUploadPart(form: FormData, fieldName: string, filePath: string) {
-    const file = Bun.file(filePath)
-    if (!(await file.exists())) throw new Error(`Reference image not found: ${filePath}`)
+    if (!(await dataStorage.exists(filePath)))
+        throw new Error(`Reference image not found: ${filePath}`)
 
     form.append(
         fieldName,
-        new Blob([await file.arrayBuffer()], {
-            type: file.type || getMimeType(filePath),
+        new Blob([await dataStorage.readFile(filePath)], {
+            type: getMimeType(filePath),
         }),
         'blob',
     )

@@ -13,6 +13,7 @@ import { asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { zipSync } from 'fflate'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
+import * as dataStorage from '@/data'
 import { db, images, projects, scenes, sceneVariations } from '../db'
 import logger from '../logger'
 import { removeByProject, removeCharacterReferencesByProject } from '../services'
@@ -279,7 +280,7 @@ async function createExportZip(projectId: number, body: ProjectExportBody) {
     const entries: Record<string, Uint8Array> = {}
 
     for (const asset of assets) {
-        entries[asset.filename] = new Uint8Array(await fs.readFile(asset.filePath))
+        entries[asset.filename] = new Uint8Array(await dataStorage.readFile(asset.filePath))
     }
 
     const zip = zipSync(entries)
@@ -297,7 +298,10 @@ async function exportToServerPath(projectId: number, body: ProjectExportBody) {
     await fs.mkdir(serverPath, { recursive: true })
 
     for (const asset of assets) {
-        await fs.copyFile(asset.filePath, join(serverPath, basename(asset.filename)))
+        await fs.writeFile(
+            join(serverPath, basename(asset.filename)),
+            await dataStorage.readFile(asset.filePath),
+        )
     }
 
     log.info({ projectId, exported: assets.length, serverPath }, 'Project assets exported')

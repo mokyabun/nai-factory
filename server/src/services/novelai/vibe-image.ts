@@ -1,5 +1,6 @@
 import type { NovelAIModel, NovelAIVibeImage } from '@nai-factory/shared'
 import { asc, eq } from 'drizzle-orm'
+import * as dataStorage from '@/data'
 import { db, vibeTransfers } from '@/db'
 import logger from '@/logger'
 import { nowIso } from '@/shared'
@@ -16,8 +17,7 @@ export async function checkVibe(
 
     if (!vibe) throw new Error(`Vibe transfer ${vibeTransferId} not found`)
 
-    const sourceFile = Bun.file(vibe.sourceImagePath)
-    if (!(await sourceFile.exists())) {
+    if (!(await dataStorage.exists(vibe.sourceImagePath))) {
         throw new Error(`Vibe source image not found: ${vibe.sourceImagePath}`)
     }
 

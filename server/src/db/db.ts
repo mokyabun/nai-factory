@@ -2,7 +2,7 @@ import { Database } from 'bun:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
-import { appConfig } from '../config'
+import { envConfig } from '../config'
 import { migrate } from './migrate'
 import * as schema from './schema'
 
@@ -15,9 +15,9 @@ interface DbOptions {
 
 const defaultOptions: DbOptions = {
     inMemory: false,
-    path: appConfig.database.url,
-    wal: appConfig.database.wal,
-    cacheSize: appConfig.database.cacheSize,
+    path: envConfig.DATABASE_URL,
+    wal: envConfig.DATABASE_WAL,
+    cacheSize: envConfig.DATABASE_CACHE_SIZE,
 }
 
 export function createDb(options: DbOptions = {}) {

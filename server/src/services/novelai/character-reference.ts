@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
-import { dirname, extname, join } from 'node:path'
+import { extname, join } from 'node:path'
 import type {
     CharacterReferenceUploadFile,
     NovelAICharacterReferenceImage,
 } from '@nai-factory/shared'
 import { asc, desc, eq } from 'drizzle-orm'
 import sharp from 'sharp'
-import { appConfig } from '@/config'
+import { envConfig } from '@/config'
+import * as dataStorage from '@/data'
 import { characterReferences, db } from '@/db'
 import logger from '@/logger'
 import { nextDisplayOrder } from '@/services/order'
@@ -31,15 +32,11 @@ function normalizePath(path: string) {
     return path.replaceAll('\\', '/')
 }
 
-async function ensureDir(path: string) {
-    await fs.mkdir(dirname(path), { recursive: true })
-}
-
 async function safeRemove(path: string | null) {
     if (!path) return
 
     try {
-        await fs.rm(path, { force: true })
+        await dataStorage.remove(path)
     } catch (error) {
         log.error({ path, err: error }, 'Failed to remove character reference file')
     }
@@ -49,8 +46,8 @@ export async function generateCharacterReferenceThumbnail(
     sourcePath: string,
     thumbnailPath: string,
 ) {
-    await ensureDir(thumbnailPath)
-    await sharp(sourcePath)
+    const sourceData = await dataStorage.readFile(sourcePath)
+    const thumbnail = await sharp(sourceData)
         .resize({
             width: 256,
             height: 256,
@@ -58,12 +55,15 @@ export async function generateCharacterReferenceThumbnail(
             withoutEnlargement: true,
         })
         .png()
-        .toFile(thumbnailPath)
+        .toBuffer()
+
+    await dataStorage.writeFile(thumbnailPath, thumbnail)
 }
 
 export async function processCharacterReferenceImage(sourcePath: string) {
     const processedPath = sourcePath.replace(/\.[^.]+$/, '_processed.png')
-    const metadata = await sharp(sourcePath).metadata()
+    const sourceData = await dataStorage.readFile(sourcePath)
+    const metadata = await sharp(sourceData).metadata()
     const sourceWidth = metadata.width ?? 1024
     const sourceHeight = metadata.height ?? 1024
     const sourceAspect = sourceWidth / sourceHeight
@@ -79,13 +79,15 @@ export async function processCharacterReferenceImage(sourcePath: string) {
         }
     }
 
-    await sharp(sourcePath)
+    const processed = await sharp(sourceData)
         .resize(best.width, best.height, {
             fit: 'contain',
             background: { r: 0, g: 0, b: 0 },
         })
         .png()
-        .toFile(processedPath)
+        .toBuffer()
+
+    await dataStorage.writeFile(processedPath, processed)
 
     return normalizePath(processedPath)
 }
@@ -106,18 +108,17 @@ export async function uploadCharacterReference(
     const ext = extname(imageFile.name) || '.png'
     const baseName = randomUUID()
     const sourceImagePath = join(
-        appConfig.paths.characterReferencesDir,
+        envConfig.NAI_FACTORY_CHARACTER_REFERENCES_DIR,
         String(projectId),
         `${baseName}${ext}`,
     )
     const thumbnailPath = join(
-        appConfig.paths.characterReferencesDir,
+        envConfig.NAI_FACTORY_CHARACTER_REFERENCES_DIR,
         String(projectId),
         `${baseName}_thumb.png`,
     )
 
-    await ensureDir(sourceImagePath)
-    await fs.writeFile(sourceImagePath, Buffer.from(await imageFile.arrayBuffer()))
+    await dataStorage.writeFile(sourceImagePath, Buffer.from(await imageFile.arrayBuffer()))
     await generateCharacterReferenceThumbnail(sourceImagePath, thumbnailPath)
 
     const [last] = await db
@@ -164,7 +165,7 @@ export async function deleteCharacterReferenceFiles(
 }
 
 export async function removeCharacterReferencesByProject(projectId: number) {
-    await fs.rm(join(appConfig.paths.characterReferencesDir, String(projectId)), {
+    await fs.rm(join(envConfig.NAI_FACTORY_CHARACTER_REFERENCES_DIR, String(projectId)), {
         recursive: true,
         force: true,
     })
@@ -195,9 +196,7 @@ export async function prepareCharacterReferencesForProject(
 
     for (const [index, ref] of enabledRefs.entries()) {
         let processedImagePath = ref.processedImagePath
-        const processedExists = processedImagePath
-            ? await Bun.file(processedImagePath).exists()
-            : false
+        const processedExists = await dataStorage.exists(processedImagePath)
 
         if (!processedImagePath || !processedExists) {
             log.debug(

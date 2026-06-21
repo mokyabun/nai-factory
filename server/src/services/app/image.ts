@@ -2,7 +2,8 @@ import fs from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { ImageSaveType, ImageSettings } from '@nai-factory/shared'
 import sharp from 'sharp'
-import { appConfig } from '@/config'
+import { envConfig } from '@/config'
+import * as dataStorage from '@/data'
 import baseLogger from '@/logger'
 
 const logger = baseLogger.child({ module: 'image-service' })
@@ -46,7 +47,7 @@ async function processImage(
             .withXmp(createXmpPacket(serialized))
     }
 
-    await image.toFile(filePath)
+    await dataStorage.writeFile(filePath, await image.toBuffer())
 }
 
 function escapeXml(value: string) {
@@ -82,9 +83,12 @@ export async function save(
     metadata?: Record<string, unknown>,
 ) {
     const base = join(String(projectId), String(sceneId), String(imageId))
-    const filePath = join(appConfig.paths.imagesDir, `${base}.${imageSettings.sourceType.type}`)
+    const filePath = join(
+        envConfig.NAI_FACTORY_IMAGES_DIR,
+        `${base}.${imageSettings.sourceType.type}`,
+    )
     const thumbnailPath = join(
-        appConfig.paths.thumbnailsDir,
+        envConfig.NAI_FACTORY_THUMBNAILS_DIR,
         `${base}.${imageSettings.thumbnailType.type}`,
     )
 
@@ -116,9 +120,12 @@ export async function savePlayground(
     metadata?: Record<string, unknown>,
 ) {
     const base = join('playground', String(imageId))
-    const filePath = join(appConfig.paths.imagesDir, `${base}.${imageSettings.sourceType.type}`)
+    const filePath = join(
+        envConfig.NAI_FACTORY_IMAGES_DIR,
+        `${base}.${imageSettings.sourceType.type}`,
+    )
     const thumbnailPath = join(
-        appConfig.paths.thumbnailsDir,
+        envConfig.NAI_FACTORY_THUMBNAILS_DIR,
         `${base}.${imageSettings.thumbnailType.type}`,
     )
 
@@ -144,8 +151,8 @@ export async function savePlayground(
 }
 
 export async function remove(filePath: string, thumbnailPath: string | null) {
-    const promises: Promise<void>[] = [fs.rm(filePath, { force: true })]
-    if (thumbnailPath) promises.push(fs.rm(thumbnailPath, { force: true }))
+    const promises: Promise<void>[] = [dataStorage.remove(filePath)]
+    if (thumbnailPath) promises.push(dataStorage.remove(thumbnailPath))
 
     try {
         await Promise.all(promises)
@@ -156,9 +163,9 @@ export async function remove(filePath: string, thumbnailPath: string | null) {
 }
 
 export async function removeByScene(projectId: number, sceneId: number) {
-    const scenePath = join(appConfig.paths.imagesDir, String(projectId), String(sceneId))
+    const scenePath = join(envConfig.NAI_FACTORY_IMAGES_DIR, String(projectId), String(sceneId))
     const thumbnailScenePath = join(
-        appConfig.paths.thumbnailsDir,
+        envConfig.NAI_FACTORY_THUMBNAILS_DIR,
         String(projectId),
         String(sceneId),
     )
@@ -176,8 +183,8 @@ export async function removeByScene(projectId: number, sceneId: number) {
 }
 
 export async function removeByProject(projectId: number) {
-    const projectPath = join(appConfig.paths.imagesDir, String(projectId))
-    const thumbnailProjectPath = join(appConfig.paths.thumbnailsDir, String(projectId))
+    const projectPath = join(envConfig.NAI_FACTORY_IMAGES_DIR, String(projectId))
+    const thumbnailProjectPath = join(envConfig.NAI_FACTORY_THUMBNAILS_DIR, String(projectId))
 
     try {
         await Promise.all([

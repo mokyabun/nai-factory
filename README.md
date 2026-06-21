@@ -105,6 +105,15 @@ After starting the app, open Settings and enter your NovelAI API key. Settings a
 
 In development mode, local data is stored under `server/data`. With Docker, data is stored in the `nai_factory_data` volume.
 
+Optional data-at-rest encryption can be enabled with server environment variables:
+
+```sh
+NAI_FACTORY_DATA_ENCRYPTION_ENABLED=true
+NAI_FACTORY_DATA_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+```
+
+When enabled, generated images, thumbnails, vibe transfer images, and character reference images are stored with AES-256-GCM. Existing plaintext files remain readable; newly written files are encrypted.
+
 Keep your API key, local database, generated images, and `.env` files out of public repositories.
 
 ## Scripts

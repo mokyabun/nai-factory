@@ -1,10 +1,10 @@
 import pino from 'pino'
-import { appConfig } from './config'
+import { envConfig } from './config'
 
 const baseOptions: pino.LoggerOptions = {
-    level: appConfig.logging.level,
+    level: envConfig.LOG_LEVEL,
     redact: {
-        paths: appConfig.logging.redactPaths,
+        paths: envConfig.LOG_REDACT_PATHS,
         censor: '[redacted]',
     },
     serializers: {
@@ -14,7 +14,7 @@ const baseOptions: pino.LoggerOptions = {
 }
 
 const logger = (() => {
-    if (!appConfig.logging.pretty) {
+    if (!envConfig.LOG_PRETTY) {
         return pino(baseOptions)
     }
 
@@ -23,7 +23,7 @@ const logger = (() => {
         transport: {
             target: 'pino-pretty',
             options: {
-                colorize: appConfig.logging.colorize,
+                colorize: envConfig.LOG_COLORIZE,
                 ignore: 'pid,hostname',
                 translateTime: 'SYS:standard',
             },

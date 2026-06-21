@@ -4,7 +4,8 @@ import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
 import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
-import { appConfig } from './config'
+import { envConfig } from './config'
+import * as dataStorage from './data'
 import {
     characterReference,
     debug,
@@ -43,11 +44,17 @@ function routeApi(app: Hono<AppEnv>, prefix: string) {
         .route(`${prefix}/settings`, setting)
         .route(prefix || '/', sse)
         .route(`${prefix}/tags`, tag)
-        .get(`${prefix}/data/*`, serveStatic({ root: './' }))
+        .get(`${prefix}/data/*`, async (c) => {
+            const pathname = new URL(c.req.url).pathname
+            const relativePath = decodeURIComponent(
+                prefix ? pathname.slice(prefix.length + 1) : pathname.slice(1),
+            )
+            return dataStorage.serveFile(relativePath)
+        })
 }
 
 function routeFrontend(app: Hono<AppEnv>) {
-    app.get('*', serveStatic({ root: appConfig.webDistDir }))
+    app.get('*', serveStatic({ root: envConfig.WEB_DIST_DIR }))
     app.get('*', async (c) => {
         const pathname = new URL(c.req.url).pathname
         const filename = pathname.split('/').pop() ?? ''
@@ -57,12 +64,12 @@ function routeFrontend(app: Hono<AppEnv>) {
             return c.json({ message: 'Not found' }, 404)
         }
 
-        return c.html(await Bun.file(join(appConfig.webDistDir, 'index.html')).text())
+        return c.html(await Bun.file(join(envConfig.WEB_DIST_DIR, 'index.html')).text())
     })
 }
 
 export function createApp(options: { production?: boolean } = {}) {
-    const production = options.production ?? appConfig.isProduction
+    const production = options.production ?? envConfig.NODE_ENV === 'production'
     const app = new Hono<AppEnv>()
 
     app.use('*', async (c, next) => {
@@ -99,7 +106,7 @@ export function createApp(options: { production?: boolean } = {}) {
     return app
 }
 
-const port = appConfig.port
+const port = envConfig.PORT
 const app = createApp()
 
 logger.info({ port }, 'NAI Factory Hono server running')

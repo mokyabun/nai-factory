@@ -1,5 +1,4 @@
-import fs from 'node:fs/promises'
-import { dirname, extname, join } from 'node:path'
+import { extname, join } from 'node:path'
 import { zValidator } from '@hono/zod-validator'
 import {
     type ImageUploadFile,
@@ -12,7 +11,8 @@ import {
 import { asc, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { appConfig } from '@/config'
+import { envConfig } from '@/config'
+import * as dataStorage from '@/data'
 import { db, projects, vibeTransfers } from '@/db'
 import logger from '@/logger'
 import { invalidateVibe } from '@/services'
@@ -43,9 +43,8 @@ async function upload(projectId: number, imageFile: ImageUploadFile) {
     await getProject(projectId)
 
     const ext = extname(imageFile.name) || '.png'
-    const filePath = join(appConfig.paths.vibesDir, String(projectId), `${Date.now()}${ext}`)
-    await fs.mkdir(dirname(filePath), { recursive: true })
-    await fs.writeFile(filePath, Buffer.from(await imageFile.arrayBuffer()))
+    const filePath = join(envConfig.NAI_FACTORY_VIBES_DIR, String(projectId), `${Date.now()}${ext}`)
+    await dataStorage.writeFile(filePath, Buffer.from(await imageFile.arrayBuffer()))
 
     const [last] = await db
         .select({ displayOrder: vibeTransfers.displayOrder })
@@ -157,7 +156,7 @@ async function remove(projectId: number, id: number) {
     if (existing.projectId !== projectId) return false
 
     await db.delete(vibeTransfers).where(eq(vibeTransfers.id, id))
-    await fs.rm(existing.sourceImagePath, { force: true })
+    await dataStorage.remove(existing.sourceImagePath)
 
     log.warn({ projectId, vibeTransferId: id }, 'Vibe transfer deleted')
     return true
