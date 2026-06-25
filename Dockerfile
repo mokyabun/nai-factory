@@ -38,14 +38,23 @@ RUN bun --filter @nai-factory/web build \
 FROM base AS runtime
 
 ENV NODE_ENV=production
+ENV BUN_ENV=production
 ENV PORT=3000
-ENV DATABASE_URL=/app/server/data/database.db
+ENV NAI_FACTORY_DATA_DIR=/app/server/data
 
 EXPOSE 3000
 
-COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=build /app/server/dist ./server/dist
+COPY --from=prod-deps --chown=bun:bun /app/node_modules ./node_modules
+COPY --from=build --chown=bun:bun /app/server/dist ./server/dist
+
+RUN mkdir -p /app/server/data \
+    && chown -R bun:bun /app/server
 
 WORKDIR /app/server
+
+USER bun
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD bun -e "fetch('http://127.0.0.1:' + (process.env.PORT || '3000') + '/healthz').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 CMD ["bun", "run", "dist/index.js"]

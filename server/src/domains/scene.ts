@@ -16,7 +16,7 @@ import logger from '@/logger'
 import { compilePrompts, compileVariables, PromptRenderError, removeByScene } from '@/services'
 import * as settingsService from '@/services/app/settings'
 import { nextDisplayOrder, planDisplayOrderUpdate } from '@/services/order'
-import { requireEntity, withNormalizedVariables, withUpdatedAt } from '@/shared'
+import { requireEntity, withNormalizedVariables, withUpdatedAt } from '@/utils'
 
 const log = logger.child({ module: 'scene-domain' })
 
@@ -239,7 +239,7 @@ async function create(body: ScenePostBody) {
         .returning()
 
     if (!scene) throw new HTTPException(500, { message: 'Failed to create scene' })
-    log.info({ projectId: body.projectId, sceneId: scene.id }, 'Scene created')
+    log.debug({ projectId: body.projectId, sceneId: scene.id }, 'Scene created')
     return { ...scene, variations: [] }
 }
 
@@ -256,7 +256,7 @@ async function update(id: number, body: ScenePatchBody) {
         await db.update(scenes).set(withUpdatedAt({})).where(eq(scenes.id, id))
     }
 
-    log.info(
+    log.debug(
         {
             sceneId: id,
             fields: Object.keys(scenePatch),
@@ -354,7 +354,7 @@ async function reorder(id: number, prevId: number | null, nextId: number | null)
     })
 
     const result = requireEntity(updated, 'Scene not found')
-    log.info({ sceneId: id, projectId: scene.projectId, planType: plan.type }, 'Scene reordered')
+    log.debug({ sceneId: id, projectId: scene.projectId, planType: plan.type }, 'Scene reordered')
     return result
 }
 
@@ -362,7 +362,7 @@ async function remove(id: number) {
     const scene = await getScene(id)
     await removeByScene(scene.projectId, id)
     await db.delete(scenes).where(eq(scenes.id, id))
-    log.warn({ sceneId: id, projectId: scene.projectId }, 'Scene deleted')
+    log.debug({ sceneId: id, projectId: scene.projectId }, 'Scene deleted')
 }
 
 async function duplicate(id: number) {
@@ -388,7 +388,7 @@ async function duplicate(id: number) {
         )
     }
 
-    log.info(
+    log.debug(
         {
             sourceSceneId: id,
             sceneId: scene.id,

@@ -17,7 +17,7 @@ import { db, projects, vibeTransfers } from '@/db'
 import logger from '@/logger'
 import { invalidateVibe } from '@/services'
 import { nextDisplayOrder, planDisplayOrderUpdate } from '@/services/order'
-import { requireEntity, withUpdatedAt } from '@/shared'
+import { requireEntity, withUpdatedAt } from '@/utils'
 
 const log = logger.child({ module: 'vibe-transfer-domain' })
 
@@ -65,7 +65,7 @@ async function upload(projectId: number, imageFile: ImageUploadFile) {
         .returning()
 
     if (!created) throw new HTTPException(500, { message: 'Failed to create vibe transfer' })
-    log.info(
+    log.debug(
         { projectId, vibeTransferId: created.id, sizeBytes: imageFile.size },
         'Vibe transfer uploaded',
     )
@@ -91,7 +91,7 @@ async function update(projectId: number, id: number, body: VibeTransferPatchBody
         .returning()
 
     if (updated) {
-        log.info({ projectId, vibeTransferId: id, fields: Object.keys(body) }, 'Vibe updated')
+        log.debug({ projectId, vibeTransferId: id, fields: Object.keys(body) }, 'Vibe updated')
     }
 
     return updated ?? null
@@ -144,7 +144,7 @@ async function reorder(
     })
 
     if (updated) {
-        log.info({ projectId, vibeTransferId: id, planType: plan.type }, 'Vibe reordered')
+        log.debug({ projectId, vibeTransferId: id, planType: plan.type }, 'Vibe reordered')
     }
 
     return updated ?? null
@@ -158,7 +158,7 @@ async function remove(projectId: number, id: number) {
     await db.delete(vibeTransfers).where(eq(vibeTransfers.id, id))
     await dataStorage.remove(existing.sourceImagePath)
 
-    log.warn({ projectId, vibeTransferId: id }, 'Vibe transfer deleted')
+    log.debug({ projectId, vibeTransferId: id }, 'Vibe transfer deleted')
     return true
 }
 

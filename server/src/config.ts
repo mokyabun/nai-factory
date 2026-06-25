@@ -33,9 +33,10 @@ const EnvListSchema = z.string().transform((value) =>
         .filter(Boolean),
 )
 
-const RawEnvConfigSchema = z
+export const EnvConfigSchema = z
     .object({
         NODE_ENV: NodeEnvSchema.default('development'),
+        HOST: z.string().min(1).default('0.0.0.0'),
         PORT: EnvPositiveIntegerSchema.default(3000),
         WEB_DIST_DIR: z.string().min(1).optional(),
         NAI_FACTORY_DATA_DIR: z.string().min(1).default('./data'),
@@ -54,30 +55,60 @@ const RawEnvConfigSchema = z
         NAI_FACTORY_DATA_ENCRYPTION_ENABLED: EnvBooleanSchema.default(false),
         NAI_FACTORY_DATA_ENCRYPTION_KEY: z.string().min(1).optional(),
     })
-    .passthrough()
+    .transform((raw) => {
+        const isProduction = raw.NODE_ENV === 'production'
+        const isTest = raw.NODE_ENV === 'test'
+        const hasExplicitLogging =
+            raw.LOG_LEVEL !== undefined ||
+            raw.LOG_PRETTY !== undefined ||
+            raw.LOG_COLORIZE !== undefined ||
+            raw.LOG_REDACT_PATHS !== undefined
+        const NAI_FACTORY_DATA_ENCRYPTION_KEY = normalizeEncryptionKey(
+            raw.NAI_FACTORY_DATA_ENCRYPTION_KEY,
+        )
 
-const EnvConfigSchema = z.object({
-    NODE_ENV: NodeEnvSchema,
-    PORT: z.number().int().positive(),
-    WEB_DIST_DIR: z.string().min(1),
-    NAI_FACTORY_DATA_DIR: z.string().min(1),
-    NAI_FACTORY_IMAGES_DIR: z.string().min(1),
-    NAI_FACTORY_THUMBNAILS_DIR: z.string().min(1),
-    NAI_FACTORY_VIBES_DIR: z.string().min(1),
-    NAI_FACTORY_CHARACTER_REFERENCES_DIR: z.string().min(1),
-    DATABASE_URL: z.string().min(1),
-    DATABASE_WAL: z.boolean(),
-    DATABASE_CACHE_SIZE: z.number().int(),
-    LOG_LEVEL: LogLevelSchema,
-    LOG_PRETTY: z.boolean(),
-    LOG_COLORIZE: z.boolean(),
-    LOG_REDACT_PATHS: z.array(z.string().min(1)),
-    TAG_DB_PATH: z.string().min(1),
-    NAI_FACTORY_DATA_ENCRYPTION_ENABLED: z.boolean(),
-    NAI_FACTORY_DATA_ENCRYPTION_KEY: z.string().min(1).nullable(),
-})
+        if (raw.NAI_FACTORY_DATA_ENCRYPTION_ENABLED && !NAI_FACTORY_DATA_ENCRYPTION_KEY) {
+            throw new Error(
+                'NAI_FACTORY_DATA_ENCRYPTION_KEY is required when data encryption is enabled',
+            )
+        }
 
-export type EnvConfig = z.infer<typeof EnvConfigSchema>
+        return {
+            NODE_ENV: raw.NODE_ENV,
+            HOST: raw.HOST,
+            PORT: raw.PORT,
+            WEB_DIST_DIR:
+                raw.WEB_DIST_DIR ??
+                (isProduction ? join(import.meta.dir, 'public') : '../web/dist'),
+            NAI_FACTORY_DATA_DIR: raw.NAI_FACTORY_DATA_DIR,
+            NAI_FACTORY_IMAGES_DIR:
+                raw.NAI_FACTORY_IMAGES_DIR ?? join(raw.NAI_FACTORY_DATA_DIR, 'images'),
+            NAI_FACTORY_THUMBNAILS_DIR:
+                raw.NAI_FACTORY_THUMBNAILS_DIR ?? join(raw.NAI_FACTORY_DATA_DIR, 'thumbnails'),
+            NAI_FACTORY_VIBES_DIR:
+                raw.NAI_FACTORY_VIBES_DIR ?? join(raw.NAI_FACTORY_DATA_DIR, 'vibes'),
+            NAI_FACTORY_CHARACTER_REFERENCES_DIR:
+                raw.NAI_FACTORY_CHARACTER_REFERENCES_DIR ??
+                join(raw.NAI_FACTORY_DATA_DIR, 'character-references'),
+            DATABASE_URL: raw.DATABASE_URL ?? join(raw.NAI_FACTORY_DATA_DIR, 'database.db'),
+            DATABASE_WAL: raw.DATABASE_WAL,
+            DATABASE_CACHE_SIZE: raw.DATABASE_CACHE_SIZE,
+            LOG_LEVEL: raw.LOG_LEVEL ?? (isTest ? 'silent' : 'info'),
+            LOG_PRETTY: raw.LOG_PRETTY ?? (hasExplicitLogging || isTest ? false : !isProduction),
+            LOG_COLORIZE:
+                raw.LOG_COLORIZE ?? (hasExplicitLogging || isTest ? false : !isProduction),
+            LOG_REDACT_PATHS: raw.LOG_REDACT_PATHS ?? DEFAULT_REDACT_PATHS,
+            TAG_DB_PATH:
+                raw.TAG_DB_PATH ??
+                (isProduction
+                    ? join(import.meta.dir, 'assets/db.csv')
+                    : join(import.meta.dir, '../../assets/db.csv')),
+            NAI_FACTORY_DATA_ENCRYPTION_ENABLED: raw.NAI_FACTORY_DATA_ENCRYPTION_ENABLED,
+            NAI_FACTORY_DATA_ENCRYPTION_KEY,
+        }
+    })
+
+export type EnvConfig = z.output<typeof EnvConfigSchema>
 
 function formatZodError(error: z.ZodError) {
     return error.issues
@@ -109,64 +140,9 @@ function normalizeEncryptionKey(value: string | undefined) {
     )
 }
 
-export function loadEnvConfig(env: Record<string, string | undefined> = process.env): EnvConfig {
-    const parsed = RawEnvConfigSchema.safeParse(env)
-    if (!parsed.success) {
-        throw new Error(`Invalid environment config: ${formatZodError(parsed.error)}`)
-    }
-
-    const raw = parsed.data
-    const isProduction = raw.NODE_ENV === 'production'
-    const hasExplicitLogging =
-        env.LOG_LEVEL !== undefined ||
-        env.LOG_PRETTY !== undefined ||
-        env.LOG_COLORIZE !== undefined ||
-        env.LOG_REDACT_PATHS !== undefined
-    const NAI_FACTORY_DATA_ENCRYPTION_KEY = normalizeEncryptionKey(
-        raw.NAI_FACTORY_DATA_ENCRYPTION_KEY,
-    )
-
-    if (raw.NAI_FACTORY_DATA_ENCRYPTION_ENABLED && !NAI_FACTORY_DATA_ENCRYPTION_KEY) {
-        throw new Error(
-            'NAI_FACTORY_DATA_ENCRYPTION_KEY is required when data encryption is enabled',
-        )
-    }
-
-    const resolved = {
-        NODE_ENV: raw.NODE_ENV,
-        PORT: raw.PORT,
-        WEB_DIST_DIR:
-            raw.WEB_DIST_DIR ?? (isProduction ? join(import.meta.dir, 'public') : '../web/dist'),
-        NAI_FACTORY_DATA_DIR: raw.NAI_FACTORY_DATA_DIR,
-        NAI_FACTORY_IMAGES_DIR:
-            raw.NAI_FACTORY_IMAGES_DIR ?? join(raw.NAI_FACTORY_DATA_DIR, 'images'),
-        NAI_FACTORY_THUMBNAILS_DIR:
-            raw.NAI_FACTORY_THUMBNAILS_DIR ?? join(raw.NAI_FACTORY_DATA_DIR, 'thumbnails'),
-        NAI_FACTORY_VIBES_DIR: raw.NAI_FACTORY_VIBES_DIR ?? join(raw.NAI_FACTORY_DATA_DIR, 'vibes'),
-        NAI_FACTORY_CHARACTER_REFERENCES_DIR:
-            raw.NAI_FACTORY_CHARACTER_REFERENCES_DIR ??
-            join(raw.NAI_FACTORY_DATA_DIR, 'character-references'),
-        DATABASE_URL: raw.DATABASE_URL ?? join(raw.NAI_FACTORY_DATA_DIR, 'database.db'),
-        DATABASE_WAL: raw.DATABASE_WAL,
-        DATABASE_CACHE_SIZE: raw.DATABASE_CACHE_SIZE,
-        LOG_LEVEL: raw.LOG_LEVEL ?? (isProduction ? 'info' : 'debug'),
-        LOG_PRETTY: raw.LOG_PRETTY ?? (hasExplicitLogging ? false : !isProduction),
-        LOG_COLORIZE: raw.LOG_COLORIZE ?? (hasExplicitLogging ? false : !isProduction),
-        LOG_REDACT_PATHS: raw.LOG_REDACT_PATHS ?? DEFAULT_REDACT_PATHS,
-        TAG_DB_PATH:
-            raw.TAG_DB_PATH ??
-            (isProduction
-                ? join(import.meta.dir, 'assets/db.csv')
-                : join(import.meta.dir, '../../assets/db.csv')),
-        NAI_FACTORY_DATA_ENCRYPTION_ENABLED: raw.NAI_FACTORY_DATA_ENCRYPTION_ENABLED,
-        NAI_FACTORY_DATA_ENCRYPTION_KEY,
-    }
-
-    const envConfig = EnvConfigSchema.safeParse(resolved)
-    if (!envConfig.success) {
-        throw new Error(`Invalid resolved environment config: ${formatZodError(envConfig.error)}`)
-    }
-    return envConfig.data
+const parsedEnvConfig = EnvConfigSchema.safeParse(process.env)
+if (!parsedEnvConfig.success) {
+    throw new Error(`Invalid environment config: ${formatZodError(parsedEnvConfig.error)}`)
 }
 
-export const envConfig = loadEnvConfig()
+export const envConfig = parsedEnvConfig.data

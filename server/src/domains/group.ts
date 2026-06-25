@@ -12,7 +12,7 @@ import { HTTPException } from 'hono/http-exception'
 import { db, groups, projects } from '@/db'
 import logger from '@/logger'
 import { removeByProject } from '@/services'
-import { withUpdatedAt } from '@/shared'
+import { withUpdatedAt } from '@/utils'
 
 const log = logger.child({ module: 'group-domain' })
 
@@ -63,7 +63,7 @@ async function getById(id: number) {
 
 async function create(data: GroupPostBody) {
     const [created] = await db.insert(groups).values(data).returning()
-    if (created) log.info({ groupId: created.id }, 'Group created')
+    if (created) log.debug({ groupId: created.id }, 'Group created')
     return created ?? null
 }
 
@@ -74,7 +74,7 @@ async function update(id: number, data: GroupPatchBody) {
         .where(eq(groups.id, id))
         .returning()
 
-    if (updated) log.info({ groupId: id, fields: Object.keys(data) }, 'Group updated')
+    if (updated) log.debug({ groupId: id, fields: Object.keys(data) }, 'Group updated')
     return updated ?? null
 }
 
@@ -87,7 +87,7 @@ async function remove(id: number) {
     await db.delete(groups).where(eq(groups.id, id))
     await Promise.all(childProjects.map((project) => removeByProject(project.id)))
 
-    log.warn({ groupId: id, childProjectCount: childProjects.length }, 'Group deleted')
+    log.debug({ groupId: id, childProjectCount: childProjects.length }, 'Group deleted')
     return true
 }
 

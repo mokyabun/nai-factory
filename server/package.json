@@ -1,6 +1,6 @@
 {
     "name": "@nai-factory/server",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "module": "src/index.js",
     "types": "src/index.ts",
     "imports": {

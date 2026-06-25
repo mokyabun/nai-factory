@@ -1,24 +1,36 @@
 import { describe, expect, it } from 'bun:test'
-import { loadEnvConfig } from '../src/config'
+import { EnvConfigSchema } from '../src/config'
+
+function parseEnvConfig(env: Record<string, string | undefined>) {
+    const parsed = EnvConfigSchema.safeParse(env)
+    if (!parsed.success) throw parsed.error
+    return parsed.data
+}
 
 describe('runtime config', () => {
-    it('derives default logging from NODE_ENV when logging is not configured', () => {
-        expect(loadEnvConfig({ NODE_ENV: 'production' })).toMatchObject({
+    it('derives quiet default logging when logging is not configured', () => {
+        expect(parseEnvConfig({ NODE_ENV: 'production' })).toMatchObject({
             LOG_LEVEL: 'info',
             LOG_PRETTY: false,
             LOG_COLORIZE: false,
         })
 
-        expect(loadEnvConfig({ NODE_ENV: 'development' })).toMatchObject({
-            LOG_LEVEL: 'debug',
+        expect(parseEnvConfig({ NODE_ENV: 'development' })).toMatchObject({
+            LOG_LEVEL: 'info',
             LOG_PRETTY: true,
             LOG_COLORIZE: true,
+        })
+
+        expect(parseEnvConfig({ NODE_ENV: 'test' })).toMatchObject({
+            LOG_LEVEL: 'silent',
+            LOG_PRETTY: false,
+            LOG_COLORIZE: false,
         })
     })
 
     it('uses explicit logging env values instead of NODE_ENV defaults', () => {
         expect(
-            loadEnvConfig({
+            parseEnvConfig({
                 NODE_ENV: 'development',
                 LOG_LEVEL: 'warn',
             }),
@@ -30,12 +42,14 @@ describe('runtime config', () => {
     })
 
     it('parses scalar env values', () => {
-        const config = loadEnvConfig({
+        const config = parseEnvConfig({
+            HOST: '127.0.0.1',
             PORT: '5000',
             DATABASE_URL: './data/database.db',
             LOG_LEVEL: 'error',
         })
 
+        expect(config.HOST).toBe('127.0.0.1')
         expect(config.PORT).toBe(5000)
         expect(config.DATABASE_URL).toBe('./data/database.db')
         expect(config.LOG_LEVEL).toBe('error')
@@ -43,7 +57,7 @@ describe('runtime config', () => {
 
     it('parses data encryption settings from env', () => {
         const key = Buffer.alloc(32, 1).toString('base64')
-        const config = loadEnvConfig({
+        const config = parseEnvConfig({
             NAI_FACTORY_DATA_ENCRYPTION_ENABLED: 'true',
             NAI_FACTORY_DATA_ENCRYPTION_KEY: key,
         })
@@ -56,13 +70,13 @@ describe('runtime config', () => {
 
     it('requires a valid key when data encryption is enabled', () => {
         expect(() =>
-            loadEnvConfig({
+            parseEnvConfig({
                 NAI_FACTORY_DATA_ENCRYPTION_ENABLED: 'true',
             }),
         ).toThrow('NAI_FACTORY_DATA_ENCRYPTION_KEY is required')
 
         expect(() =>
-            loadEnvConfig({
+            parseEnvConfig({
                 NAI_FACTORY_DATA_ENCRYPTION_ENABLED: 'true',
                 NAI_FACTORY_DATA_ENCRYPTION_KEY: 'too-short',
             }),

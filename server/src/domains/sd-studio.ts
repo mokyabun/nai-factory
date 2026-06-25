@@ -12,7 +12,7 @@ import { db, projects, scenes, sceneVariations } from '@/db'
 import logger from '@/logger'
 import { parseSdStudioFile } from '@/services'
 import { nextDisplayOrder } from '@/services/order'
-import { requireEntity, withUpdatedAt } from '@/shared'
+import { requireEntity, withUpdatedAt } from '@/utils'
 
 const log = logger.child({ module: 'sd-studio-domain' })
 
@@ -94,7 +94,7 @@ async function importToProject(projectId: number, rawData: unknown, options: Imp
 
     if (Object.keys(updates).length > 0) {
         await db.update(projects).set(withUpdatedAt(updates)).where(eq(projects.id, projectId))
-        log.info({ projectId, fields: Object.keys(updates) }, 'Project preset imported')
+        log.debug({ projectId, fields: Object.keys(updates) }, 'Project preset imported')
     }
 
     const created = []
@@ -129,6 +129,7 @@ async function importToProject(projectId: number, rawData: unknown, options: Imp
 
     log.info(
         {
+            event: 'sd_studio.import.completed',
             projectId,
             sourceName: pack.name,
             importedScenes: created.length,

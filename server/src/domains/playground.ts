@@ -38,7 +38,7 @@ async function getSettings() {
         .returning()
 
     if (!created) throw new Error('Failed to create playground settings')
-    log.info('Playground settings initialized')
+    log.debug('Playground settings initialized')
     return created
 }
 
@@ -55,7 +55,7 @@ async function patchSettings(data: PlaygroundSettingsPatchBody) {
         .returning()
 
     if (!updated) throw new Error('Failed to update playground settings')
-    log.info({ fields: Object.keys(data) }, 'Playground settings updated')
+    log.debug({ fields: Object.keys(data) }, 'Playground settings updated')
     return updated
 }
 
@@ -66,7 +66,7 @@ async function remove(id: number) {
     await db.delete(playgroundImages).where(eq(playgroundImages.id, id))
     await removeFile(image.filePath, image.thumbnailPath ?? null)
 
-    log.warn({ playgroundImageId: id }, 'Playground image deleted')
+    log.debug({ playgroundImageId: id }, 'Playground image deleted')
     return true
 }
 
@@ -83,7 +83,7 @@ export const playground = new Hono()
     .post('/enqueue', zValidator('json', PlaygroundEnqueueBody), async (c) => {
         const body = c.req.valid('json')
         const item = await queueManager.addPlayground(body, body.position ?? 'back')
-        log.info({ jobId: item.id, position: body.position ?? 'back' }, 'Playground job queued')
+        log.debug({ jobId: item.id, position: body.position ?? 'back' }, 'Playground job queued')
         return c.json({ queued: 1, item }, 201)
     })
     .delete('/images/:id', zValidator('param', IdParams), async (c) => {

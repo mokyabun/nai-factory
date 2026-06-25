@@ -3,7 +3,7 @@ import { asc, eq } from 'drizzle-orm'
 import * as dataStorage from '@/data'
 import { db, vibeTransfers } from '@/db'
 import logger from '@/logger'
-import { nowIso } from '@/shared'
+import { nowIso } from '@/utils'
 import { createUniqueReferenceCacheKey, isReferenceCacheFresh } from './reference-cache'
 
 const log = logger.child({ module: 'vibe-image' })
@@ -103,7 +103,7 @@ export async function invalidateVibe(vibeTransferId: number): Promise<void> {
         })
         .where(eq(vibeTransfers.id, vibeTransferId))
 
-    log.info({ vibeTransferId }, 'Vibe encoding invalidated')
+    log.debug({ vibeTransferId }, 'Vibe encoding invalidated')
 }
 
 export async function markVibeCachesUploaded(ids: number[]) {

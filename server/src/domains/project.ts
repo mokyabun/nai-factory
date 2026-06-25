@@ -18,7 +18,7 @@ import { db, images, projects, scenes, sceneVariations } from '../db'
 import logger from '../logger'
 import { removeByProject, removeCharacterReferencesByProject } from '../services'
 import * as settingsService from '../services/app/settings'
-import { requireEntity, withNormalizedVariables, withUpdatedAt } from '../shared'
+import { requireEntity, withNormalizedVariables, withUpdatedAt } from '../utils'
 
 const log = logger.child({ module: 'project-domain' })
 
@@ -50,7 +50,7 @@ async function getById(projectId: number) {
 async function create(body: ProjectPostBody) {
     const [project] = await db.insert(projects).values(body).returning()
     if (!project) throw new HTTPException(500, { message: 'Failed to create project' })
-    log.info({ projectId: project.id, groupId: project.groupId }, 'Project created')
+    log.debug({ projectId: project.id, groupId: project.groupId }, 'Project created')
     return normalizeProject(project)
 }
 
@@ -65,7 +65,7 @@ async function update(projectId: number, body: ProjectPatchBody) {
         .returning()
 
     const result = normalizeProject(requireEntity(project, 'Project not found'))
-    log.info({ projectId, fields: Object.keys(patch) }, 'Project updated')
+    log.debug({ projectId, fields: Object.keys(patch) }, 'Project updated')
     return result
 }
 
@@ -73,7 +73,7 @@ async function remove(projectId: number) {
     await getById(projectId)
     await Promise.all([removeByProject(projectId), removeCharacterReferencesByProject(projectId)])
     await db.delete(projects).where(eq(projects.id, projectId))
-    log.warn({ projectId }, 'Project deleted')
+    log.debug({ projectId }, 'Project deleted')
 }
 
 async function duplicate(projectId: number) {
@@ -137,7 +137,7 @@ async function duplicate(projectId: number) {
         }
     }
 
-    log.info(
+    log.debug(
         {
             sourceProjectId: projectId,
             projectId: project.id,
@@ -286,7 +286,10 @@ async function createExportZip(projectId: number, body: ProjectExportBody) {
     const zip = zipSync(entries)
     const filename = `${sanitizeFilename(source.name)}-export.zip`
 
-    log.info({ projectId, exported: assets.length }, 'Project assets zipped')
+    log.info(
+        { event: 'project.export.zip.created', projectId, exported: assets.length },
+        'Project assets zipped',
+    )
     return { zip, filename, assets }
 }
 
@@ -304,7 +307,15 @@ async function exportToServerPath(projectId: number, body: ProjectExportBody) {
         )
     }
 
-    log.info({ projectId, exported: assets.length, serverPath }, 'Project assets exported')
+    log.info(
+        {
+            event: 'project.export.server.completed',
+            projectId,
+            exported: assets.length,
+            serverPath,
+        },
+        'Project assets exported',
+    )
     return { exported: assets.length, assets }
 }
 

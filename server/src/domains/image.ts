@@ -24,7 +24,7 @@ async function getAllBySceneId(sceneId: number) {
 async function update(id: number, data: ImagePatchBody) {
     const [updated] = await db.update(images).set(data).where(eq(images.id, id)).returning()
     if (updated)
-        log.info(
+        log.debug(
             { imageId: id, sceneId: updated.sceneId, fields: Object.keys(data) },
             'Image updated',
         )
@@ -72,7 +72,7 @@ async function reorder(id: number, prevId: number | null, nextId: number | null)
     })
 
     if (updated) {
-        log.info({ imageId: id, sceneId: image.sceneId, planType: plan.type }, 'Image reordered')
+        log.debug({ imageId: id, sceneId: image.sceneId, planType: plan.type }, 'Image reordered')
     }
 
     return updated
@@ -85,7 +85,7 @@ async function remove(id: number) {
     await db.delete(images).where(eq(images.id, id))
     await removeFile(image.filePath, image.thumbnailPath ?? null)
 
-    log.warn({ imageId: id, sceneId: image.sceneId }, 'Image deleted')
+    log.debug({ imageId: id, sceneId: image.sceneId }, 'Image deleted')
     return true
 }
 

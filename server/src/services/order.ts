@@ -87,7 +87,7 @@ export function planDisplayOrderUpdate({
     }))
     const movedUpdate = updates.find((item) => item.id === id)
 
-    logger.info(
+    logger.debug(
         {
             entity,
             id,

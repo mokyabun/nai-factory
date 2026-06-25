@@ -3,6 +3,16 @@ import { envConfig } from './config'
 
 const baseOptions: pino.LoggerOptions = {
     level: envConfig.LOG_LEVEL,
+    base: {
+        service: 'nai-factory-server',
+        env: envConfig.NODE_ENV,
+    },
+    timestamp: pino.stdTimeFunctions.isoTime,
+    formatters: {
+        level(label) {
+            return { level: label }
+        },
+    },
     redact: {
         paths: envConfig.LOG_REDACT_PATHS,
         censor: '[redacted]',
@@ -24,7 +34,9 @@ const logger = (() => {
             target: 'pino-pretty',
             options: {
                 colorize: envConfig.LOG_COLORIZE,
-                ignore: 'pid,hostname',
+                ignore: 'service,env',
+                messageFormat: '[{module}] {msg}',
+                singleLine: true,
                 translateTime: 'SYS:standard',
             },
         },

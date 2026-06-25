@@ -64,7 +64,7 @@ export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Pr
         .arrayBuffer()
 
     const encoded = Buffer.from(binary).toString('base64')
-    log.info(
+    log.debug(
         {
             model: request.model,
             informationExtracted: request.information_extracted,
@@ -134,7 +134,7 @@ export async function generateImage(
     }
 
     if (mode === 'mock') {
-        log.info(
+        log.debug(
             {
                 model: params.model,
                 seed,
@@ -252,7 +252,7 @@ export async function generateImage(
     const uploadRefs = getUploadRefs(params)
     const shouldUseMultipart = vibeTransfers.length > 0 || characterReferences.length > 0
     const startedAt = Date.now()
-    log.info(
+    log.debug(
         {
             model: params.model,
             seed,
@@ -353,7 +353,7 @@ export async function generateImage(
             imageName: imageEntry[0],
             imageBytes: imageEntry[1].byteLength,
         })
-        log.info(
+        log.debug(
             {
                 seed,
                 zipBytes: zipData.byteLength,
@@ -388,7 +388,10 @@ export async function validateApiKey(apiKey: string): Promise<boolean> {
         log.debug({ ok: res.ok, status: res.status }, 'NovelAI API key validation completed')
         return res.ok
     } catch {
-        log.warn('NovelAI API key validation failed')
+        log.warn(
+            { event: 'novelai.api_key_validation.failed' },
+            'NovelAI API key validation failed',
+        )
         return false
     }
 }

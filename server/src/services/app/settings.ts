@@ -1,7 +1,7 @@
 import { DEFAULT_GLOBAL_SETTINGS, type GlobalSettings } from '@nai-factory/shared'
 import { eq } from 'drizzle-orm'
 import { db, settings } from '@/db'
-import { withNormalizedGlobalVariables } from '@/shared'
+import { withNormalizedGlobalVariables } from '@/utils'
 
 let cache: GlobalSettings = load()
 

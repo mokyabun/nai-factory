@@ -58,7 +58,10 @@ export const setting = new Hono()
             })
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error)
-            log.warn({ err: error }, 'NovelAI account status failed')
+            log.warn(
+                { event: 'novelai.account_status.failed', err: error },
+                'NovelAI account status failed',
+            )
             return c.json({
                 mode,
                 configured: true,
@@ -72,11 +75,11 @@ export const setting = new Hono()
     .get('/', async (c) => c.json(await settingsService.get()))
     .patch('/', zValidator('json', SettingsPatchBody), async (c) => {
         const body = c.req.valid('json')
-        log.info({ fields: Object.keys(body) }, 'Settings updated')
+        log.debug({ fields: Object.keys(body) }, 'Settings updated')
         return c.json(await settingsService.update(body))
     })
     .delete('/', async (c) => {
         settingsService.reset()
-        log.warn('Settings reset')
+        log.debug('Settings reset')
         return c.json(settingsService.get())
     })

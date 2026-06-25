@@ -23,6 +23,8 @@ import {
 } from './domains'
 import logger from './logger'
 
+const log = logger.child({ module: 'server' })
+
 type AppEnv = {
     Variables: {
         requestId: string
@@ -88,13 +90,22 @@ export function createApp(options: { production?: boolean } = {}) {
             return c.json({ message: error.message }, error.status)
         }
 
-        logger.error({ requestId, method: c.req.method, path, err: error }, 'Unhandled error')
+        log.error(
+            { event: 'request.unhandled_error', requestId, method: c.req.method, path, err: error },
+            'Unhandled error',
+        )
         return c.json(
             { message: error instanceof Error ? error.message : 'Internal server error' },
             500,
         )
     })
     app.notFound((c) => c.json({ message: 'Not found' }, 404))
+    app.get('/healthz', (c) =>
+        c.json({
+            ok: true,
+            environment: envConfig.NODE_ENV,
+        }),
+    )
 
     routeApi(app, production ? '/api' : '')
 
@@ -107,11 +118,35 @@ export function createApp(options: { production?: boolean } = {}) {
 }
 
 const port = envConfig.PORT
+const hostname = envConfig.HOST
 const app = createApp()
 
-logger.info({ port }, 'NAI Factory Hono server running')
+log.info(
+    {
+        event: 'server.started',
+        hostname,
+        port,
+        environment: envConfig.NODE_ENV,
+        logLevel: envConfig.LOG_LEVEL,
+        dataEncryptionEnabled: envConfig.NAI_FACTORY_DATA_ENCRYPTION_ENABLED,
+    },
+    'Server started',
+)
+
+if (envConfig.NAI_FACTORY_DATA_ENCRYPTION_ENABLED) {
+    log.info(
+        {
+            event: 'data.encryption.enabled',
+            algorithm: 'aes-256-gcm',
+            encryptedWrites: true,
+            plaintextReads: true,
+        },
+        'Data encryption enabled for new file writes',
+    )
+}
 
 export default {
+    hostname,
     port,
     fetch: app.fetch,
 }

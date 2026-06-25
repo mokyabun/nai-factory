@@ -12,7 +12,7 @@ const migrations: { tag: string; sql: string }[] = [
 ]
 
 export function migrate(db: Database) {
-    log.info('Running migrations')
+    log.info({ event: 'db.migrations.started' }, 'Running migrations')
 
     db.run(`
         CREATE TABLE IF NOT EXISTS _migration_history (
@@ -31,7 +31,7 @@ export function migrate(db: Database) {
     for (const migration of migrations) {
         if (applied.has(migration.tag)) continue
 
-        log.info({ tag: migration.tag }, 'Applying migration')
+        log.info({ event: 'db.migration.applying', tag: migration.tag }, 'Applying migration')
 
         const statements = migration.sql
             .split('--> statement-breakpoint')
@@ -48,5 +48,5 @@ export function migrate(db: Database) {
         ])
     }
 
-    log.info('Migrations complete')
+    log.info({ event: 'db.migrations.completed' }, 'Migrations complete')
 }

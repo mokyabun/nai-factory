@@ -12,7 +12,7 @@ import * as dataStorage from '@/data'
 import { characterReferences, db } from '@/db'
 import logger from '@/logger'
 import { nextDisplayOrder } from '@/services/order'
-import { nowIso } from '@/shared'
+import { nowIso } from '@/utils'
 import { createUniqueReferenceCacheKey, isReferenceCacheFresh } from './reference-cache'
 
 const log = logger.child({ module: 'character-reference' })
@@ -139,7 +139,7 @@ export async function uploadCharacterReference(
         .returning()
 
     if (!created) throw new Error('Failed to create character reference')
-    log.info(
+    log.debug(
         {
             projectId,
             characterReferenceId: created.id,
@@ -169,7 +169,7 @@ export async function removeCharacterReferencesByProject(projectId: number) {
         recursive: true,
         force: true,
     })
-    log.warn({ projectId }, 'Character reference directory removed')
+    log.debug({ projectId }, 'Character reference directory removed')
 }
 
 export async function prepareCharacterReferencesForProject(

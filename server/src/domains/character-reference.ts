@@ -19,7 +19,7 @@ import {
     uploadCharacterReference,
 } from '@/services'
 import { planDisplayOrderUpdate } from '@/services/order'
-import { requireEntity, withUpdatedAt } from '@/shared'
+import { requireEntity, withUpdatedAt } from '@/utils'
 
 const log = logger.child({ module: 'character-reference-domain' })
 
@@ -39,7 +39,7 @@ async function list(projectId: number) {
 async function upload(projectId: number, image: CharacterReferenceUploadBody['image']) {
     await getProject(projectId)
     const created = await uploadCharacterReference(projectId, image)
-    log.info({ projectId, characterReferenceId: created.id }, 'Character reference uploaded')
+    log.debug({ projectId, characterReferenceId: created.id }, 'Character reference uploaded')
     return created
 }
 
@@ -58,7 +58,7 @@ async function update(projectId: number, id: number, body: CharacterReferencePat
         .returning()
 
     if (updated) {
-        log.info(
+        log.debug(
             { projectId, characterReferenceId: id, fields: Object.keys(body) },
             'Character reference updated',
         )
@@ -114,7 +114,7 @@ async function reorder(
     })
 
     if (updated) {
-        log.info(
+        log.debug(
             { projectId, characterReferenceId: id, planType: plan.type },
             'Character reference reordered',
         )
@@ -140,7 +140,7 @@ async function remove(projectId: number, id: number) {
         // Directory still contains other references, or it is already gone.
     }
 
-    log.warn({ projectId, characterReferenceId: id }, 'Character reference deleted')
+    log.debug({ projectId, characterReferenceId: id }, 'Character reference deleted')
     return true
 }
 

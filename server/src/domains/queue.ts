@@ -57,7 +57,7 @@ async function enqueue(
 ) {
     try {
         const items = await queueManager.add(sceneId, position, sceneVariationId)
-        log.info({ sceneId, sceneVariationId, position, queued: items.length }, 'Scene queued')
+        log.debug({ sceneId, sceneVariationId, position, queued: items.length }, 'Scene queued')
         return items
     } catch (error) {
         throw new HTTPException(404, {
@@ -86,7 +86,7 @@ async function enqueueAll(projectId: number, position: QueueEnqueueAllBody['posi
         items.push(...(await enqueue(scene.id, position)))
     }
 
-    log.info(
+    log.debug(
         { projectId, position, sceneCount: rows.length, queued: items.length },
         'Project queued',
     )
@@ -102,7 +102,7 @@ async function enqueueBulk(
     for (const sceneId of orderedSceneIds) {
         items.push(...(await enqueue(sceneId, position)))
     }
-    log.info({ position, sceneCount: sceneIds.length, queued: items.length }, 'Scenes queued')
+    log.debug({ position, sceneCount: sceneIds.length, queued: items.length }, 'Scenes queued')
     return items
 }
 
@@ -114,7 +114,7 @@ async function cancel(id: number) {
     if (!item) throw new HTTPException(404, { message: 'Queue item not found' })
 
     await queueManager.cancel([id])
-    log.warn({ jobId: id }, 'Queue item cancelled')
+    log.debug({ jobId: id }, 'Queue item cancelled')
 }
 
 async function clear(sceneId?: number, sceneVariationId?: number) {
@@ -129,7 +129,7 @@ async function clear(sceneId?: number, sceneVariationId?: number) {
             db.delete(playgroundQueueItems),
         ])
 
-        log.warn(
+        log.debug(
             { sceneQueueCount: sceneRows.length, playgroundQueueCount: playgroundRows.length },
             'Queue cleared',
         )
@@ -147,7 +147,7 @@ async function clear(sceneId?: number, sceneVariationId?: number) {
         )
 
     await queueManager.cancel(rows.map((row) => row.id))
-    log.warn(
+    log.debug(
         { sceneId, sceneVariationId, cancelled: rows.length },
         'Queue filtered clear completed',
     )

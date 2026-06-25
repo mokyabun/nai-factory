@@ -105,7 +105,7 @@ export async function save(
         ),
     ])
 
-    logger.info({ filePath, sizeBytes: imageData.byteLength }, 'Image saved')
+    logger.debug({ filePath, sizeBytes: imageData.byteLength }, 'Image saved')
 
     return {
         filePath: filePath.replaceAll('\\', '/'),
@@ -142,7 +142,7 @@ export async function savePlayground(
         ),
     ])
 
-    logger.info({ filePath, sizeBytes: imageData.byteLength }, 'Playground image saved')
+    logger.debug({ filePath, sizeBytes: imageData.byteLength }, 'Playground image saved')
 
     return {
         filePath: filePath.replaceAll('\\', '/'),
@@ -156,7 +156,7 @@ export async function remove(filePath: string, thumbnailPath: string | null) {
 
     try {
         await Promise.all(promises)
-        logger.info({ filePath }, 'Deleted image')
+        logger.debug({ filePath }, 'Image deleted')
     } catch (error) {
         logger.error({ filePath, err: error }, 'Failed to delete image')
     }
@@ -176,7 +176,7 @@ export async function removeByScene(projectId: number, sceneId: number) {
             fs.rm(thumbnailScenePath, { recursive: true, force: true }),
         ])
 
-        logger.info({ projectId, sceneId }, 'Deleted images for scene')
+        logger.debug({ projectId, sceneId }, 'Scene images deleted')
     } catch (error) {
         logger.error({ projectId, sceneId, err: error }, 'Failed to delete images for scene')
     }
@@ -192,7 +192,7 @@ export async function removeByProject(projectId: number) {
             fs.rm(thumbnailProjectPath, { recursive: true, force: true }),
         ])
 
-        logger.info({ projectId }, 'Deleted images for project')
+        logger.debug({ projectId }, 'Project images deleted')
     } catch (error) {
         logger.error({ projectId, err: error }, 'Failed to delete images for project')
     }

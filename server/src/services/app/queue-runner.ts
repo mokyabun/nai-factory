@@ -15,7 +15,7 @@ import * as characterReferenceService from '@/services/novelai/character-referen
 import * as novelAIService from '@/services/novelai/novelai'
 import * as vibeImageService from '@/services/novelai/vibe-image'
 import { nextDisplayOrder } from '@/services/order'
-import { withNormalizedVariables } from '@/shared'
+import { withNormalizedVariables } from '@/utils'
 import { realtimeEvents } from './events'
 import * as imageService from './image'
 import { compilePrompts, compileVariables } from './prompt'
@@ -270,7 +270,7 @@ async function markUploadedReferenceCaches(params: SimpleNovelAIParameters) {
 export async function* runJob(jobId: number) {
     const { job, project, scene, variation, globalSettings } = await loadJobContext(jobId)
     const startedAt = Date.now()
-    log.info(
+    log.debug(
         {
             jobId,
             sceneId: job.sceneId,
@@ -346,7 +346,7 @@ export async function* runJob(jobId: number) {
         )
         await markUploadedReferenceCaches(params)
         const variationDuration = Date.now() - variationStart
-        log.info(
+        log.debug(
             {
                 jobId,
                 promptIndex: index,
@@ -365,7 +365,7 @@ export async function* runJob(jobId: number) {
         projectId: project.id,
         sceneId: scene.id,
     })
-    log.info({ jobId, duration: (Date.now() - startedAt) / 1000 }, 'Job completed')
+    log.debug({ jobId, durationMs: Date.now() - startedAt }, 'Job runner completed')
 }
 
 export async function* runPlaygroundJob(jobId: number) {
@@ -382,7 +382,7 @@ export async function* runPlaygroundJob(jobId: number) {
     }
 
     const startedAt = Date.now()
-    log.info({ jobId, source: 'playground' }, 'Processing playground job')
+    log.debug({ jobId, source: 'playground' }, 'Processing playground job')
 
     const params: SimpleNovelAIParameters = {
         ...job.parameters,
@@ -403,10 +403,10 @@ export async function* runPlaygroundJob(jobId: number) {
         globalSettings.image,
     )
     const durationMs = Date.now() - variationStart
-    log.info({ jobId, durationMs }, 'Playground image generation completed')
+    log.debug({ jobId, durationMs }, 'Playground image generation completed')
     yield durationMs
 
     await db.delete(playgroundQueueItems).where(eq(playgroundQueueItems.id, jobId))
     realtimeEvents.publish({ type: 'playground.images.changed' })
-    log.info({ jobId, duration: (Date.now() - startedAt) / 1000 }, 'Playground job completed')
+    log.debug({ jobId, durationMs: Date.now() - startedAt }, 'Playground job runner completed')
 }

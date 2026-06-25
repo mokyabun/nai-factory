@@ -154,7 +154,7 @@ class QueueManager {
         }
 
         this.running = true
-        this.log.info('Queue started')
+        this.log.info({ event: 'queue.started' }, 'Queue started')
 
         if (!this.processing) this.processQueue()
     }
@@ -166,14 +166,14 @@ class QueueManager {
         }
 
         this.running = false
-        this.log.info('Queue stopped')
+        this.log.info({ event: 'queue.stopped' }, 'Queue stopped')
     }
 
     async cancel(jobIds: number[]) {
         if (jobIds.length === 0) return
 
         await db.delete(queueItems).where(inArray(queueItems.id, jobIds))
-        this.log.warn({ jobIds }, 'Jobs cancelled')
+        this.log.debug({ jobIds }, 'Jobs cancelled')
     }
 
     async status() {
@@ -270,7 +270,7 @@ class QueueManager {
 
         this.running = false
         this.processing = false
-        this.log.info('Queue finished')
+        this.log.info({ event: 'queue.finished' }, 'Queue finished')
         publishQueueChanged()
     }
 
@@ -335,6 +335,7 @@ class QueueManager {
         publishQueueChanged()
         this.log.info(
             {
+                event: 'queue.job.started',
                 jobId: job.id,
                 type: job.type,
                 projectId: job.projectId,
@@ -375,7 +376,10 @@ class QueueManager {
             error: null,
             failureCategory: null,
         })
-        this.log.info({ jobId: job.id, type: job.type, durationMs }, 'Queue job completed')
+        this.log.info(
+            { event: 'queue.job.completed', jobId: job.id, type: job.type, durationMs },
+            'Queue job completed',
+        )
     }
 
     private recordFailedJob(
@@ -386,6 +390,7 @@ class QueueManager {
     ) {
         this.log.error(
             {
+                event: 'queue.job.failed',
                 jobId: job.id,
                 type: job.type,
                 projectId: job.projectId,

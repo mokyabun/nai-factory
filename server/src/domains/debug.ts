@@ -8,6 +8,6 @@ export const debug = new Hono()
     .get('/requests', async (c) => c.json(listDebugRequests()))
     .delete('/requests', async (c) => {
         clearDebugRequests()
-        log.info('Debug request history cleared')
+        log.debug('Debug request history cleared')
         return c.body(null, 204)
     })
