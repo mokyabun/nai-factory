@@ -37,6 +37,12 @@ import {
 
 export const Route = createFileRoute('/project/$projectId/')({ component: ProjectPage })
 
+interface SelectionDragState {
+    startIndex: number
+    action: 'select' | 'deselect'
+    baseSelectedIds: Set<number>
+}
+
 function ProjectPage() {
     return (
         <Provider>
@@ -84,6 +90,7 @@ function ProjectPageContent() {
     const selectedCount = useAtomValue(selectedSceneCountAtom)
     const selectMode = useAtomValue(selectModeAtom)
     const hasScenes = useAtomValue(hasScenesAtom)
+    const selectionDragRef = useRef<SelectionDragState | null>(null)
 
     const saveProjectSettings = useRef(
         debounce(async (projectId: number, slideshowImageCount: number) => {
@@ -143,7 +150,8 @@ function ProjectPageContent() {
     })
 
     const bulkEnqueue = useMutation({
-        mutationFn: (sceneIds: number[]) => api.queue['enqueue-bulk'].post({ sceneIds }),
+        mutationFn: ({ sceneIds, position }: { sceneIds: number[]; position: 'front' | 'back' }) =>
+            api.queue['enqueue-bulk'].post({ sceneIds, position }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
@@ -183,6 +191,42 @@ function ProjectPageContent() {
         reorderScene.mutate(reordered.orderPatch)
     }
 
+    function applySelectionDragRange(state: SelectionDragState, targetIndex: number) {
+        if (items.length === 0) return
+
+        const clampedTargetIndex = Math.min(Math.max(targetIndex, 0), items.length - 1)
+        const from = Math.min(state.startIndex, clampedTargetIndex)
+        const to = Math.max(state.startIndex, clampedTargetIndex)
+        const rangeIds = items.slice(from, to + 1).map((scene) => scene.id)
+
+        setSelectedIds(() => {
+            const next = new Set(state.baseSelectedIds)
+            for (const id of rangeIds) {
+                if (state.action === 'select') next.add(id)
+                else next.delete(id)
+            }
+            return next
+        })
+    }
+
+    function handleSelectDragStart(index: number, selected: boolean) {
+        const state: SelectionDragState = {
+            startIndex: index,
+            action: selected ? 'deselect' : 'select',
+            baseSelectedIds: new Set(selectedIds),
+        }
+
+        selectionDragRef.current = state
+        applySelectionDragRange(state, index)
+    }
+
+    function handleSelectDragEnter(index: number) {
+        const state = selectionDragRef.current
+        if (!state) return
+
+        applySelectionDragRange(state, index)
+    }
+
     function toggleSelect(id: number) {
         setSelectedIds((prev) => {
             const next = new Set(prev)
@@ -205,6 +249,19 @@ function ProjectPageContent() {
         setSlideshowImageCount(nextCount)
         if (loadedProjectId) saveProjectSettings.current(loadedProjectId, nextCount)
     }
+
+    useEffect(() => {
+        function handlePointerEnd() {
+            selectionDragRef.current = null
+        }
+
+        window.addEventListener('pointerup', handlePointerEnd)
+        window.addEventListener('pointercancel', handlePointerEnd)
+        return () => {
+            window.removeEventListener('pointerup', handlePointerEnd)
+            window.removeEventListener('pointercancel', handlePointerEnd)
+        }
+    }, [])
 
     useEffect(() => {
         function handleKeyDown(event: KeyboardEvent) {
@@ -253,11 +310,30 @@ function ProjectPageContent() {
                         <Button
                             size="sm"
                             className="gap-1.5"
-                            onClick={() => bulkEnqueue.mutate(selectedSceneIds)}
+                            onClick={() =>
+                                bulkEnqueue.mutate({
+                                    sceneIds: selectedSceneIds,
+                                    position: 'front',
+                                })
+                            }
                             disabled={bulkEnqueue.isPending}
                         >
                             <ListPlus className="h-4 w-4" />
-                            선택 큐 추가
+                            앞으로 추가
+                        </Button>
+                    )}
+                    {selectMode && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            onClick={() =>
+                                bulkEnqueue.mutate({ sceneIds: selectedSceneIds, position: 'back' })
+                            }
+                            disabled={bulkEnqueue.isPending}
+                        >
+                            <ListPlus className="h-4 w-4" />
+                            뒤로 추가
                         </Button>
                     )}
                     {selectMode && (
@@ -340,15 +416,18 @@ function ProjectPageContent() {
                 >
                     <SortableContext items={items.map((s) => s.id)} strategy={rectSortingStrategy}>
                         <div className="flex flex-wrap gap-4 pb-4">
-                            {items.map((scene) => (
+                            {items.map((scene, index) => (
                                 <SortableSceneItem
                                     key={scene.id}
                                     scene={scene}
+                                    index={index}
                                     selected={selectedIds.has(scene.id)}
                                     selectMode={selectMode}
                                     isProcessing={scene.id === currentSceneId}
                                     slideshowCount={slideshowImageCount}
                                     onToggleSelect={toggleSelect}
+                                    onSelectDragStart={handleSelectDragStart}
+                                    onSelectDragEnter={handleSelectDragEnter}
                                 />
                             ))}
                         </div>

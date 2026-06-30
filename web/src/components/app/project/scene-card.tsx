@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Provider, useAtom } from 'jotai'
-import { Check, Copy, Image, ListPlus, Loader, Pencil, Trash2 } from 'lucide-react'
+import { Check, Copy, Image, ListPlus, Loader, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,13 @@ import {
     ContextMenuSeparator,
     ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import type { SceneSummary } from '@/lib/api'
 import { api, imageUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
@@ -20,30 +27,36 @@ import { sceneCardDeleteOpenAtom, sceneCardThumbIndexAtom } from './atom'
 
 interface SceneCardProps {
     scene: SceneSummary
+    index: number
     selected?: boolean
     selectMode?: boolean
     isProcessing?: boolean
     slideshowCount?: number
     onToggleSelect?: (id: number) => void
+    onSelectDragStart?: (index: number, selected: boolean) => void
 }
 
 export function SceneCard({
     scene,
+    index,
     selected = false,
     selectMode = false,
     isProcessing = false,
     slideshowCount = 4,
     onToggleSelect,
+    onSelectDragStart,
 }: SceneCardProps) {
     return (
         <Provider>
             <SceneCardContent
                 scene={scene}
+                index={index}
                 selected={selected}
                 selectMode={selectMode}
                 isProcessing={isProcessing}
                 slideshowCount={slideshowCount}
                 onToggleSelect={onToggleSelect}
+                onSelectDragStart={onSelectDragStart}
             />
         </Provider>
     )
@@ -51,11 +64,13 @@ export function SceneCard({
 
 function SceneCardContent({
     scene,
+    index,
     selected = false,
     selectMode = false,
     isProcessing = false,
     slideshowCount = 4,
     onToggleSelect,
+    onSelectDragStart,
 }: SceneCardProps) {
     const navigate = useNavigate()
     const queryClient = useQueryClient()
@@ -122,7 +137,7 @@ function SceneCardContent({
                     render={
                         <div
                             className={cn(
-                                'group relative flex w-56 flex-col overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md',
+                                'group/scene-card relative flex w-56 flex-col overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md',
                                 inQueue &&
                                     'border-primary shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_30%,transparent)]',
                                 selected && 'ring-2 ring-primary ring-offset-2',
@@ -132,10 +147,49 @@ function SceneCardContent({
                 >
                     {/* Queue badge */}
                     {inQueue && (
-                        <div className="absolute top-1.5 right-1.5 z-20 rounded bg-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-primary-foreground shadow">
+                        <div className="absolute top-1.5 right-8 z-20 rounded bg-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-primary-foreground shadow">
                             큐 {queueCount}
                         </div>
                     )}
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger
+                            render={
+                                <Button
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    aria-label={`${scene.name} 메뉴 열기`}
+                                    className="pointer-events-none absolute top-1.5 right-1.5 z-30 rounded bg-black/35 text-white opacity-0 shadow-sm hover:bg-black/55 hover:text-white group-hover/scene-card:pointer-events-auto group-hover/scene-card:opacity-100 aria-expanded:pointer-events-auto aria-expanded:opacity-100"
+                                />
+                            }
+                        >
+                            <MoreHorizontal className="h-3.5 w-3.5" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" sideOffset={6}>
+                            <DropdownMenuItem
+                                onClick={() => enqueue.mutate('front')}
+                                disabled={enqueue.isPending}
+                            >
+                                <ListPlus className="mr-2 h-4 w-4" />큐 맨 앞 추가
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                onClick={() => duplicateScene.mutate()}
+                                disabled={duplicateScene.isPending}
+                            >
+                                <Copy className="mr-2 h-4 w-4" />
+                                복제
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => setDeleteOpen(true)}
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                삭제
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
 
                     {/* Selection checkbox */}
                     {onToggleSelect && (
@@ -143,14 +197,21 @@ function SceneCardContent({
                             type="button"
                             aria-label={selected ? `${scene.name} 선택 해제` : `${scene.name} 선택`}
                             className={cn(
-                                'absolute top-1.5 left-1.5 z-20 flex h-5 w-5 items-center justify-center rounded border-2 shadow-sm transition-colors',
+                                'pointer-events-none absolute top-1.5 left-1.5 z-20 flex h-5 w-5 items-center justify-center rounded border-2 opacity-0 shadow-sm transition-all group-hover/scene-card:pointer-events-auto group-hover/scene-card:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100',
                                 selected
                                     ? 'border-primary bg-primary text-primary-foreground'
                                     : 'border-white/75 bg-black/35 text-transparent hover:border-primary hover:bg-primary hover:text-primary-foreground',
                             )}
                             onClick={(e) => {
                                 e.stopPropagation()
+                                if (onSelectDragStart && e.detail > 0) return
                                 onToggleSelect(scene.id)
+                            }}
+                            onPointerDown={(e) => {
+                                if (!onSelectDragStart || e.button !== 0) return
+                                e.preventDefault()
+                                e.stopPropagation()
+                                onSelectDragStart(index, selected)
                             }}
                         >
                             <Check className="h-3 w-3" />
@@ -160,7 +221,7 @@ function SceneCardContent({
                     {/* Image area */}
                     <button
                         type="button"
-                        className="group relative aspect-[3/4] w-full overflow-hidden bg-muted text-left"
+                        className="group/thumb relative aspect-[3/4] w-full overflow-hidden bg-muted text-left"
                         onClick={() => {
                             if (selectMode && onToggleSelect) {
                                 onToggleSelect(scene.id)
@@ -184,7 +245,7 @@ function SceneCardContent({
                                     currentThumbImg.thumbnailPath ?? currentThumbImg.filePath,
                                 )}
                                 alt={scene.name}
-                                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                className="h-full w-full object-cover transition-transform duration-200 group-hover/thumb:scale-105"
                                 loading="lazy"
                             />
                         )}
