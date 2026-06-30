@@ -29,18 +29,18 @@ export function Header() {
         pathname === '/'
             ? [{ key: '/', label: 'Home' }]
             : pathname
-                  .slice(1)
-                  .split('/')
-                  .reduce<Array<{ key: string; label: string }>>((items, part) => {
-                      const parentKey = items.at(-1)?.key ?? ''
+                .slice(1)
+                .split('/')
+                .reduce<Array<{ key: string; label: string }>>((items, part) => {
+                    const parentKey = items.at(-1)?.key ?? ''
 
-                      items.push({
-                          key: `${parentKey}/${part}`,
-                          label: part.charAt(0).toUpperCase() + part.slice(1),
-                      })
+                    items.push({
+                        key: `${parentKey}/${part}`,
+                        label: part.charAt(0).toUpperCase() + part.slice(1),
+                    })
 
-                      return items
-                  }, [])
+                    return items
+                }, [])
 
     return (
         <header className="sticky top-0 flex shrink-0 items-center gap-2 border-b bg-background p-4">
@@ -74,7 +74,7 @@ function AnlasStatus({
     let tone = 'border-border bg-background text-muted-foreground'
 
     if (pending) label = 'Anlas ...'
-    else if (!status?.configured) label = 'Anlas key 없음'
+    else if (!status?.configured) label = 'API 키 없음'
     else if (status.error) {
         label = status.mode === 'fail' ? 'Anlas fail' : 'Anlas 오류'
         tone = 'border-destructive/30 bg-destructive/10 text-destructive'

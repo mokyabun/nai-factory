@@ -2,6 +2,11 @@ import { File, MoreHorizontal } from 'lucide-react'
 import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import {
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuSeparator,
+} from '@/components/ui/context-menu'
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -10,6 +15,18 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import type { ProjectSummary } from './atom'
+
+interface GroupMenuActions {
+    onCreateProject: () => void
+    onRename: () => void
+    onDelete: () => void
+}
+
+interface ProjectMenuActions {
+    onRename: () => void
+    onDuplicate: () => void
+    onDelete: () => void
+}
 
 export function ProjectDragPreview({ project }: { project: ProjectSummary }) {
     return (
@@ -69,15 +86,7 @@ export function RenameInput({
     )
 }
 
-export function GroupMenu({
-    onCreateProject,
-    onRename,
-    onDelete,
-}: {
-    onCreateProject: () => void
-    onRename: () => void
-    onDelete: () => void
-}) {
+export function GroupMenu({ onCreateProject, onRename, onDelete }: GroupMenuActions) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger
@@ -106,15 +115,20 @@ export function GroupMenu({
     )
 }
 
-export function ProjectMenu({
-    onRename,
-    onDuplicate,
-    onDelete,
-}: {
-    onRename: () => void
-    onDuplicate: () => void
-    onDelete: () => void
-}) {
+export function GroupContextMenuContent({ onCreateProject, onRename, onDelete }: GroupMenuActions) {
+    return (
+        <ContextMenuContent>
+            <ContextMenuItem onClick={onCreateProject}>새 프로젝트</ContextMenuItem>
+            <ContextMenuItem onClick={onRename}>이름 변경</ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
+                삭제
+            </ContextMenuItem>
+        </ContextMenuContent>
+    )
+}
+
+export function ProjectMenu({ onRename, onDuplicate, onDelete }: ProjectMenuActions) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger
@@ -140,6 +154,19 @@ export function ProjectMenu({
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
+    )
+}
+
+export function ProjectContextMenuContent({ onRename, onDuplicate, onDelete }: ProjectMenuActions) {
+    return (
+        <ContextMenuContent>
+            <ContextMenuItem onClick={onRename}>이름 변경</ContextMenuItem>
+            <ContextMenuItem onClick={onDuplicate}>복제</ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
+                삭제
+            </ContextMenuItem>
+        </ContextMenuContent>
     )
 }
 

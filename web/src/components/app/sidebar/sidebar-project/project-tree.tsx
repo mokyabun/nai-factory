@@ -10,6 +10,12 @@ import {
 import { useAtom } from 'jotai'
 import { Plus } from 'lucide-react'
 import { useMemo } from 'react'
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
 import type { GroupWithProjects, ProjectGroupId } from '@/lib/api'
 import { activeProjectDragIdAtom, type ProjectSummary } from './atom'
@@ -64,7 +70,7 @@ export function ProjectTree({
     }
 
     return (
-        <Base.SidebarGroup>
+        <Base.SidebarGroup className="min-h-0 flex-1">
             <Base.SidebarGroupLabel className="flex items-center justify-between pr-1">
                 <span>프로젝트</span>
                 <button
@@ -76,49 +82,60 @@ export function ProjectTree({
                 </button>
             </Base.SidebarGroupLabel>
 
-            <Base.SidebarGroupContent>
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                    onDragCancel={() => setActiveProjectId(null)}
-                >
-                    <Base.SidebarMenu>
-                        {isLoading ? (
-                            <SidebarMessage>불러오는 중...</SidebarMessage>
-                        ) : groupItems.length === 0 && ungroupedProjects.length === 0 ? (
-                            <SidebarMessage>프로젝트가 없습니다</SidebarMessage>
-                        ) : (
-                            <>
-                                {groupItems.map((group) => (
-                                    <ProjectGroup
-                                        key={group.id}
-                                        group={group}
-                                        currentProjectId={currentProjectId}
-                                        rename={rename}
-                                        actions={actions}
-                                        onRenameValueChange={onRenameValueChange}
-                                        onCommitRename={onCommitRename}
-                                        onCancelRename={onCancelRename}
-                                    />
-                                ))}
-                                <RootProjects
-                                    projects={ungroupedProjects}
-                                    currentProjectId={currentProjectId}
-                                    rename={rename}
-                                    actions={actions}
-                                    onRenameValueChange={onRenameValueChange}
-                                    onCommitRename={onCommitRename}
-                                    onCancelRename={onCancelRename}
-                                />
-                            </>
-                        )}
-                    </Base.SidebarMenu>
-                    <DragOverlay>
-                        {activeProject && <ProjectDragPreview project={activeProject} />}
-                    </DragOverlay>
-                </DndContext>
+            <Base.SidebarGroupContent className="flex min-h-0 flex-1 flex-col">
+                <ContextMenu>
+                    <ContextMenuTrigger render={<div className="flex min-h-8 flex-1 flex-col" />}>
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragStart={handleDragStart}
+                            onDragEnd={handleDragEnd}
+                            onDragCancel={() => setActiveProjectId(null)}
+                        >
+                            <Base.SidebarMenu>
+                                {isLoading ? (
+                                    <SidebarMessage>불러오는 중...</SidebarMessage>
+                                ) : groupItems.length === 0 && ungroupedProjects.length === 0 ? (
+                                    <SidebarMessage>프로젝트가 없습니다</SidebarMessage>
+                                ) : (
+                                    <>
+                                        {groupItems.map((group) => (
+                                            <ProjectGroup
+                                                key={group.id}
+                                                group={group}
+                                                currentProjectId={currentProjectId}
+                                                rename={rename}
+                                                actions={actions}
+                                                onRenameValueChange={onRenameValueChange}
+                                                onCommitRename={onCommitRename}
+                                                onCancelRename={onCancelRename}
+                                            />
+                                        ))}
+                                        <RootProjects
+                                            projects={ungroupedProjects}
+                                            currentProjectId={currentProjectId}
+                                            rename={rename}
+                                            actions={actions}
+                                            onRenameValueChange={onRenameValueChange}
+                                            onCommitRename={onCommitRename}
+                                            onCancelRename={onCancelRename}
+                                        />
+                                    </>
+                                )}
+                            </Base.SidebarMenu>
+                            <DragOverlay>
+                                {activeProject && <ProjectDragPreview project={activeProject} />}
+                            </DragOverlay>
+                        </DndContext>
+                    </ContextMenuTrigger>
+
+                    <ContextMenuContent>
+                        <ContextMenuItem onClick={() => actions.createProject(null)}>
+                            새 프로젝트
+                        </ContextMenuItem>
+                        <ContextMenuItem onClick={actions.createGroup}>새 그룹</ContextMenuItem>
+                    </ContextMenuContent>
+                </ContextMenu>
             </Base.SidebarGroupContent>
         </Base.SidebarGroup>
     )
