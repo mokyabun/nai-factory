@@ -265,7 +265,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
                         <div className="flex w-[calc(var(--sidebar-width-icon)_+_1px)] shrink-0 flex-col border-e [&_[data-sidebar=menu-button]>div:last-child]:sr-only">
                             {renderIconRail(true)}
                         </div>
-                        <div className="flex min-w-0 flex-1 flex-col">{renderPanel()}</div>
+                        <div className="flex min-h-0 min-w-0 flex-1 flex-col">{renderPanel()}</div>
                     </div>
                 </SheetContent>
             </Sheet>
@@ -286,7 +286,10 @@ function SidebarContent({ projectId }: AppSidebarProps) {
             </Base.Sidebar>
 
             {/* Panel */}
-            <Base.Sidebar collapsible="none" className="hidden min-w-0 flex-1 !w-auto md:flex">
+            <Base.Sidebar
+                collapsible="none"
+                className="hidden min-h-0 min-w-0 flex-1 !w-auto md:flex"
+            >
                 {renderPanel()}
                 <Base.SidebarRail />
             </Base.Sidebar>

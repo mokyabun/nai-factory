@@ -228,7 +228,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
         <div
             className={cn(
                 'flex h-full min-h-0 flex-col',
-                compact ? 'bg-sidebar' : 'mx-auto w-full max-w-2xl gap-6 p-6',
+                compact ? 'overflow-hidden bg-sidebar' : 'mx-auto w-full max-w-2xl gap-6 p-6',
             )}
         >
             {compact ? (
@@ -259,10 +259,13 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                 <div
                     className={cn(
                         'flex min-h-0 flex-1 flex-col overflow-y-auto',
-                        compact ? 'gap-3 p-2 scrollbar-none' : 'gap-6',
+                        compact ? 'gap-3 p-2' : 'gap-6',
                     )}
                 >
-                    <Card size={compact ? 'sm' : 'default'}>
+                    <Card
+                        className={compact ? 'shrink-0' : undefined}
+                        size={compact ? 'sm' : 'default'}
+                    >
                         <CardHeader>
                             <CardTitle className="text-base">NovelAI API Key</CardTitle>
                             <CardDescription>
@@ -315,7 +318,10 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card size={compact ? 'sm' : 'default'}>
+                    <Card
+                        className={compact ? 'shrink-0' : undefined}
+                        size={compact ? 'sm' : 'default'}
+                    >
                         <CardHeader>
                             <CardTitle className="text-base">전역 변수</CardTitle>
                             <CardDescription>
@@ -394,7 +400,10 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card size={compact ? 'sm' : 'default'}>
+                    <Card
+                        className={compact ? 'shrink-0' : undefined}
+                        size={compact ? 'sm' : 'default'}
+                    >
                         <CardHeader>
                             <CardTitle className="text-base">이미지 저장 설정</CardTitle>
                         </CardHeader>
@@ -499,7 +508,10 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card size={compact ? 'sm' : 'default'}>
+                    <Card
+                        className={compact ? 'shrink-0' : undefined}
+                        size={compact ? 'sm' : 'default'}
+                    >
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <FolderInput className="h-4 w-4" />
@@ -525,7 +537,10 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card size={compact ? 'sm' : 'default'}>
+                    <Card
+                        className={compact ? 'shrink-0' : undefined}
+                        size={compact ? 'sm' : 'default'}
+                    >
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Bug className="h-4 w-4" />
