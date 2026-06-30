@@ -187,3 +187,11 @@ body,
     @apply font-sans;
     }
 }
+
+@layer components {
+    .app-sidebar-no-motion [data-slot="sidebar-gap"],
+    .app-sidebar-no-motion [data-slot="sidebar-container"],
+    .app-sidebar-no-motion [data-slot="sidebar-rail"] {
+        transition: none !important;
+    }
+}

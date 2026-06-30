@@ -262,7 +262,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
                 <SheetContent
                     side="left"
                     showCloseButton={false}
-                    className="!w-[min(100vw,28rem)] !max-w-none bg-sidebar p-0 text-sidebar-foreground"
+                    className="!w-[min(100vw,28rem)] !max-w-none bg-sidebar p-0 text-sidebar-foreground transition-none data-ending-style:translate-x-0 data-ending-style:opacity-100 data-starting-style:translate-x-0 data-starting-style:opacity-100"
                 >
                     <SheetHeader className="sr-only">
                         <SheetTitle>Sidebar</SheetTitle>
@@ -293,13 +293,15 @@ function SidebarContent({ projectId }: AppSidebarProps) {
             </Base.Sidebar>
 
             {/* Panel */}
-            <Base.Sidebar
-                collapsible="none"
-                className="hidden min-h-0 min-w-0 flex-1 !w-auto md:flex"
-            >
-                {renderPanel()}
-                <Base.SidebarRail />
-            </Base.Sidebar>
+            {isSidebarOpen && (
+                <Base.Sidebar
+                    collapsible="none"
+                    className="hidden min-h-0 min-w-0 flex-1 !w-auto md:flex"
+                >
+                    {renderPanel()}
+                    <Base.SidebarRail />
+                </Base.Sidebar>
+            )}
         </Base.Sidebar>
     )
 }
