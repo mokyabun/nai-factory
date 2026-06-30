@@ -89,6 +89,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
 
     const search = useRouterState({ select: (s) => s.location.search })
     const pathname = useRouterState({ select: (s) => s.location.pathname })
+    const isSidebarOpen = isMobile ? openMobile : open
 
     useEffect(() => {
         SidebarProject.preload()
@@ -130,29 +131,30 @@ function SidebarContent({ projectId }: AppSidebarProps) {
     function handlePanelClick(panel: SidebarPanel, to?: '/playground') {
         preloadSidebarPanel(panel)
 
+        if (activePanel === panel && isSidebarOpen) {
+            setSidebarOpen(false)
+            return
+        }
+
         if (isProjectContextPanel(panel)) {
             navigateToProjectContextPanel(panel)
             setActivePanel(panel)
-            if (isMobile) setOpenMobile(true)
-            else setOpen(true)
+            setSidebarOpen(true)
             return
         }
 
         if (to && pathname !== to) {
             navigate({ to })
             setActivePanel(panel)
-            if (isMobile) setOpenMobile(true)
-            else setOpen(true)
+            setSidebarOpen(true)
             return
         }
 
         if (activePanel === panel) {
-            if (isMobile) setOpenMobile(!openMobile)
-            else setOpen(!open)
+            setSidebarOpen(!isSidebarOpen)
         } else {
             setActivePanel(panel)
-            if (isMobile) setOpenMobile(true)
-            else setOpen(true)
+            setSidebarOpen(true)
             navigate({
                 search: (prev) => ({ ...prev, sidebar: panel }),
                 replace: true,
@@ -176,6 +178,11 @@ function SidebarContent({ projectId }: AppSidebarProps) {
             search: (prev) => ({ ...prev, sidebar: panel }),
             replace: pathname === '/',
         })
+    }
+
+    function setSidebarOpen(nextOpen: boolean) {
+        if (isMobile) setOpenMobile(nextOpen)
+        else setOpen(nextOpen)
     }
 
     function renderIconRail(mobile = false) {
