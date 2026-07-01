@@ -1,7 +1,7 @@
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { Provider, useAtom, useAtomValue } from 'jotai'
 import type { LucideIcon } from 'lucide-react'
-import { AlignLeft, File, FlaskConical, ListTodo, Settings } from 'lucide-react'
+import { AlignLeft, File, FlaskConical, ListTodo, ScrollText, Settings } from 'lucide-react'
 import { type ComponentType, type LazyExoticComponent, lazy, Suspense, useEffect } from 'react'
 import {
     Sheet,
@@ -17,7 +17,7 @@ import { activeSidebarPanelAtom, type SidebarPanel } from './atom'
 import { SidebarFooter } from './sidebar-footer'
 import { SidebarHeader } from './sidebar-header'
 
-const SIDEBAR_PANELS = ['project', 'playground', 'prompt', 'queue', 'settings'] as const
+const SIDEBAR_PANELS = ['project', 'playground', 'prompt', 'queue'] as const
 
 type PreloadablePanel<TProps = unknown> = LazyExoticComponent<ComponentType<TProps>> & {
     preload: () => Promise<{ default: ComponentType<TProps> }>
@@ -55,21 +55,15 @@ const SidebarQueue = lazyWithPreload<{ projectId?: number | null }>(() =>
         default: mod.SidebarQueue as ComponentType<{ projectId?: number | null }>,
     })),
 )
-const SidebarSettings = lazyWithPreload<Record<string, never>>(() =>
-    import('./sidebar-settings').then((mod) => ({
-        default: mod.SidebarSettings as ComponentType<Record<string, never>>,
-    })),
-)
-
 interface AppSidebarProps {
     projectId?: number | null
 }
 
 type SidebarItem = {
     title: string
-    panel: SidebarPanel
     icon: LucideIcon
-    to?: '/playground'
+    panel?: SidebarPanel
+    to?: '/playground' | '/log' | '/settings'
 }
 
 export function Sidebar() {
@@ -116,19 +110,27 @@ function SidebarContent({ projectId }: AppSidebarProps) {
             panel: 'prompt' as const,
             icon: AlignLeft,
         },
-        { title: 'Queue', panel: 'queue' as const, icon: ListTodo },
-    ]
-    const bottomItems: SidebarItem[] = [
         {
             title: 'Playground',
             panel: 'playground' as const,
             icon: FlaskConical,
             to: '/playground',
         },
-        { title: '설정', panel: 'settings' as const, icon: Settings },
+        { title: 'Queue', panel: 'queue' as const, icon: ListTodo },
+    ]
+    const bottomItems: SidebarItem[] = [
+        { title: 'Log', icon: ScrollText, to: '/log' },
+        { title: '설정', icon: Settings, to: '/settings' },
     ]
 
-    function handlePanelClick(panel: SidebarPanel, to?: '/playground') {
+    function handleItemClick(item: SidebarItem) {
+        if (!item.panel) {
+            if (item.to && pathname !== item.to) navigate({ to: item.to })
+            setSidebarOpen(false)
+            return
+        }
+
+        const panel = item.panel
         preloadSidebarPanel(panel)
 
         if (activePanel === panel && isSidebarOpen) {
@@ -143,8 +145,8 @@ function SidebarContent({ projectId }: AppSidebarProps) {
             return
         }
 
-        if (to && pathname !== to) {
-            navigate({ to })
+        if (item.to && pathname !== item.to) {
+            navigate({ to: item.to })
             setActivePanel(panel)
             setSidebarOpen(true)
             return
@@ -160,6 +162,12 @@ function SidebarContent({ projectId }: AppSidebarProps) {
                 replace: true,
             })
         }
+    }
+
+    function isSidebarItemActive(item: SidebarItem) {
+        if (!item.panel) return item.to === pathname
+        if (item.to && item.to === pathname) return true
+        return activePanel === item.panel && !isRouteOnlyPath(pathname)
     }
 
     function navigateToProjectContextPanel(panel: SidebarPanel) {
@@ -197,10 +205,14 @@ function SidebarContent({ projectId }: AppSidebarProps) {
                                     <Base.SidebarMenuItem key={item.title}>
                                         <Base.SidebarMenuButton
                                             tooltip={item.title}
-                                            onMouseEnter={() => preloadSidebarPanel(item.panel)}
-                                            onFocus={() => preloadSidebarPanel(item.panel)}
-                                            onClick={() => handlePanelClick(item.panel, item.to)}
-                                            isActive={activePanel === item.panel}
+                                            onMouseEnter={() =>
+                                                item.panel && preloadSidebarPanel(item.panel)
+                                            }
+                                            onFocus={() =>
+                                                item.panel && preloadSidebarPanel(item.panel)
+                                            }
+                                            onClick={() => handleItemClick(item)}
+                                            isActive={isSidebarItemActive(item)}
                                             className={
                                                 mobile
                                                     ? 'h-10 justify-center px-2.5 [&>span]:sr-only'
@@ -217,12 +229,14 @@ function SidebarContent({ projectId }: AppSidebarProps) {
                                         <Base.SidebarMenuItem key={item.title}>
                                             <Base.SidebarMenuButton
                                                 tooltip={item.title}
-                                                onMouseEnter={() => preloadSidebarPanel(item.panel)}
-                                                onFocus={() => preloadSidebarPanel(item.panel)}
-                                                onClick={() =>
-                                                    handlePanelClick(item.panel, item.to)
+                                                onMouseEnter={() =>
+                                                    item.panel && preloadSidebarPanel(item.panel)
                                                 }
-                                                isActive={activePanel === item.panel}
+                                                onFocus={() =>
+                                                    item.panel && preloadSidebarPanel(item.panel)
+                                                }
+                                                onClick={() => handleItemClick(item)}
+                                                isActive={isSidebarItemActive(item)}
                                                 className={
                                                     mobile
                                                         ? 'h-10 justify-center px-2.5 [&>span]:sr-only'
@@ -251,7 +265,6 @@ function SidebarContent({ projectId }: AppSidebarProps) {
                 {activePanel === 'playground' && <SidebarPlayground />}
                 {activePanel === 'prompt' && <SidebarPrompt projectId={projectId ?? null} />}
                 {activePanel === 'queue' && <SidebarQueue projectId={projectId} />}
-                {activePanel === 'settings' && <SidebarSettings />}
             </Suspense>
         )
     }
@@ -311,7 +324,6 @@ function preloadSidebarPanel(panel: SidebarPanel) {
     if (panel === 'playground') SidebarPlayground.preload()
     if (panel === 'prompt') SidebarPrompt.preload()
     if (panel === 'queue') SidebarQueue.preload()
-    if (panel === 'settings') SidebarSettings.preload()
 }
 
 function isSidebarPanel(panel: string): panel is SidebarPanel {
@@ -334,6 +346,10 @@ function isProjectPath(pathname: string) {
 
 function isScenePath(pathname: string) {
     return pathname.startsWith('/scene/')
+}
+
+function isRouteOnlyPath(pathname: string) {
+    return pathname === '/log' || pathname === '/settings'
 }
 
 function SidebarPanelFallback() {
