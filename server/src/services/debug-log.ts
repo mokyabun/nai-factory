@@ -1,4 +1,7 @@
 import type { DebugSettings } from '@nai-factory/shared'
+import { desc, eq } from 'drizzle-orm'
+import { db, debugRequests, sqlite } from '@/db'
+import logger from '@/logger'
 import { realtimeEvents } from './app/events'
 
 export type DebugRequestStatus = 'pending' | 'success' | 'error'
@@ -25,15 +28,24 @@ type BeginDebugRequestOptions = {
     request: unknown
 }
 
-let nextId = 1
-const entries: DebugRequestEntry[] = []
+const log = logger.child({ module: 'debug-log' })
 
 function clampLimit(limit: number) {
     return Math.min(500, Math.max(1, Math.floor(limit) || 20))
 }
 
 function trim(limit: number) {
-    entries.splice(clampLimit(limit))
+    sqlite.run(
+        `
+            DELETE FROM debug_requests
+            WHERE id NOT IN (
+                SELECT id FROM debug_requests
+                ORDER BY id DESC
+                LIMIT ?
+            )
+        `,
+        [clampLimit(limit)],
+    )
 }
 
 function emitChange() {
@@ -66,53 +78,98 @@ function redact(value: unknown): unknown {
     return value
 }
 
-export function beginDebugRequest(options: BeginDebugRequestOptions) {
-    if (!options.settings.enabled) return null
+function errorMessage(error: unknown) {
+    return error instanceof Error ? error.message : String(error)
+}
 
+function insertEntry(entry: Omit<DebugRequestEntry, 'id'>, limit: number) {
+    try {
+        const created = db
+            .insert(debugRequests)
+            .values(entry)
+            .returning({ id: debugRequests.id })
+            .get()
+        trim(limit)
+        emitChange()
+        return created?.id ?? null
+    } catch (error) {
+        log.warn({ err: error }, 'Failed to write debug request log')
+        return null
+    }
+}
+
+function updateEntry(id: number, patch: Partial<Omit<DebugRequestEntry, 'id'>>) {
+    try {
+        db.update(debugRequests).set(patch).where(eq(debugRequests.id, id)).run()
+        emitChange()
+    } catch (error) {
+        log.warn({ err: error, id }, 'Failed to update debug request log')
+    }
+}
+
+export function beginDebugRequest(options: BeginDebugRequestOptions) {
     const startedAt = Date.now()
-    const entry: DebugRequestEntry = {
-        id: nextId++,
+    const createdAt = new Date(startedAt).toISOString()
+    const limit = options.settings.enabled ? options.settings.recentRequestLimit : 500
+    const redactedContext = redact(options.context ?? {}) as Record<string, unknown>
+    const redactedRequest = redact(options.request)
+    const pendingEntry: Omit<DebugRequestEntry, 'id'> = {
         createdAt: new Date(startedAt).toISOString(),
         completedAt: null,
         durationMs: null,
         status: 'pending',
         method: options.method,
         url: options.url,
-        context: options.context ?? {},
-        request: redact(options.request),
+        context: redactedContext,
+        request: redactedRequest,
         response: null,
         error: null,
     }
-
-    entries.unshift(entry)
-    trim(options.settings.recentRequestLimit)
-    emitChange()
+    let entryId = options.settings.enabled ? insertEntry(pendingEntry, limit) : null
 
     return {
         success(response: unknown) {
+            if (entryId === null) return
+
             const completedAt = Date.now()
-            entry.completedAt = new Date(completedAt).toISOString()
-            entry.durationMs = completedAt - startedAt
-            entry.status = 'success'
-            entry.response = redact(response)
-            emitChange()
+            updateEntry(entryId, {
+                completedAt: new Date(completedAt).toISOString(),
+                durationMs: completedAt - startedAt,
+                status: 'success',
+                response: redact(response),
+            })
         },
         error(error: unknown) {
             const completedAt = Date.now()
-            entry.completedAt = new Date(completedAt).toISOString()
-            entry.durationMs = completedAt - startedAt
-            entry.status = 'error'
-            entry.error = error instanceof Error ? error.message : String(error)
-            emitChange()
+            const errorPatch = {
+                completedAt: new Date(completedAt).toISOString(),
+                durationMs: completedAt - startedAt,
+                status: 'error' as const,
+                error: errorMessage(error),
+            }
+
+            if (entryId === null) {
+                entryId = insertEntry(
+                    {
+                        ...pendingEntry,
+                        ...errorPatch,
+                        createdAt,
+                    },
+                    limit,
+                )
+                return
+            }
+
+            updateEntry(entryId, errorPatch)
         },
     }
 }
 
 export function listDebugRequests() {
-    return entries
+    return db.select().from(debugRequests).orderBy(desc(debugRequests.id)).limit(500).all()
 }
 
 export function clearDebugRequests() {
-    entries.length = 0
+    db.delete(debugRequests).run()
     emitChange()
 }

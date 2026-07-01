@@ -3,12 +3,14 @@ import logger from '../logger'
 
 import Initial from './migrations/0000_initial.sql'
 import OrderedVariables from './migrations/0001_ordered_variables.sql'
+import DebugRequests from './migrations/0002_debug_requests.sql'
 
 const log = logger.child({ module: 'migrate' })
 
 const migrations: { tag: string; sql: string }[] = [
     { tag: '0000_initial', sql: Initial },
     { tag: '0001_ordered_variables', sql: OrderedVariables },
+    { tag: '0002_debug_requests', sql: DebugRequests },
 ]
 
 export function migrate(db: Database) {
