@@ -1,3 +1,4 @@
+import type { ProjectSettings } from '@nai-factory/shared'
 import { atom } from 'jotai'
 import type { SceneSummary } from '@/lib/api'
 import { type OrderPatch, reorderById } from '@/lib/reorder'
@@ -6,6 +7,7 @@ export type ProjectPageDialog =
     | { type: 'create-scene' }
     | { type: 'delete-selected' }
     | { type: 'export' }
+    | { type: 'settings' }
     | null
 
 export const sceneItemsAtom = atom<SceneSummary[]>([])
@@ -13,6 +15,7 @@ export const selectedSceneIdsSetAtom = atom<Set<number>>(new Set<number>())
 export const projectPageDialogAtom = atom<ProjectPageDialog>(null)
 export const loadedProjectIdAtom = atom<number | null>(null)
 export const slideshowImageCountAtom = atom(4)
+export const sceneCardSizeAtom = atom<ProjectSettings['sceneCardSize']>('md')
 
 export const selectedSceneIdsAtom = atom((get) => {
     const selectedIds = get(selectedSceneIdsSetAtom)

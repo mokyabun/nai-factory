@@ -7,18 +7,28 @@ import {
     useSensors,
 } from '@dnd-kit/core'
 import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
+import type { ProjectSettings, ProjectSettingsPatch } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { Check, Download, Images, ListPlus, Plus, Trash2, X } from 'lucide-react'
+import { Check, Download, ListPlus, Plus, Settings, Trash2, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
 import { ExportDialog } from '@/components/app/project/export-dialog'
 import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
@@ -27,6 +37,7 @@ import {
     loadedProjectIdAtom,
     projectPageDialogAtom,
     reorderSceneItems,
+    sceneCardSizeAtom,
     sceneItemsAtom,
     selectedSceneCountAtom,
     selectedSceneIdsAtom,
@@ -36,6 +47,12 @@ import {
 } from './atom'
 
 export const Route = createFileRoute('/project/$projectId/')({ component: ProjectPage })
+
+const SCENE_CARD_SIZE_OPTIONS: Array<{ value: ProjectSettings['sceneCardSize']; label: string }> = [
+    { value: 'sm', label: 'SM' },
+    { value: 'md', label: 'MD' },
+    { value: 'lg', label: 'LG' },
+]
 
 interface SelectionDragState {
     startIndex: number
@@ -86,6 +103,7 @@ function ProjectPageContent() {
     const loadedProjectId = useAtomValue(loadedProjectIdAtom)
     const setLoadedProjectId = useSetAtom(loadedProjectIdAtom)
     const [slideshowImageCount, setSlideshowImageCount] = useAtom(slideshowImageCountAtom)
+    const [sceneCardSize, setSceneCardSize] = useAtom(sceneCardSizeAtom)
     const selectedSceneIds = useAtomValue(selectedSceneIdsAtom)
     const selectedCount = useAtomValue(selectedSceneCountAtom)
     const selectMode = useAtomValue(selectModeAtom)
@@ -93,10 +111,8 @@ function ProjectPageContent() {
     const selectionDragRef = useRef<SelectionDragState | null>(null)
 
     const saveProjectSettings = useRef(
-        debounce(async (projectId: number, slideshowImageCount: number) => {
-            const { data } = await api
-                .projects({ projectId })
-                .patch({ settings: { slideshowImageCount } })
+        debounce(async (projectId: number, settings: ProjectSettingsPatch) => {
+            const { data } = await api.projects({ projectId }).patch({ settings })
             if (data) queryClient.setQueryData(qk.project(projectId), data)
         }, 600),
     )
@@ -119,8 +135,15 @@ function ProjectPageContent() {
             saveProjectSettings.current.cancel()
             setLoadedProjectId(project.id)
             setSlideshowImageCount(project.settings.slideshowImageCount)
+            setSceneCardSize(project.settings.sceneCardSize)
         }
-    }, [projectQuery.data, loadedProjectId, setLoadedProjectId, setSlideshowImageCount])
+    }, [
+        projectQuery.data,
+        loadedProjectId,
+        setLoadedProjectId,
+        setSceneCardSize,
+        setSlideshowImageCount,
+    ])
 
     useEffect(() => {
         return () => saveProjectSettings.current.flush()
@@ -247,7 +270,22 @@ function ProjectPageContent() {
     function handleSlideshowImageCountChange(value: string) {
         const nextCount = Math.min(10, Math.max(1, Number(value) || 1))
         setSlideshowImageCount(nextCount)
-        if (loadedProjectId) saveProjectSettings.current(loadedProjectId, nextCount)
+        if (loadedProjectId) {
+            saveProjectSettings.current(loadedProjectId, {
+                slideshowImageCount: nextCount,
+                sceneCardSize,
+            })
+        }
+    }
+
+    function handleSceneCardSizeChange(value: ProjectSettings['sceneCardSize']) {
+        setSceneCardSize(value)
+        if (loadedProjectId) {
+            saveProjectSettings.current(loadedProjectId, {
+                slideshowImageCount,
+                sceneCardSize: value,
+            })
+        }
     }
 
     useEffect(() => {
@@ -361,34 +399,38 @@ function ProjectPageContent() {
                     )}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                    <div className="flex items-center gap-1.5 rounded-md border bg-background px-2 py-1">
-                        <Images className="h-3.5 w-3.5 text-muted-foreground" />
-                        <Label
-                            htmlFor="slideshow-image-count"
-                            className="text-xs text-muted-foreground"
+                    <Tooltip>
+                        <TooltipTrigger
+                            render={
+                                <Button
+                                    variant="outline"
+                                    size="icon-sm"
+                                    aria-label="프로젝트 설정"
+                                    onClick={() => setProjectDialog({ type: 'settings' })}
+                                    disabled={!projectQuery.data}
+                                />
+                            }
                         >
-                            회전
-                        </Label>
-                        <Input
-                            id="slideshow-image-count"
-                            type="number"
-                            min={1}
-                            max={10}
-                            value={slideshowImageCount}
-                            onChange={(e) => handleSlideshowImageCountChange(e.target.value)}
-                            className="h-6 w-12 px-1.5 text-xs"
-                        />
-                    </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={() => setProjectDialog({ type: 'export' })}
-                        disabled={!projectQuery.data}
-                    >
-                        <Download className="h-4 w-4" />
-                        Export
-                    </Button>
+                            <Settings className="h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>프로젝트 설정</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger
+                            render={
+                                <Button
+                                    variant="outline"
+                                    size="icon-sm"
+                                    aria-label="Export"
+                                    onClick={() => setProjectDialog({ type: 'export' })}
+                                    disabled={!projectQuery.data}
+                                />
+                            }
+                        >
+                            <Download className="h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>Export</TooltipContent>
+                    </Tooltip>
                     <Button
                         size="sm"
                         className="gap-1.5"
@@ -425,6 +467,7 @@ function ProjectPageContent() {
                                     selectMode={selectMode}
                                     isProcessing={scene.id === currentSceneId}
                                     slideshowCount={slideshowImageCount}
+                                    cardSize={sceneCardSize}
                                     onToggleSelect={toggleSelect}
                                     onSelectDragStart={handleSelectDragStart}
                                     onSelectDragEnter={handleSelectDragEnter}
@@ -460,7 +503,76 @@ function ProjectPageContent() {
                 project={projectQuery.data ?? null}
                 scenes={items}
             />
+            <ProjectSettingsDialog
+                open={projectDialog?.type === 'settings'}
+                onOpenChange={(open) => {
+                    if (!open) setProjectDialog(null)
+                }}
+                slideshowImageCount={slideshowImageCount}
+                sceneCardSize={sceneCardSize}
+                onSlideshowImageCountChange={handleSlideshowImageCountChange}
+                onSceneCardSizeChange={handleSceneCardSizeChange}
+            />
         </div>
+    )
+}
+
+interface ProjectSettingsDialogProps {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    slideshowImageCount: number
+    sceneCardSize: ProjectSettings['sceneCardSize']
+    onSlideshowImageCountChange: (value: string) => void
+    onSceneCardSizeChange: (value: ProjectSettings['sceneCardSize']) => void
+}
+
+function ProjectSettingsDialog({
+    open,
+    onOpenChange,
+    slideshowImageCount,
+    sceneCardSize,
+    onSlideshowImageCountChange,
+    onSceneCardSizeChange,
+}: ProjectSettingsDialogProps) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>프로젝트 설정</DialogTitle>
+                </DialogHeader>
+
+                <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
+                        <Label htmlFor="project-slideshow-image-count">회전 이미지 개수</Label>
+                        <Input
+                            id="project-slideshow-image-count"
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={slideshowImageCount}
+                            onChange={(event) => onSlideshowImageCountChange(event.target.value)}
+                            className="h-8 text-xs"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
+                        <Label htmlFor="project-scene-card-size">씬 카드 크기</Label>
+                        <Select value={sceneCardSize} onValueChange={onSceneCardSizeChange}>
+                            <SelectTrigger id="project-scene-card-size" className="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {SCENE_CARD_SIZE_OPTIONS.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
     )
 }
 

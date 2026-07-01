@@ -3,6 +3,7 @@ import { CharacterPrompt, Parameters, PromptVariable } from '../app'
 
 export const ProjectSettings = z.object({
     slideshowImageCount: z.number().int().min(1).max(10).default(4),
+    sceneCardSize: z.enum(['sm', 'md', 'lg']).default('md'),
     outputTemplate: z.string().min(1).default('{character}-{scene}-{number}.{extension}'),
 })
 

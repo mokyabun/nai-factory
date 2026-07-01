@@ -23,7 +23,14 @@ import { requireEntity, withNormalizedVariables, withUpdatedAt } from '../utils'
 const log = logger.child({ module: 'project-domain' })
 
 function normalizeProject<T extends typeof projects.$inferSelect>(project: T) {
-    return withNormalizedVariables(project)
+    const normalized = withNormalizedVariables(project)
+    return {
+        ...normalized,
+        settings: {
+            ...DEFAULT_PROJECT_SETTINGS,
+            ...(normalized.settings ?? {}),
+        },
+    }
 }
 
 async function getAllByGroupId(groupId?: number | 'null' | 'ungrouped') {
