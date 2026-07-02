@@ -1,25 +1,5 @@
 import * as z from 'zod'
-import { OptionalOrderBody, ProjectIdParams } from './common'
-
-export type CharacterReferenceUploadFile = {
-    name: string
-    size: number
-    type: string
-    arrayBuffer(): Promise<ArrayBuffer>
-}
-
-function isCharacterReferenceUploadFile(value: unknown): value is CharacterReferenceUploadFile {
-    if (typeof value !== 'object' || value === null) return false
-
-    const file = value as Partial<CharacterReferenceUploadFile>
-    return (
-        typeof file.name === 'string' &&
-        typeof file.size === 'number' &&
-        typeof file.type === 'string' &&
-        file.type.startsWith('image/') &&
-        typeof file.arrayBuffer === 'function'
-    )
-}
+import { ImageUpload, OptionalOrderBody, ProjectIdParams } from './common'
 
 export const CharacterReference = z.object({
     id: z.number(),
@@ -46,13 +26,8 @@ export const CharacterReferenceItemParams = ProjectIdParams.extend({
     id: z.coerce.number().int().positive(),
 })
 
-export const CharacterReferenceImageUpload = z.custom<CharacterReferenceUploadFile>(
-    isCharacterReferenceUploadFile,
-    'An image file is required.',
-)
-
 export const CharacterReferenceUploadBody = z.object({
-    image: CharacterReferenceImageUpload,
+    image: ImageUpload,
 })
 
 export const CharacterReferencePatchBody = z.object({
@@ -68,7 +43,6 @@ export const CharacterReferenceOrderPatchBody = OptionalOrderBody.extend({
 
 export type CharacterReference = z.infer<typeof CharacterReference>
 export type CharacterReferenceItemParams = z.infer<typeof CharacterReferenceItemParams>
-export type CharacterReferenceImageUpload = z.infer<typeof CharacterReferenceImageUpload>
 export type CharacterReferenceUploadBody = z.infer<typeof CharacterReferenceUploadBody>
 export type CharacterReferencePatchBody = z.infer<typeof CharacterReferencePatchBody>
 export type CharacterReferenceOrderPatchBody = z.infer<typeof CharacterReferenceOrderPatchBody>

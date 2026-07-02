@@ -66,10 +66,6 @@ export const ProjectExportResult = z.object({
     assets: z.array(ProjectExportAsset),
 })
 
-export const ProjectListQuery = ProjectGetQuery
-export const CreateProjectBody = ProjectPostBody
-export const UpdateProjectBody = ProjectPatchBody
-
 export type Project = z.infer<typeof Project>
 export type ProjectSettings = z.infer<typeof ProjectSettings>
 export type ProjectSettingsPatch = z.infer<typeof ProjectSettingsPatch>
@@ -79,6 +75,3 @@ export type ProjectPatchBody = z.infer<typeof ProjectPatchBody>
 export type ProjectExportBody = z.infer<typeof ProjectExportBody>
 export type ProjectExportAsset = z.infer<typeof ProjectExportAsset>
 export type ProjectExportResult = z.infer<typeof ProjectExportResult>
-export type ProjectListQuery = ProjectGetQuery
-export type CreateProjectBody = ProjectPostBody
-export type UpdateProjectBody = ProjectPatchBody

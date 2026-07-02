@@ -118,34 +118,12 @@ function getUploadRefs(params: SimpleNovelAIParameters) {
     return { vibes, characterReferences }
 }
 
-export async function generateImage(
-    apiKey: string,
-    params: SimpleNovelAIParameters,
-    debug?: GenerateImageDebugOptions,
-) {
-    const seed = params.seed ?? Math.floor(Math.random() * 2 ** 32)
-    const mode = debug?.mode ?? 'live'
+type UploadRefs = ReturnType<typeof getUploadRefs>
+
+function createGenerateImageRequest(params: SimpleNovelAIParameters, seed: number): NovelAIRequest {
     const enabledChars = params.characterPrompts.filter((c) => c.enabled)
     const vibeTransfers = params.vibeTransfers ?? []
     const characterReferences = params.characterReferences ?? []
-
-    if (mode === 'fail') {
-        throw new Error('NovelAI test failure mode is enabled')
-    }
-
-    if (mode === 'mock') {
-        log.debug(
-            {
-                model: params.model,
-                seed,
-                width: params.width,
-                height: params.height,
-                ...debug?.context,
-            },
-            'NovelAI mock image generated',
-        )
-        return { imageData: createMockImage(params, seed), seed }
-    }
 
     const parameters: NovelAIParameters = {
         params_version: 3,
@@ -241,15 +219,117 @@ export async function generateImage(
         parameters.skip_cfg_above_sigma = null
     }
 
-    const body: NovelAIRequest = {
+    return {
         input: params.prompt,
         model: params.model,
         action: 'generate',
         parameters: parameters,
         use_new_shared_trial: true,
     }
+}
+
+async function postGenerateImageRequest(
+    apiKey: string,
+    body: NovelAIRequest,
+    uploadRefs: UploadRefs,
+    shouldUseMultipart: boolean,
+) {
+    if (shouldUseMultipart) {
+        const form = new FormData()
+
+        for (const ref of uploadRefs.characterReferences) {
+            await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
+        }
+        for (const ref of uploadRefs.vibes) {
+            await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
+        }
+
+        form.append(
+            'request',
+            new Blob([JSON.stringify(body)], { type: 'application/json' }),
+            'blob',
+        )
+
+        return ky
+            .post('https://image.novelai.net/ai/generate-image', {
+                body: form,
+                timeout: 120_000,
+                retry: {
+                    limit: 5,
+                    delay: (attempt) => 1000 * 2 ** (attempt - 1),
+                },
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                    Accept: '*/*',
+                    'Cache-Control': 'no-cache',
+                    Pragma: 'no-cache',
+                },
+            })
+            .arrayBuffer()
+    }
+
+    return ky
+        .post('https://image.novelai.net/ai/generate-image', {
+            json: body,
+            timeout: 120_000,
+            retry: {
+                limit: 5,
+                delay: (attempt) => 1000 * 2 ** (attempt - 1),
+            },
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+            },
+        })
+        .arrayBuffer()
+}
+
+function extractImageFromZip(zipData: ArrayBuffer) {
+    const files = unzipSync(new Uint8Array(zipData))
+
+    if (Object.keys(files).length === 0) {
+        throw new Error('NAI API response zip is empty')
+    }
+
+    const imageEntry = Object.entries(files).find(([name]) => /\.(png|webp|jpg|jpeg)$/i.test(name))
+
+    if (!imageEntry) {
+        throw new Error('No image found in NAI API response ZIP')
+    }
+
+    return { name: imageEntry[0], data: imageEntry[1] }
+}
+
+export async function generateImage(
+    apiKey: string,
+    params: SimpleNovelAIParameters,
+    debug?: GenerateImageDebugOptions,
+) {
+    const seed = params.seed ?? Math.floor(Math.random() * 2 ** 32)
+    const mode = debug?.mode ?? 'live'
+
+    if (mode === 'fail') {
+        throw new Error('NovelAI test failure mode is enabled')
+    }
+
+    if (mode === 'mock') {
+        log.debug(
+            {
+                model: params.model,
+                seed,
+                width: params.width,
+                height: params.height,
+                ...debug?.context,
+            },
+            'NovelAI mock image generated',
+        )
+        return { imageData: createMockImage(params, seed), seed }
+    }
+
+    const body = createGenerateImageRequest(params, seed)
 
     const uploadRefs = getUploadRefs(params)
+    const vibeTransfers = params.vibeTransfers ?? []
+    const characterReferences = params.characterReferences ?? []
     const shouldUseMultipart = vibeTransfers.length > 0 || characterReferences.length > 0
     const startedAt = Date.now()
     log.debug(
@@ -261,7 +341,7 @@ export async function generateImage(
             steps: params.steps,
             sampler: params.sampler,
             noiseSchedule: params.noiseSchedule,
-            characterPromptCount: enabledChars.length,
+            characterPromptCount: body.parameters.characterPrompts.length,
             vibeTransferCount: vibeTransfers.length,
             characterReferenceCount: characterReferences.length,
             multipart: shouldUseMultipart,
@@ -281,90 +361,29 @@ export async function generateImage(
         },
         request: body,
     })
-    let zipData: ArrayBuffer
 
     try {
-        if (shouldUseMultipart) {
-            const form = new FormData()
-
-            for (const ref of uploadRefs.characterReferences) {
-                await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
-            }
-            for (const ref of uploadRefs.vibes) {
-                await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
-            }
-
-            form.append(
-                'request',
-                new Blob([JSON.stringify(body)], { type: 'application/json' }),
-                'blob',
-            )
-
-            zipData = await ky
-                .post('https://image.novelai.net/ai/generate-image', {
-                    body: form,
-                    timeout: 120_000,
-                    retry: {
-                        limit: 5,
-                        delay: (attempt) => 1000 * 2 ** (attempt - 1),
-                    },
-                    headers: {
-                        Authorization: `Bearer ${apiKey}`,
-                        Accept: '*/*',
-                        'Cache-Control': 'no-cache',
-                        Pragma: 'no-cache',
-                    },
-                })
-                .arrayBuffer()
-        } else {
-            zipData = await ky
-                .post('https://image.novelai.net/ai/generate-image', {
-                    json: body,
-                    timeout: 120_000,
-                    retry: {
-                        limit: 5,
-                        delay: (attempt) => 1000 * 2 ** (attempt - 1),
-                    },
-                    headers: {
-                        Authorization: `Bearer ${apiKey}`,
-                    },
-                })
-                .arrayBuffer()
-        }
-
-        const zipUint8 = new Uint8Array(zipData)
-        const files = unzipSync(zipUint8)
-
-        if (Object.keys(files).length === 0) {
-            throw new Error('NAI API response zip is empty')
-        }
-
-        const imageEntry = Object.entries(files).find(([name]) =>
-            /\.(png|webp|jpg|jpeg)$/i.test(name),
-        )
-
-        if (!imageEntry) {
-            throw new Error('No image found in NAI API response ZIP')
-        }
+        const zipData = await postGenerateImageRequest(apiKey, body, uploadRefs, shouldUseMultipart)
+        const image = extractImageFromZip(zipData)
 
         debugRequest?.success({
             seed,
             zipBytes: zipData.byteLength,
-            imageName: imageEntry[0],
-            imageBytes: imageEntry[1].byteLength,
+            imageName: image.name,
+            imageBytes: image.data.byteLength,
         })
         log.debug(
             {
                 seed,
                 zipBytes: zipData.byteLength,
-                imageBytes: imageEntry[1].byteLength,
+                imageBytes: image.data.byteLength,
                 durationMs: Date.now() - startedAt,
                 ...debug?.context,
             },
             'NovelAI image request completed',
         )
 
-        return { imageData: imageEntry[1], seed }
+        return { imageData: image.data, seed }
     } catch (error) {
         debugRequest?.error(error)
         log.error(

@@ -1,4 +1,4 @@
-import type { ImageSettings, Prompt, SimpleNovelAIParameters } from '@nai-factory/shared'
+import type { GlobalSettings, Prompt, SimpleNovelAIParameters } from '@nai-factory/shared'
 import { desc, eq } from 'drizzle-orm'
 import {
     db,
@@ -22,6 +22,75 @@ import { compilePrompts, compileVariables } from './prompt'
 import * as settingsService from './settings'
 
 const log = logger.child({ module: 'queue-runner' })
+
+function randomSeed() {
+    return Math.floor(Math.random() * 1_000_000_000)
+}
+
+function generationParametersMetadata(params: SimpleNovelAIParameters) {
+    return {
+        model: params.model,
+        width: params.width,
+        height: params.height,
+        steps: params.steps,
+        promptGuidance: params.promptGuidance,
+        promptGuidanceRescale: params.promptGuidanceRescale,
+        sampler: params.sampler,
+        noiseSchedule: params.noiseSchedule,
+        seed: params.seed,
+        qualityToggle: params.qualityToggle,
+        varietyPlus: params.varietyPlus,
+        normalizeReferenceStrengthValues: params.normalizeReferenceStrengthValues,
+        useCharacterPositions: params.useCharacterPositions,
+    }
+}
+
+function generationReferenceMetadata(params: SimpleNovelAIParameters) {
+    return {
+        vibeTransfers: params.vibeTransfers.map((ref) => ({
+            strength: ref.strength,
+        })),
+        characterReferences: params.characterReferences.map((ref) => ({
+            strength: ref.strength,
+            fidelity: ref.fidelity,
+            mode: ref.mode,
+        })),
+    }
+}
+
+function createGenerationMetadata(
+    params: SimpleNovelAIParameters,
+    context: Record<string, unknown> = {},
+) {
+    return {
+        generator: 'nai-factory',
+        ...context,
+        generatedAt: new Date().toISOString(),
+        prompt: params.prompt,
+        negativePrompt: params.negativePrompt,
+        characterPrompts: params.characterPrompts,
+        parameters: generationParametersMetadata(params),
+        ...generationReferenceMetadata(params),
+    }
+}
+
+async function generateImageData(
+    params: SimpleNovelAIParameters,
+    globalSettings: Readonly<GlobalSettings>,
+    context: Record<string, unknown>,
+) {
+    const { imageData } = await novelAIService.generateImage(
+        globalSettings.novelai.apiKey,
+        params,
+        {
+            settings: globalSettings.debug,
+            mode: globalSettings.novelai.mode,
+            context,
+        },
+    )
+
+    return imageData
+}
 
 async function loadJobContext(jobId: number) {
     const [job] = await db.select().from(queueItems).where(eq(queueItems.id, jobId)).limit(1)
@@ -70,20 +139,23 @@ async function generateAndSaveImage(
     project: typeof projects.$inferSelect,
     scene: typeof scenes.$inferSelect,
     params: SimpleNovelAIParameters,
-    apiKey: string,
-    imageSettings: ImageSettings,
+    globalSettings: Readonly<GlobalSettings>,
 ): Promise<void> {
-    const { imageData } = await novelAIService.generateImage(apiKey, params, {
-        settings: settingsService.get().debug,
-        mode: settingsService.get().novelai.mode,
-        context: {
-            jobId: job.id,
-            projectId: project.id,
-            projectName: project.name,
-            sceneId: scene.id,
-            sceneName: scene.name,
-            sceneVariationId: job.sceneVariationId,
-        },
+    const imageData = await generateImageData(params, globalSettings, {
+        jobId: job.id,
+        projectId: project.id,
+        projectName: project.name,
+        sceneId: scene.id,
+        sceneName: scene.name,
+        sceneVariationId: job.sceneVariationId,
+    })
+
+    const metadata = createGenerationMetadata(params, {
+        projectId: project.id,
+        projectName: project.name,
+        sceneId: scene.id,
+        sceneName: scene.name,
+        sceneVariationId: job.sceneVariationId,
     })
 
     const [lastImage] = await db
@@ -94,42 +166,6 @@ async function generateAndSaveImage(
         .limit(1)
 
     const newDisplayOrder = nextDisplayOrder(lastImage?.displayOrder)
-    const metadata = {
-        generator: 'nai-factory',
-        generatedAt: new Date().toISOString(),
-        projectId: project.id,
-        projectName: project.name,
-        sceneId: scene.id,
-        sceneName: scene.name,
-        sceneVariationId: job.sceneVariationId,
-        prompt: params.prompt,
-        negativePrompt: params.negativePrompt,
-        characterPrompts: params.characterPrompts,
-        parameters: {
-            model: params.model,
-            width: params.width,
-            height: params.height,
-            steps: params.steps,
-            promptGuidance: params.promptGuidance,
-            promptGuidanceRescale: params.promptGuidanceRescale,
-            sampler: params.sampler,
-            noiseSchedule: params.noiseSchedule,
-            seed: params.seed,
-            qualityToggle: params.qualityToggle,
-            varietyPlus: params.varietyPlus,
-            normalizeReferenceStrengthValues: params.normalizeReferenceStrengthValues,
-            useCharacterPositions: params.useCharacterPositions,
-        },
-        vibeTransfers: params.vibeTransfers.map((ref) => ({
-            strength: ref.strength,
-        })),
-        characterReferences: params.characterReferences.map((ref) => ({
-            strength: ref.strength,
-            fidelity: ref.fidelity,
-            mode: ref.mode,
-        })),
-    }
-
     const [image] = await db
         .insert(images)
         .values({
@@ -149,7 +185,7 @@ async function generateAndSaveImage(
             scene.id,
             image.id,
             imageData,
-            imageSettings,
+            globalSettings.image,
             metadata,
         )
 
@@ -170,43 +206,14 @@ async function generateAndSaveImage(
 async function generateAndSavePlaygroundImage(
     job: typeof playgroundQueueItems.$inferSelect,
     params: SimpleNovelAIParameters,
-    apiKey: string,
-    imageSettings: ImageSettings,
+    globalSettings: Readonly<GlobalSettings>,
 ): Promise<void> {
-    const { imageData } = await novelAIService.generateImage(apiKey, params, {
-        settings: settingsService.get().debug,
-        mode: settingsService.get().novelai.mode,
-        context: {
-            jobId: job.id,
-            source: 'playground',
-        },
+    const imageData = await generateImageData(params, globalSettings, {
+        jobId: job.id,
+        source: 'playground',
     })
 
-    const metadata = {
-        generator: 'nai-factory',
-        source: 'playground',
-        generatedAt: new Date().toISOString(),
-        prompt: params.prompt,
-        negativePrompt: params.negativePrompt,
-        characterPrompts: params.characterPrompts,
-        parameters: {
-            model: params.model,
-            width: params.width,
-            height: params.height,
-            steps: params.steps,
-            promptGuidance: params.promptGuidance,
-            promptGuidanceRescale: params.promptGuidanceRescale,
-            sampler: params.sampler,
-            noiseSchedule: params.noiseSchedule,
-            seed: params.seed,
-            qualityToggle: params.qualityToggle,
-            varietyPlus: params.varietyPlus,
-            normalizeReferenceStrengthValues: params.normalizeReferenceStrengthValues,
-            useCharacterPositions: params.useCharacterPositions,
-        },
-        vibeTransfers: [],
-        characterReferences: [],
-    }
+    const metadata = createGenerationMetadata(params, { source: 'playground' })
 
     const [image] = await db
         .insert(playgroundImages)
@@ -226,7 +233,7 @@ async function generateAndSavePlaygroundImage(
         const { filePath, thumbnailPath } = await imageService.savePlayground(
             image.id,
             imageData,
-            imageSettings,
+            globalSettings.image,
             metadata,
         )
 
@@ -322,7 +329,7 @@ export async function* runJob(jobId: number) {
 
             vibeTransfers,
             characterReferences,
-            seed: project.parameters.seed ?? Math.floor(Math.random() * 1_000_000_000),
+            seed: project.parameters.seed ?? randomSeed(),
         }
 
         log.debug(
@@ -336,14 +343,7 @@ export async function* runJob(jobId: number) {
         )
 
         const variationStart = Date.now()
-        await generateAndSaveImage(
-            job,
-            project,
-            scene,
-            params,
-            globalSettings.novelai.apiKey,
-            globalSettings.image,
-        )
+        await generateAndSaveImage(job, project, scene, params, globalSettings)
         await markUploadedReferenceCaches(params)
         const variationDuration = Date.now() - variationStart
         log.debug(
@@ -391,17 +391,12 @@ export async function* runPlaygroundJob(jobId: number) {
         characterPrompts: [],
         vibeTransfers: [],
         characterReferences: [],
-        seed: job.parameters.seed || Math.floor(Math.random() * 1_000_000_000),
+        seed: job.parameters.seed || randomSeed(),
     }
 
     const variationStart = Date.now()
     log.debug({ jobId, seed: params.seed }, 'Generating playground image')
-    await generateAndSavePlaygroundImage(
-        job,
-        params,
-        globalSettings.novelai.apiKey,
-        globalSettings.image,
-    )
+    await generateAndSavePlaygroundImage(job, params, globalSettings)
     const durationMs = Date.now() - variationStart
     log.debug({ jobId, durationMs }, 'Playground image generation completed')
     yield durationMs

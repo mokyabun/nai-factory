@@ -38,9 +38,6 @@ export const UngroupedProjects = z.object({
 
 export const GroupListItem = z.discriminatedUnion('type', [GroupWithProjects, UngroupedProjects])
 
-export const CreateGroupBody = GroupPostBody
-export const UpdateGroupBody = GroupPatchBody
-
 export type Group = z.infer<typeof Group>
 export type GroupPostBody = z.infer<typeof GroupPostBody>
 export type GroupPatchBody = z.infer<typeof GroupPatchBody>
@@ -48,5 +45,3 @@ export type GroupProjectSummary = z.infer<typeof GroupProjectSummary>
 export type GroupWithProjects = z.infer<typeof GroupWithProjects>
 export type UngroupedProjects = z.infer<typeof UngroupedProjects>
 export type GroupListItem = z.infer<typeof GroupListItem>
-export type CreateGroupBody = GroupPostBody
-export type UpdateGroupBody = GroupPatchBody
