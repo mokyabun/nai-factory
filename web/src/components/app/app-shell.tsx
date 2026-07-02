@@ -53,7 +53,10 @@ export function AppShell({ children }: AppShellProps) {
                     </div>
                 )}
 
-                <SidebarProvider style={{ '--sidebar-width': '350px' } as React.CSSProperties}>
+                <SidebarProvider
+                    className="app-sidebar-no-motion"
+                    style={{ '--sidebar-width': '350px' } as React.CSSProperties}
+                >
                     <Sidebar />
                     <SidebarInset className="flex flex-col overflow-hidden">
                         <Header />

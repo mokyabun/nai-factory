@@ -8,7 +8,7 @@ export interface RenameState {
 
 export interface ProjectTreeActions {
     createGroup: () => void
-    createProject: (group: GroupWithProjects) => void
+    createProject: (group: GroupWithProjects | null) => void
     renameGroup: (group: GroupWithProjects) => void
     deleteGroup: (group: GroupWithProjects) => void
     selectProject: (project: ProjectSummary) => void

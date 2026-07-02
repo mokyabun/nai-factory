@@ -1,15 +1,23 @@
 import type { Database } from 'bun:sqlite'
+import { readFileSync } from 'node:fs'
+import { isAbsolute, join } from 'node:path'
 import logger from '../logger'
-
-import Initial from './migrations/0000_initial.sql'
-import OrderedVariables from './migrations/0001_ordered_variables.sql'
+import InitialPath from './migrations/0000_initial.sql' with { type: 'file' }
+import OrderedVariablesPath from './migrations/0001_ordered_variables.sql' with { type: 'file' }
+import DebugRequestsPath from './migrations/0002_debug_requests.sql' with { type: 'file' }
 
 const log = logger.child({ module: 'migrate' })
 
-const migrations: { tag: string; sql: string }[] = [
-    { tag: '0000_initial', sql: Initial },
-    { tag: '0001_ordered_variables', sql: OrderedVariables },
+const migrations: { tag: string; path: string }[] = [
+    { tag: '0000_initial', path: InitialPath },
+    { tag: '0001_ordered_variables', path: OrderedVariablesPath },
+    { tag: '0002_debug_requests', path: DebugRequestsPath },
 ]
+
+function resolveMigrationPath(path: string) {
+    if (path.startsWith('$bunfs/') || isAbsolute(path)) return path
+    return join(import.meta.dir, path)
+}
 
 export function migrate(db: Database) {
     log.info({ event: 'db.migrations.started' }, 'Running migrations')
@@ -33,7 +41,7 @@ export function migrate(db: Database) {
 
         log.info({ event: 'db.migration.applying', tag: migration.tag }, 'Applying migration')
 
-        const statements = migration.sql
+        const statements = readFileSync(resolveMigrationPath(migration.path), 'utf8')
             .split('--> statement-breakpoint')
             .map((s) => s.trim())
             .filter(Boolean)

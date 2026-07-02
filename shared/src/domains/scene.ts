@@ -1,6 +1,6 @@
 import * as z from 'zod'
 import { CharacterPrompt, PromptVariable } from '../app'
-import { IdParams, OptionalOrderBody } from './common'
+import { OptionalOrderBody } from './common'
 
 export const PromptVariation = PromptVariable
 
@@ -73,13 +73,6 @@ export const ScenePreviewGetQuery = z.object({
     variationId: z.coerce.number().int().positive().optional(),
 })
 
-export const SceneIdParams = IdParams
-export const SceneListQuery = SceneGetQuery
-export const CreateSceneBody = ScenePostBody
-export const UpdateSceneBody = ScenePatchBody
-export const ReorderSceneBody = SceneOrderPatchBody
-export const ScenePreviewQuery = ScenePreviewGetQuery
-
 export type PromptVariation = z.infer<typeof PromptVariation>
 export type ScenePreviewPrompt = z.infer<typeof ScenePreviewPrompt>
 export type ScenePreviewRenderError = z.infer<typeof ScenePreviewRenderError>
@@ -92,9 +85,3 @@ export type ScenePostBody = z.infer<typeof ScenePostBody>
 export type ScenePatchBody = z.infer<typeof ScenePatchBody>
 export type SceneOrderPatchBody = z.infer<typeof SceneOrderPatchBody>
 export type ScenePreviewGetQuery = z.infer<typeof ScenePreviewGetQuery>
-export type SceneIdParams = z.infer<typeof SceneIdParams>
-export type SceneListQuery = SceneGetQuery
-export type CreateSceneBody = ScenePostBody
-export type UpdateSceneBody = ScenePatchBody
-export type ReorderSceneBody = SceneOrderPatchBody
-export type ScenePreviewQuery = ScenePreviewGetQuery

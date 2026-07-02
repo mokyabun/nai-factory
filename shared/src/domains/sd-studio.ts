@@ -14,10 +14,5 @@ export const SdStudioImportBody = z.object({
     options: ImportOptions.optional(),
 })
 
-export const SdStudioImportOptions = ImportOptions
-export const ImportSdStudioBody = SdStudioImportBody
-
 export type ImportOptions = z.infer<typeof ImportOptions>
 export type SdStudioImportBody = z.infer<typeof SdStudioImportBody>
-export type SdStudioImportOptions = ImportOptions
-export type ImportSdStudioBody = SdStudioImportBody

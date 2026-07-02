@@ -8,7 +8,7 @@ export type DeleteTarget =
     | { type: 'project'; project: ProjectSummary }
 export type ProjectDialog =
     | { type: 'create-group' }
-    | { type: 'create-project'; group: GroupWithProjects }
+    | { type: 'create-project'; group: GroupWithProjects | null }
     | { type: 'delete'; target: DeleteTarget }
     | null
 

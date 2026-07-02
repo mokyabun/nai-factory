@@ -286,3 +286,21 @@ export const settings = sqliteTable('settings', {
 
     updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })
+
+export const debugRequests = sqliteTable(
+    'debug_requests',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        completedAt: text('completed_at'),
+        durationMs: integer('duration_ms'),
+        status: text('status').notNull().$type<'pending' | 'success' | 'error'>(),
+        method: text('method').notNull(),
+        url: text('url').notNull(),
+        context: text('context', { mode: 'json' }).notNull().$type<Record<string, unknown>>(),
+        request: text('request', { mode: 'json' }).notNull().$type<unknown>(),
+        response: text('response', { mode: 'json' }).$type<unknown>(),
+        error: text('error'),
+    },
+    (t) => [index('debug_requests_created_at_idx').on(t.createdAt)],
+)

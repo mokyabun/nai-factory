@@ -1,5 +1,4 @@
 import * as z from 'zod'
-import { IdParams } from './common'
 
 export const EnqueuePosition = z.enum(['back', 'front'])
 
@@ -48,13 +47,6 @@ export const QueueEnqueueBulkBody = z.object({
     position: EnqueuePosition.optional(),
 })
 
-export const QueueIdParams = IdParams
-export const QueueListQuery = QueueGetQuery
-export const ClearQueueQuery = QueueClearQuery
-export const EnqueueBody = QueueEnqueueBody
-export const EnqueueAllBody = QueueEnqueueAllBody
-export const EnqueueBulkBody = QueueEnqueueBulkBody
-
 export type EnqueuePosition = z.infer<typeof EnqueuePosition>
 export type QueueItem = z.infer<typeof QueueItem>
 export type PlaygroundQueueItem = z.infer<typeof PlaygroundQueueItem>
@@ -64,9 +56,3 @@ export type QueueClearQuery = z.infer<typeof QueueClearQuery>
 export type QueueEnqueueBody = z.infer<typeof QueueEnqueueBody>
 export type QueueEnqueueAllBody = z.infer<typeof QueueEnqueueAllBody>
 export type QueueEnqueueBulkBody = z.infer<typeof QueueEnqueueBulkBody>
-export type QueueIdParams = z.infer<typeof QueueIdParams>
-export type QueueListQuery = QueueGetQuery
-export type ClearQueueQuery = QueueClearQuery
-export type EnqueueBody = QueueEnqueueBody
-export type EnqueueAllBody = QueueEnqueueAllBody
-export type EnqueueBulkBody = QueueEnqueueBulkBody

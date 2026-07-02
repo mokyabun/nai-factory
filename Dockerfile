@@ -30,10 +30,11 @@ ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN bun --filter @nai-factory/web build \
-    && bun --filter @nai-factory/server build \
+    && bun --filter @nai-factory/server build:prod \
     && rm -rf server/dist/public server/dist/assets \
     && mv web/dist server/dist/public \
-    && cp -R server/assets server/dist/assets
+    && mkdir -p server/dist/assets \
+    && cp server/assets/db.csv server/dist/assets/db.csv
 
 FROM base AS runtime
 

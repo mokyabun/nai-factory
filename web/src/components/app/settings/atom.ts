@@ -41,7 +41,6 @@ const defaultSettingsDraft: SettingsDraft = {
 
 export const settingsDraftAtom = atom<SettingsDraft>(defaultSettingsDraft)
 export const showApiKeyAtom = atom(false)
-export const debugRequestRowOpenAtom = atom(false)
 
 export const settingsPatchAtom = atom((get) => createSettingsPatch(get(settingsDraftAtom)))
 

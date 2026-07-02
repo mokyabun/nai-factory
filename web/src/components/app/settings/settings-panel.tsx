@@ -1,9 +1,8 @@
 import type { SettingsPatchBody } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom, useAtomValue } from 'jotai'
-import { Bug, Eye, EyeOff, FolderInput, Plus, Save, Settings, Trash2, X } from 'lucide-react'
+import { Bug, Eye, EyeOff, FolderInput, Plus, Save, Settings, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -17,7 +16,7 @@ import {
 } from '@/components/ui/select'
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { Switch } from '@/components/ui/switch'
-import { api, type DebugRequestEntry } from '@/lib/api'
+import { api } from '@/lib/api'
 import { variableValidationMessage } from '@/lib/prompt-variables'
 import { qk } from '@/lib/queries'
 import { cn, debounce } from '@/lib/utils'
@@ -27,7 +26,6 @@ import {
     updateSettingsDraft as applySettingsDraftUpdate,
     createSettingsDraft,
     createSettingsPatch,
-    debugRequestRowOpenAtom,
     type ImageFormat,
     removeGlobalVar,
     settingsDraftAtom,
@@ -40,66 +38,6 @@ const IMAGE_FORMATS = [
     { value: 'webp', label: 'WebP' },
     { value: 'avif', label: 'AVIF' },
 ]
-
-function formatDuration(milliseconds: number | null) {
-    if (milliseconds === null) return '-'
-    if (milliseconds >= 1000) return `${(milliseconds / 1000).toFixed(1)}s`
-    return `${milliseconds}ms`
-}
-
-function DebugRequestRow({ request }: { request: DebugRequestEntry }) {
-    return (
-        <Provider>
-            <DebugRequestRowContent request={request} />
-        </Provider>
-    )
-}
-
-function DebugRequestRowContent({ request }: { request: DebugRequestEntry }) {
-    const [open, setOpen] = useAtom(debugRequestRowOpenAtom)
-    const statusVariant =
-        request.status === 'success'
-            ? 'secondary'
-            : request.status === 'error'
-              ? 'destructive'
-              : 'outline'
-
-    return (
-        <div className="rounded border bg-background/40">
-            <button
-                type="button"
-                className="flex w-full items-center gap-2 p-2 text-left"
-                onClick={() => setOpen((v) => !v)}
-            >
-                <Badge variant={statusVariant} className="shrink-0">
-                    {request.status}
-                </Badge>
-                <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
-                    {request.method} {request.url.replace('https://image.novelai.net/ai/', '')}
-                </span>
-                <span className="shrink-0 text-[11px] text-muted-foreground">
-                    {formatDuration(request.durationMs)}
-                </span>
-            </button>
-            {open && (
-                <div className="border-t p-2">
-                    <pre className="max-h-56 overflow-auto rounded bg-muted p-2 text-[10px] leading-relaxed">
-                        {JSON.stringify(
-                            {
-                                context: request.context,
-                                request: request.request,
-                                response: request.response,
-                                error: request.error,
-                            },
-                            null,
-                            2,
-                        )}
-                    </pre>
-                </div>
-            )}
-        </div>
-    )
-}
 
 interface SettingsPanelProps {
     variant?: 'page' | 'sidebar'
@@ -143,15 +81,6 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
     })
     const lastSavedJson = useRef('')
 
-    const debugRequestsQuery = useQuery({
-        queryKey: qk.debugRequests(),
-        queryFn: async () => {
-            const { data } = await api.debug.requests.get()
-            return data ?? []
-        },
-        enabled: debugEnabled,
-    })
-
     useEffect(() => {
         const data = settingsQuery.data
         if (!data) return
@@ -191,11 +120,6 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
         return () => debouncedSaveSettings.current.flush()
     }, [])
 
-    const clearDebugRequests = useMutation({
-        mutationFn: () => api.debug.requests.delete(),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.debugRequests() }),
-    })
-
     function updateSettingsDraft(update: Partial<typeof draft>) {
         setDraft((current) => applySettingsDraftUpdate(current, update))
     }
@@ -228,7 +152,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
         <div
             className={cn(
                 'flex h-full min-h-0 flex-col',
-                compact ? 'bg-sidebar' : 'mx-auto w-full max-w-2xl gap-6 p-6',
+                compact ? 'overflow-hidden bg-sidebar' : 'mx-auto w-full max-w-5xl gap-4 p-2',
             )}
         >
             {compact ? (
@@ -241,7 +165,10 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                 </SidebarHeader>
             ) : (
                 <div className="flex items-center justify-between">
-                    <h1 className="text-xl font-bold">설정</h1>
+                    <div className="flex min-w-0 items-center gap-2">
+                        <Settings className="h-4 w-4 shrink-0" />
+                        <h1 className="truncate text-xl font-bold">설정</h1>
+                    </div>
                     {saveButton}
                 </div>
             )}
@@ -258,11 +185,16 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
             ) : (
                 <div
                     className={cn(
-                        'flex min-h-0 flex-1 flex-col overflow-y-auto',
-                        compact ? 'gap-3 p-2 scrollbar-none' : 'gap-6',
+                        'min-h-0 flex-1 overflow-y-auto',
+                        compact
+                            ? 'flex flex-col gap-3 p-2'
+                            : 'grid auto-rows-min gap-4 pb-4 lg:grid-cols-2',
                     )}
                 >
-                    <Card size={compact ? 'sm' : 'default'}>
+                    <Card
+                        className={compact ? 'shrink-0' : 'lg:col-span-2'}
+                        size={compact ? 'sm' : 'default'}
+                    >
                         <CardHeader>
                             <CardTitle className="text-base">NovelAI API Key</CardTitle>
                             <CardDescription>
@@ -315,7 +247,10 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card size={compact ? 'sm' : 'default'}>
+                    <Card
+                        className={compact ? 'shrink-0' : 'lg:col-span-2'}
+                        size={compact ? 'sm' : 'default'}
+                    >
                         <CardHeader>
                             <CardTitle className="text-base">전역 변수</CardTitle>
                             <CardDescription>
@@ -394,7 +329,10 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card size={compact ? 'sm' : 'default'}>
+                    <Card
+                        className={compact ? 'shrink-0' : 'lg:col-span-2'}
+                        size={compact ? 'sm' : 'default'}
+                    >
                         <CardHeader>
                             <CardTitle className="text-base">이미지 저장 설정</CardTitle>
                         </CardHeader>
@@ -499,7 +437,10 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card size={compact ? 'sm' : 'default'}>
+                    <Card
+                        className={compact ? 'shrink-0' : undefined}
+                        size={compact ? 'sm' : 'default'}
+                    >
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <FolderInput className="h-4 w-4" />
@@ -525,12 +466,18 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card size={compact ? 'sm' : 'default'}>
+                    <Card
+                        className={compact ? 'shrink-0' : undefined}
+                        size={compact ? 'sm' : 'default'}
+                    >
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Bug className="h-4 w-4" />
                                 디버그
                             </CardTitle>
+                            <CardDescription>
+                                실패한 NovelAI 요청은 Log 페이지에 항상 저장됩니다.
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
                             <div className="flex items-center justify-between gap-3">
@@ -566,31 +513,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                     disabled={!debugEnabled}
                                 />
                                 <span className="text-xs text-muted-foreground">개</span>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="ml-auto h-8 w-8"
-                                    disabled={!debugEnabled || clearDebugRequests.isPending}
-                                    onClick={() => clearDebugRequests.mutate()}
-                                >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
                             </div>
-
-                            {debugEnabled && (
-                                <div className="flex flex-col gap-2">
-                                    {(debugRequestsQuery.data ?? []).length === 0 ? (
-                                        <div className="rounded border bg-background/40 p-3 text-xs text-muted-foreground">
-                                            기록 없음
-                                        </div>
-                                    ) : (
-                                        (debugRequestsQuery.data ?? []).map((request) => (
-                                            <DebugRequestRow key={request.id} request={request} />
-                                        ))
-                                    )}
-                                </div>
-                            )}
                         </CardContent>
                     </Card>
                 </div>

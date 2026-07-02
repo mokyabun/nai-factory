@@ -27,6 +27,7 @@ export const DEFAULT_PLAYGROUND_PARAMETERS: Parameters = {
 
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
     slideshowImageCount: 4,
+    sceneCardSize: 'md',
     outputTemplate: '{character}-{scene}-{number}.{extension}',
 }
 

@@ -1,3 +1,4 @@
+import type { ProjectSettings } from '@nai-factory/shared'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Provider, useAtom } from 'jotai'
@@ -32,8 +33,21 @@ interface SceneCardProps {
     selectMode?: boolean
     isProcessing?: boolean
     slideshowCount?: number
+    cardSize?: ProjectSettings['sceneCardSize']
     onToggleSelect?: (id: number) => void
     onSelectDragStart?: (index: number, selected: boolean) => void
+}
+
+const SCENE_CARD_SIZE_CLASSES: Record<ProjectSettings['sceneCardSize'], string> = {
+    sm: 'w-44',
+    md: 'w-56',
+    lg: 'w-72',
+}
+
+const SCENE_CARD_EMPTY_ICON_CLASSES: Record<ProjectSettings['sceneCardSize'], string> = {
+    sm: 'h-8 w-8',
+    md: 'h-10 w-10',
+    lg: 'h-12 w-12',
 }
 
 export function SceneCard({
@@ -43,6 +57,7 @@ export function SceneCard({
     selectMode = false,
     isProcessing = false,
     slideshowCount = 4,
+    cardSize = 'md',
     onToggleSelect,
     onSelectDragStart,
 }: SceneCardProps) {
@@ -55,6 +70,7 @@ export function SceneCard({
                 selectMode={selectMode}
                 isProcessing={isProcessing}
                 slideshowCount={slideshowCount}
+                cardSize={cardSize}
                 onToggleSelect={onToggleSelect}
                 onSelectDragStart={onSelectDragStart}
             />
@@ -69,6 +85,7 @@ function SceneCardContent({
     selectMode = false,
     isProcessing = false,
     slideshowCount = 4,
+    cardSize = 'md',
     onToggleSelect,
     onSelectDragStart,
 }: SceneCardProps) {
@@ -137,7 +154,8 @@ function SceneCardContent({
                     render={
                         <div
                             className={cn(
-                                'group/scene-card relative flex w-56 flex-col overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md',
+                                'group/scene-card relative flex flex-col overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md',
+                                SCENE_CARD_SIZE_CLASSES[cardSize],
                                 inQueue &&
                                     'border-primary shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_30%,transparent)]',
                                 selected && 'ring-2 ring-primary ring-offset-2',
@@ -236,7 +254,12 @@ function SceneCardContent({
                     >
                         {currentThumbImg === null ? (
                             <div className="flex h-full items-center justify-center">
-                                <Image className="h-10 w-10 text-muted-foreground/20" />
+                                <Image
+                                    className={cn(
+                                        'text-muted-foreground/20',
+                                        SCENE_CARD_EMPTY_ICON_CLASSES[cardSize],
+                                    )}
+                                />
                             </div>
                         ) : (
                             <img
@@ -297,26 +320,31 @@ function SceneCardContent({
                             variant="ghost"
                             size="sm"
                             className="h-8 flex-1 gap-1 rounded-none text-xs"
+                            aria-label="큐 추가"
                             onClick={() => enqueue.mutate('back')}
                             disabled={enqueue.isPending}
                         >
-                            <ListPlus className="h-3.5 w-3.5" />큐 추가
+                            <ListPlus className="h-3.5 w-3.5" />
+                            <span className={cn(cardSize === 'sm' && 'sr-only')}>큐 추가</span>
                         </Button>
                         <div className="w-px bg-border" />
                         <Button
                             variant="ghost"
                             size="sm"
                             className="h-8 flex-1 gap-1 rounded-none text-xs text-muted-foreground hover:text-destructive"
+                            aria-label="큐 삭제"
                             onClick={() => clearQueue.mutate()}
                             disabled={clearQueue.isPending || !inQueue}
                         >
-                            <Trash2 className="h-3.5 w-3.5" />큐 삭제
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span className={cn(cardSize === 'sm' && 'sr-only')}>큐 삭제</span>
                         </Button>
                         <div className="w-px bg-border" />
                         <Button
                             variant="ghost"
                             size="sm"
                             className="h-8 flex-1 gap-1 rounded-none text-xs"
+                            aria-label="수정"
                             onClick={() =>
                                 navigate({
                                     to: '/scene/$sceneId',
@@ -325,7 +353,7 @@ function SceneCardContent({
                             }
                         >
                             <Pencil className="h-3.5 w-3.5" />
-                            수정
+                            <span className={cn(cardSize === 'sm' && 'sr-only')}>수정</span>
                         </Button>
                     </div>
                 </ContextMenuTrigger>

@@ -1,6 +1,6 @@
 {
     "name": "@nai-factory/server",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "module": "src/index.js",
     "types": "src/index.ts",
     "imports": {
@@ -10,6 +10,7 @@
     "scripts": {
         "dev": "bun run --hot src/index.ts",
         "build": "bun run build:tag-index && bun build src/index.ts --outdir=dist --target=bun --minify --sourcemap",
+        "build:prod": "rm -rf dist && bun run build:tag-index && bun build src/index.ts --outdir=dist --target=bun --minify --sourcemap=none",
         "build:tag-index": "bun run scripts/build-tag-search-index.ts",
         "start": "bun dist/index.js",
         "test": "bun test",

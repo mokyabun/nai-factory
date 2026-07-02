@@ -95,7 +95,8 @@ function SidebarProjectContent() {
     const [renameTarget, setRenameTarget] = useAtom(renameTargetAtom)
     const [renameValue, setRenameValue] = useAtom(renameValueAtom)
     const deleteTarget = projectDialog?.type === 'delete' ? projectDialog.target : null
-    const createProjectGroup = projectDialog?.type === 'create-project' ? projectDialog.group : null
+    const createProjectGroup =
+        projectDialog?.type === 'create-project' ? projectDialog.group : undefined
 
     const currentProjectId = getCurrentProjectId(pathname)
 
@@ -234,10 +235,10 @@ function SidebarProjectContent() {
                     if (!open) setProjectDialog(null)
                 }}
                 onCreateGroup={(name) => createGroup.mutate(name)}
-                onCreateProject={(name) =>
-                    createProjectGroup &&
-                    createProject.mutate({ groupId: createProjectGroup.id, name })
-                }
+                onCreateProject={(name) => {
+                    if (projectDialog?.type !== 'create-project') return
+                    createProject.mutate({ groupId: createProjectGroup?.id ?? null, name })
+                }}
                 onConfirmDelete={confirmDeleteTarget}
             />
         </>

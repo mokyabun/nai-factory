@@ -125,8 +125,8 @@ Keep your API key, local database, generated images, and `.env` files out of pub
 ## Scripts
 
 ```sh
-bun dev       # Start the API server and web dev server
-bun build     # Build for production
-bun test      # Run tests
-bun check     # Run Biome checks
+bun dev                    # Start the API server and web dev server
+bun build                  # Build for production
+bun test                   # Run tests
+bun check                  # Run Biome checks
 ```
