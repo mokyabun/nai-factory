@@ -8,6 +8,8 @@ import {
     type Parameters,
     type ProjectSettings,
     type PromptVariable,
+    type StashItem,
+    type StashType,
 } from '@nai-factory/shared'
 import { sql } from 'drizzle-orm'
 import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
@@ -286,6 +288,22 @@ export const settings = sqliteTable('settings', {
 
     updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })
+
+export const stashItems = sqliteTable(
+    'stash_items',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        type: text('type').notNull().$type<StashType>(),
+        name: text('name').notNull(),
+        payload: text('payload', { mode: 'json' }).notNull().$type<StashItem['payload']>(),
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at')
+            .notNull()
+            .default(sql`(datetime('now'))`)
+            .$onUpdate(() => new Date().toISOString()),
+    },
+    (t) => [index('stash_items_type_updated_at_idx').on(t.type, t.updatedAt)],
+)
 
 export const debugRequests = sqliteTable(
     'debug_requests',

@@ -38,6 +38,12 @@ import type {
     ScenePreviewResult,
     SdStudioImportBody,
     SettingsPatchBody,
+    StashApplyBody,
+    StashApplyResult,
+    StashGetQuery,
+    StashItem,
+    StashPatchBody,
+    StashPostBody,
     Tag,
     TagAutocompleteGetQuery,
     VibeTransfer,
@@ -405,11 +411,30 @@ const images = Object.assign(
     },
 )
 
+const stash = Object.assign(
+    ({ id }: EntityId) => ({
+        get: () => request<StashItem>(`/stash/${id}`),
+        patch: (json: StashPatchBody) =>
+            request<StashItem>(`/stash/${id}`, { method: 'patch', json }),
+        delete: () => request<void>(`/stash/${id}`, { method: 'delete' }),
+        apply: {
+            post: (json: StashApplyBody) =>
+                request<StashApplyResult>(`/stash/${id}/apply`, { method: 'post', json }),
+        },
+    }),
+    {
+        get: ({ query }: { query?: StashGetQuery } = {}) =>
+            request<StashItem[]>('/stash', { searchParams: query }),
+        post: (json: StashPostBody) => request<StashItem>('/stash', { method: 'post', json }),
+    },
+)
+
 export const api = {
     groups,
     projects,
     scenes,
     images,
+    stash,
     queue: {
         get: ({ query }: { query?: { projectId?: number } } = {}) =>
             request<AnyQueueItem[]>('/queue', { searchParams: query }),

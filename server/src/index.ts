@@ -18,6 +18,7 @@ import {
     sdStudio,
     setting,
     sse,
+    stash,
     tag,
     vibeTransfer,
 } from './domains'
@@ -44,6 +45,7 @@ function routeApi(app: Hono<AppEnv>, prefix: string) {
         .route(`${prefix}/queue`, queue)
         .route(`${prefix}/sd-studio`, sdStudio)
         .route(`${prefix}/settings`, setting)
+        .route(`${prefix}/stash`, stash)
         .route(prefix || '/', sse)
         .route(`${prefix}/tags`, tag)
         .get(`${prefix}/data/*`, async (c) => {

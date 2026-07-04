@@ -5,6 +5,7 @@ import logger from '../logger'
 import InitialPath from './migrations/0000_initial.sql' with { type: 'file' }
 import OrderedVariablesPath from './migrations/0001_ordered_variables.sql' with { type: 'file' }
 import DebugRequestsPath from './migrations/0002_debug_requests.sql' with { type: 'file' }
+import StashItemsPath from './migrations/0003_stash_items.sql' with { type: 'file' }
 
 const log = logger.child({ module: 'migrate' })
 
@@ -12,6 +13,7 @@ const migrations: { tag: string; path: string }[] = [
     { tag: '0000_initial', path: InitialPath },
     { tag: '0001_ordered_variables', path: OrderedVariablesPath },
     { tag: '0002_debug_requests', path: DebugRequestsPath },
+    { tag: '0003_stash_items', path: StashItemsPath },
 ]
 
 function resolveMigrationPath(path: string) {

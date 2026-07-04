@@ -7,6 +7,7 @@ export type ProjectPageDialog =
     | { type: 'create-scene' }
     | { type: 'delete-selected' }
     | { type: 'export' }
+    | { type: 'stash' }
     | { type: 'settings' }
     | null
 
