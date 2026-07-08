@@ -40,7 +40,10 @@ export function useJsonDrop(): UseJsonDropResult {
         e.preventDefault()
         dragCounter.current = 0
         setIsDragOver(false)
-        const file = Array.from(e.dataTransfer.files).find((f) => f.name.endsWith('.json'))
+        const file = Array.from(e.dataTransfer.files).find((f) => {
+            const name = f.name.toLowerCase()
+            return name.endsWith('.json') || name.endsWith('.naif')
+        })
         if (file) setPendingFile(file)
     }
 

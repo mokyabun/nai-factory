@@ -2,6 +2,10 @@ import { zValidator } from '@hono/zod-validator'
 import {
     IdParams,
     SceneGetQuery,
+    type SceneJsonData,
+    SceneJsonExportBody,
+    SceneJsonImportBody,
+    type SceneJsonScene,
     SceneOrderPatchBody,
     ScenePatchBody,
     ScenePostBody,
@@ -243,6 +247,81 @@ async function create(body: ScenePostBody) {
     return { ...scene, variations: [] }
 }
 
+function normalizeSceneJsonData(data: SceneJsonData): SceneJsonScene[] {
+    if (Array.isArray(data)) return data
+    if ('scenes' in data) return data.scenes
+    return [data]
+}
+
+async function exportSceneJson(body: typeof SceneJsonExportBody._output) {
+    await getProject(body.projectId)
+
+    const selectedIds = body.sceneIds ? new Set(body.sceneIds) : null
+    const sourceScenes = await db
+        .select()
+        .from(scenes)
+        .where(eq(scenes.projectId, body.projectId))
+        .orderBy(asc(scenes.displayOrder), asc(scenes.id))
+        .then((rows) => (selectedIds ? rows.filter((row) => selectedIds.has(row.id)) : rows))
+    const variations = await getVariationsBySceneIds(sourceScenes.map((scene) => scene.id))
+
+    return {
+        scenes: sourceScenes.map((scene) => ({
+            name: scene.name,
+            variations: (variations.get(scene.id) ?? []).map((variation) => ({
+                variables: variation.variables,
+            })),
+        })),
+    }
+}
+
+async function importSceneJson(body: typeof SceneJsonImportBody._output) {
+    await getProject(body.projectId)
+    const items = normalizeSceneJsonData(body.data)
+    const created = []
+    let variationCount = 0
+    let previousOrder = await getLastOrder(body.projectId)
+
+    for (const item of items) {
+        const displayOrder = nextDisplayOrder(previousOrder)
+        const [scene] = await db
+            .insert(scenes)
+            .values({
+                projectId: body.projectId,
+                name: item.name,
+                displayOrder,
+            })
+            .returning()
+        if (!scene) throw new HTTPException(500, { message: 'Failed to import scene' })
+
+        if (item.variations.length > 0) {
+            await db.insert(sceneVariations).values(
+                item.variations.map((variation, index) => ({
+                    sceneId: scene.id,
+                    displayOrder: variationOrder(index),
+                    variables: variation.variables,
+                })),
+            )
+            variationCount += item.variations.length
+        }
+
+        created.push({ ...scene, variations: [] })
+        previousOrder = displayOrder
+    }
+
+    log.info(
+        {
+            event: 'scene_json.import.completed',
+            projectId: body.projectId,
+            importedScenes: created.length,
+            importedVariations: variationCount,
+        },
+        'Scene JSON import completed',
+    )
+
+    return { imported: created.length, scenes: created }
+}
+
 async function update(id: number, body: ScenePatchBody) {
     await getScene(id)
 
@@ -427,6 +506,12 @@ export const scene = new Hono()
     )
     .post('/', zValidator('json', ScenePostBody), async (c) => {
         return c.json(await create(c.req.valid('json')), 201)
+    })
+    .post('/export-json', zValidator('json', SceneJsonExportBody), async (c) => {
+        return c.json(await exportSceneJson(c.req.valid('json')))
+    })
+    .post('/import-json', zValidator('json', SceneJsonImportBody), async (c) => {
+        return c.json(await importSceneJson(c.req.valid('json')), 201)
     })
     .patch('/:id', zValidator('param', IdParams), zValidator('json', ScenePatchBody), async (c) => {
         return c.json(await update(c.req.valid('param').id, c.req.valid('json')))

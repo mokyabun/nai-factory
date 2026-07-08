@@ -5,7 +5,7 @@ import {
 } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Archive, CircleHelp, Download, FolderDown, Server, Upload } from 'lucide-react'
+import { Archive, CircleHelp, Download, FileJson, FolderDown, Server, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -34,13 +34,21 @@ interface ExportDialogProps {
     onOpenChange: (open: boolean) => void
     project: Project | null
     scenes: SceneSummary[]
+    selectedSceneIds?: number[]
 }
 
 type ExportMethod = 'zip' | 'directory' | 'server'
 type ArchiveMethod = 'archive' | 'import'
-type PendingMethod = ExportMethod | ArchiveMethod
+type SceneJsonMethod = 'scene-json'
+type PendingMethod = ExportMethod | ArchiveMethod | SceneJsonMethod
 
-export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDialogProps) {
+export function ExportDialog({
+    open,
+    onOpenChange,
+    project,
+    scenes,
+    selectedSceneIds = [],
+}: ExportDialogProps) {
     const queryClient = useQueryClient()
     const navigate = useNavigate()
     const projectId = project?.id ?? null
@@ -122,6 +130,24 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
         URL.revokeObjectURL(url)
     }
 
+    async function exportSceneJson() {
+        if (!project) return
+        const sceneIds = selectedSceneIds.length > 0 ? selectedSceneIds : undefined
+        const { data, error } = await api.scenes['export-json'].post({
+            projectId: project.id,
+            sceneIds,
+        })
+        if (error || !data) throw new Error('Scene JSON export failed')
+
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `${sanitizeFilename(project.name)}-scenes.json`
+        link.click()
+        URL.revokeObjectURL(url)
+    }
+
     async function importProjectArchive() {
         if (!importFile) return
 
@@ -188,6 +214,7 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
         try {
             if (method === 'archive') await exportProjectArchive()
             else if (method === 'import') await importProjectArchive()
+            else if (method === 'scene-json') await exportSceneJson()
             else if (method === 'zip') await exportZip()
             else if (method === 'directory') await exportDirectory()
             else await exportServer()
@@ -203,7 +230,10 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
     const disabled = !project || !template.trim() || pendingMethod !== null
     const archiveDisabled = !project || pendingMethod !== null
     const importDisabled = !importFile || pendingMethod !== null
+    const sceneJsonDisabled = !project || scenes.length === 0 || pendingMethod !== null
     const preview = renderPreviewFilename(project, scenes, previewTemplate)
+    const sceneJsonTargetCount =
+        selectedSceneIds.length > 0 ? selectedSceneIds.length : scenes.length
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -379,6 +409,33 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
                                 }
                             />
                         </div>
+                    </section>
+
+                    <div className="border-t" />
+
+                    <section className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex flex-col gap-0.5">
+                                <h3 className="text-sm font-medium">Scene JSON</h3>
+                                <p className="text-xs text-muted-foreground">
+                                    씬 이름과 variation만 JSON으로 다운로드
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="gap-2"
+                                disabled={sceneJsonDisabled}
+                                onClick={() => run('scene-json')}
+                            >
+                                <FileJson className="h-4 w-4" />
+                                {pendingMethod === 'scene-json' ? '생성 중...' : 'JSON 다운로드'}
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            대상 씬 {sceneJsonTargetCount}개
+                        </p>
                     </section>
 
                     <div className="border-t" />

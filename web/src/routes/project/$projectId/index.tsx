@@ -573,6 +573,7 @@ function ProjectPageContent() {
                 }}
                 project={projectQuery.data ?? null}
                 scenes={items}
+                selectedSceneIds={selectedSceneIds}
             />
             <ProjectSettingsDialog
                 open={projectDialog?.type === 'settings'}

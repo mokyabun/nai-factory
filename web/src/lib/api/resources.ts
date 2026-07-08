@@ -31,6 +31,9 @@ import type {
     QueueEnqueueBulkBody,
     Scene,
     SceneGetQuery,
+    SceneJsonExportBody,
+    SceneJsonFile,
+    SceneJsonImportBody,
     SceneOrderPatchBody,
     ScenePatchBody,
     ScenePostBody,
@@ -190,6 +193,14 @@ const scenes = Object.assign(
     {
         get: ({ query }: { query: SceneGetQuery }) => http.get<SceneSummary[]>('/scenes', query),
         post: (json: ScenePostBody) => http.post<Scene>('/scenes', json),
+        'export-json': {
+            post: (json: SceneJsonExportBody) =>
+                http.post<SceneJsonFile>('/scenes/export-json', json),
+        },
+        'import-json': {
+            post: (json: SceneJsonImportBody) =>
+                http.post<{ imported: number; scenes: Scene[] }>('/scenes/import-json', json),
+        },
     },
 )
 
