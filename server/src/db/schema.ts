@@ -12,7 +12,15 @@ import {
     type StashType,
 } from '@nai-factory/shared'
 import { sql } from 'drizzle-orm'
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import {
+    type AnySQLiteColumn,
+    index,
+    integer,
+    real,
+    sqliteTable,
+    text,
+    uniqueIndex,
+} from 'drizzle-orm/sqlite-core'
 
 export const assets = sqliteTable(
     'assets',
@@ -35,6 +43,9 @@ export const groups = sqliteTable(
     'groups',
     {
         id: integer('id').primaryKey(),
+        parentGroupId: integer('parent_group_id').references((): AnySQLiteColumn => groups.id, {
+            onDelete: 'cascade',
+        }),
         name: text('name').notNull(),
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
         updatedAt: text('updated_at')
@@ -42,7 +53,10 @@ export const groups = sqliteTable(
             .default(sql`(datetime('now'))`)
             .$onUpdate(() => new Date().toISOString()),
     },
-    (t) => [index('groups_name_idx').on(t.name)],
+    (t) => [
+        index('groups_parent_group_id_name_id_idx').on(t.parentGroupId, t.name, t.id),
+        index('groups_name_idx').on(t.name),
+    ],
 )
 
 export const projects = sqliteTable(

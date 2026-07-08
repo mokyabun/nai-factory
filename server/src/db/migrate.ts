@@ -52,5 +52,28 @@ export function migrate(db: Database) {
         })()
     }
 
+    ensureNestedGroupSchema(db)
+
     log.info({ event: 'db.migrations.completed' }, 'Migrations complete')
+}
+
+function ensureNestedGroupSchema(db: Database) {
+    const columns = db.query("PRAGMA table_info('groups')").all() as { name: string }[]
+    if (columns.some((column) => column.name === 'parent_group_id')) return
+
+    log.info(
+        { event: 'db.schema.compat', table: 'groups', column: 'parent_group_id' },
+        'Adding nested group parent column',
+    )
+
+    db.transaction(() => {
+        db.run(`
+            ALTER TABLE groups
+            ADD COLUMN parent_group_id integer REFERENCES groups(id) ON DELETE cascade
+        `)
+        db.run(`
+            CREATE INDEX IF NOT EXISTS groups_parent_group_id_name_id_idx
+            ON groups (parent_group_id, name, id)
+        `)
+    })()
 }

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "4c350ad9-25c7-4e3a-a217-9bb1caaa30f1",
+  "id": "287f04df-c54c-4548-89b3-71107db4cbad",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "assets": {
@@ -427,6 +427,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "parent_group_id": {
+          "name": "parent_group_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -452,6 +459,15 @@
         }
       },
       "indexes": {
+        "groups_parent_group_id_name_id_idx": {
+          "name": "groups_parent_group_id_name_id_idx",
+          "columns": [
+            "parent_group_id",
+            "name",
+            "id"
+          ],
+          "isUnique": false
+        },
         "groups_name_idx": {
           "name": "groups_name_idx",
           "columns": [
@@ -460,7 +476,21 @@
           "isUnique": false
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "groups_parent_group_id_groups_id_fk": {
+          "name": "groups_parent_group_id_groups_id_fk",
+          "tableFrom": "groups",
+          "tableTo": "groups",
+          "columnsFrom": [
+            "parent_group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}

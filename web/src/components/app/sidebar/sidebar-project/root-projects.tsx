@@ -23,16 +23,14 @@ export function RootProjects({
     if (projects.length === 0) {
         return (
             <Base.SidebarMenuItem ref={setNodeRef}>
-                <div
-                    className={cn('mt-1 min-h-4 transition-colors', isOver && 'bg-sidebar-accent')}
-                />
+                <div className={cn('mt-1 min-h-4 transition-colors', isOver && 'bg-primary/10')} />
             </Base.SidebarMenuItem>
         )
     }
 
     return (
         <Base.SidebarMenuItem ref={setNodeRef}>
-            <div className={cn('mt-1 flex flex-col gap-0.5', isOver && 'bg-sidebar-accent')}>
+            <div className={cn('mt-1 flex flex-col gap-0.5', isOver && 'bg-primary/10')}>
                 {projects.map((project) => (
                     <ProjectRow
                         key={project.id}

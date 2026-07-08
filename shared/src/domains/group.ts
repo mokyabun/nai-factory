@@ -3,6 +3,7 @@ import { Project } from './project'
 
 export const Group = z.object({
     id: z.number(),
+    parentGroupId: z.number().nullable(),
 
     name: z.string(),
 
@@ -11,10 +12,12 @@ export const Group = z.object({
 })
 
 export const GroupPostBody = z.object({
+    parentGroupId: z.number().int().positive().nullable().optional(),
     name: z.string().min(1),
 })
 
 export const GroupPatchBody = z.object({
+    parentGroupId: z.number().int().positive().nullable().optional(),
     name: z.string().min(1).optional(),
 })
 
@@ -24,9 +27,16 @@ export const GroupProjectSummary = Project.pick({
     name: true,
 })
 
-export const GroupWithProjects = Group.extend({
+export type GroupWithProjects = Group & {
+    type: 'group'
+    projects: GroupProjectSummary[]
+    groups: GroupWithProjects[]
+}
+
+export const GroupWithProjects: z.ZodType<GroupWithProjects> = Group.extend({
     type: z.literal('group'),
     projects: z.array(GroupProjectSummary),
+    groups: z.lazy(() => z.array(GroupWithProjects)),
 })
 
 export const UngroupedProjects = z.object({
@@ -36,12 +46,14 @@ export const UngroupedProjects = z.object({
     projects: z.array(GroupProjectSummary),
 })
 
-export const GroupListItem = z.discriminatedUnion('type', [GroupWithProjects, UngroupedProjects])
+export const GroupListItem: z.ZodType<GroupWithProjects | UngroupedProjects> = z.union([
+    GroupWithProjects,
+    UngroupedProjects,
+])
 
 export type Group = z.infer<typeof Group>
 export type GroupPostBody = z.infer<typeof GroupPostBody>
 export type GroupPatchBody = z.infer<typeof GroupPatchBody>
 export type GroupProjectSummary = z.infer<typeof GroupProjectSummary>
-export type GroupWithProjects = z.infer<typeof GroupWithProjects>
 export type UngroupedProjects = z.infer<typeof UngroupedProjects>
-export type GroupListItem = z.infer<typeof GroupListItem>
+export type GroupListItem = GroupWithProjects | UngroupedProjects

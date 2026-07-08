@@ -58,11 +58,14 @@ CREATE TABLE `debug_requests` (
 CREATE INDEX `debug_requests_created_at_idx` ON `debug_requests` (`created_at`);--> statement-breakpoint
 CREATE TABLE `groups` (
 	`id` integer PRIMARY KEY NOT NULL,
+	`parent_group_id` integer,
 	`name` text NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
-	`updated_at` text DEFAULT (datetime('now')) NOT NULL
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (`parent_group_id`) REFERENCES `groups`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE INDEX `groups_parent_group_id_name_id_idx` ON `groups` (`parent_group_id`,`name`,`id`);--> statement-breakpoint
 CREATE INDEX `groups_name_idx` ON `groups` (`name`);--> statement-breakpoint
 CREATE TABLE `images` (
 	`id` integer PRIMARY KEY NOT NULL,

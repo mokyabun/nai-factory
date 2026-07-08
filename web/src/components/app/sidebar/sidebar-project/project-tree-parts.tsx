@@ -1,4 +1,4 @@
-import { File, MoreHorizontal } from 'lucide-react'
+import { File, Folder, MoreHorizontal } from 'lucide-react'
 import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,9 +14,11 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import type { GroupWithProjects } from '@/lib/api'
 import type { ProjectSummary } from './atom'
 
 interface GroupMenuActions {
+    onCreateGroup: () => void
     onCreateProject: () => void
     onRename: () => void
     onDelete: () => void
@@ -33,6 +35,15 @@ export function ProjectDragPreview({ project }: { project: ProjectSummary }) {
         <div className="flex h-7 min-w-36 items-center gap-2 border bg-popover px-2 text-xs text-popover-foreground shadow">
             <File className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{project.name}</span>
+        </div>
+    )
+}
+
+export function GroupDragPreview({ group }: { group: GroupWithProjects }) {
+    return (
+        <div className="flex h-7 min-w-36 items-center gap-2 border bg-popover px-2 text-xs text-popover-foreground shadow">
+            <Folder className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{group.name}</span>
         </div>
     )
 }
@@ -86,7 +97,12 @@ export function RenameInput({
     )
 }
 
-export function GroupMenu({ onCreateProject, onRename, onDelete }: GroupMenuActions) {
+export function GroupMenu({
+    onCreateGroup,
+    onCreateProject,
+    onRename,
+    onDelete,
+}: GroupMenuActions) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger
@@ -101,6 +117,7 @@ export function GroupMenu({ onCreateProject, onRename, onDelete }: GroupMenuActi
                 <MoreHorizontal className="h-3.5 w-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={onCreateGroup}>새 하위 그룹</DropdownMenuItem>
                 <DropdownMenuItem onClick={onCreateProject}>새 프로젝트</DropdownMenuItem>
                 <DropdownMenuItem onClick={onRename}>이름 변경</DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -115,9 +132,15 @@ export function GroupMenu({ onCreateProject, onRename, onDelete }: GroupMenuActi
     )
 }
 
-export function GroupContextMenuContent({ onCreateProject, onRename, onDelete }: GroupMenuActions) {
+export function GroupContextMenuContent({
+    onCreateGroup,
+    onCreateProject,
+    onRename,
+    onDelete,
+}: GroupMenuActions) {
     return (
         <ContextMenuContent>
+            <ContextMenuItem onClick={onCreateGroup}>새 하위 그룹</ContextMenuItem>
             <ContextMenuItem onClick={onCreateProject}>새 프로젝트</ContextMenuItem>
             <ContextMenuItem onClick={onRename}>이름 변경</ContextMenuItem>
             <ContextMenuSeparator />
