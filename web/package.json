@@ -12,6 +12,7 @@
         "preview": "vite preview",
         "start": "vite preview",
         "test": "vitest run --passWithNoTests",
+        "check:type": "tsc --noEmit",
         "check": "biome check .",
         "check:fix": "biome check --write .",
         "format": "biome format .",

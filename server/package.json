@@ -14,6 +14,7 @@
         "build:tag-index": "bun run scripts/build-tag-search-index.ts",
         "start": "bun dist/index.js",
         "test": "bun test",
+        "check:type": "tsc --noEmit",
         "db:generate": "drizzle-kit generate",
         "db:migrate": "bun run src/db/migrate.ts",
         "check": "biome check .",

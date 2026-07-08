@@ -2,6 +2,25 @@ import * as z from 'zod'
 import { CharacterPrompt, Parameters, PromptVariable } from '../app'
 import { ProjectSettings } from './project'
 
+export type ProjectArchiveUploadFile = {
+    name: string
+    size: number
+    type: string
+    arrayBuffer(): Promise<ArrayBuffer>
+}
+
+function isProjectArchiveUploadFile(value: unknown): value is ProjectArchiveUploadFile {
+    if (typeof value !== 'object' || value === null) return false
+
+    const file = value as Partial<ProjectArchiveUploadFile>
+    return (
+        typeof file.name === 'string' &&
+        typeof file.size === 'number' &&
+        typeof file.type === 'string' &&
+        typeof file.arrayBuffer === 'function'
+    )
+}
+
 export const PROJECT_ARCHIVE_FORMAT = 'nai-factory.project'
 export const PROJECT_ARCHIVE_FORMAT_VERSION = 1
 export const PROJECT_ARCHIVE_EXTENSION = 'naif'
@@ -42,6 +61,13 @@ export const DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS: ProjectArchiveIncludeOptio
 
 export const ProjectArchiveExportBody = z.object({
     include: ProjectArchiveIncludeOptions.partial().default({}),
+})
+
+export const ProjectArchiveImportBody = z.object({
+    archive: z.custom<ProjectArchiveUploadFile>(
+        isProjectArchiveUploadFile,
+        'A .naif archive file is required.',
+    ),
 })
 
 export const ProjectArchiveAssetKind = z.enum([
@@ -146,6 +172,7 @@ export const ProjectArchiveV1 = z.object({
 export const ProjectArchiveManifest = ProjectArchiveV1
 
 export type ProjectArchiveExportBody = z.infer<typeof ProjectArchiveExportBody>
+export type ProjectArchiveImportBody = z.infer<typeof ProjectArchiveImportBody>
 export type ProjectArchiveAssetKind = z.infer<typeof ProjectArchiveAssetKind>
 export type ProjectArchiveAsset = z.infer<typeof ProjectArchiveAsset>
 export type ProjectArchiveSceneVariation = z.infer<typeof ProjectArchiveSceneVariation>

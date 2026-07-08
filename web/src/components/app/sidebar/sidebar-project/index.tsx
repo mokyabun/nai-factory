@@ -58,7 +58,7 @@ function SidebarProjectContent() {
     })
 
     const createProject = useMutation({
-        mutationFn: ({ groupId, name }: { groupId: number; name: string }) =>
+        mutationFn: ({ groupId, name }: { groupId: ProjectGroupId; name: string }) =>
             api.projects.post({ groupId, name }),
         onSuccess: (res) => {
             invalidateGroups()

@@ -4,7 +4,8 @@ import {
     DEFAULT_PROJECT_SETTINGS,
 } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
-import { Archive, CircleHelp, Download, FolderDown, Server } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
+import { Archive, CircleHelp, Download, FolderDown, Server, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -36,16 +37,18 @@ interface ExportDialogProps {
 }
 
 type ExportMethod = 'zip' | 'directory' | 'server'
-type ArchiveMethod = 'archive'
+type ArchiveMethod = 'archive' | 'import'
 type PendingMethod = ExportMethod | ArchiveMethod
 
 export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDialogProps) {
     const queryClient = useQueryClient()
+    const navigate = useNavigate()
     const projectId = project?.id ?? null
     const [template, setTemplate] = useState(DEFAULT_PROJECT_SETTINGS.outputTemplate)
     const [previewTemplate, setPreviewTemplate] = useState(DEFAULT_PROJECT_SETTINGS.outputTemplate)
     const [imageCount, setImageCount] = useState(1)
     const [archiveInclude, setArchiveInclude] = useState(DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS)
+    const [importFile, setImportFile] = useState<File | null>(null)
     const [pendingMethod, setPendingMethod] = useState<PendingMethod | null>(null)
     const [message, setMessage] = useState('')
 
@@ -72,6 +75,7 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
         setTemplate(outputTemplate)
         setPreviewTemplate(outputTemplate)
         setArchiveInclude(DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS)
+        setImportFile(null)
         setMessage('')
     }, [project])
 
@@ -116,6 +120,18 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
         link.download = `${sanitizeFilename(project.name)}.naif`
         link.click()
         URL.revokeObjectURL(url)
+    }
+
+    async function importProjectArchive() {
+        if (!importFile) return
+
+        const { data, error } = await api.projects.import.post({ archive: importFile })
+        if (error || !data) throw new Error('Project archive import failed')
+
+        await queryClient.invalidateQueries({ queryKey: qk.groupsWithProjects() })
+        queryClient.setQueryData(qk.project(data.id), data)
+        onOpenChange(false)
+        navigate({ to: '/project/$projectId', params: { projectId: String(data.id) } })
     }
 
     async function exportZip() {
@@ -171,13 +187,14 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
 
         try {
             if (method === 'archive') await exportProjectArchive()
+            else if (method === 'import') await importProjectArchive()
             else if (method === 'zip') await exportZip()
             else if (method === 'directory') await exportDirectory()
             else await exportServer()
 
-            setMessage('Export 완료')
+            setMessage(method === 'import' ? 'Import 완료' : 'Export 완료')
         } catch (error) {
-            setMessage(error instanceof Error ? error.message : 'Export 실패')
+            setMessage(error instanceof Error ? error.message : '작업 실패')
         } finally {
             setPendingMethod(null)
         }
@@ -185,6 +202,7 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
 
     const disabled = !project || !template.trim() || pendingMethod !== null
     const archiveDisabled = !project || pendingMethod !== null
+    const importDisabled = !importFile || pendingMethod !== null
     const preview = renderPreviewFilename(project, scenes, previewTemplate)
 
     return (
@@ -195,6 +213,36 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
                 </DialogHeader>
 
                 <div className="flex flex-col gap-4">
+                    <section className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex flex-col gap-0.5">
+                                <h3 className="text-sm font-medium">Import .naif</h3>
+                                <p className="text-xs text-muted-foreground">
+                                    아카이브를 새 프로젝트로 가져오기
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="gap-2"
+                                disabled={importDisabled}
+                                onClick={() => run('import')}
+                            >
+                                <Upload className="h-4 w-4" />
+                                {pendingMethod === 'import' ? '가져오는 중...' : '가져오기'}
+                            </Button>
+                        </div>
+
+                        <Input
+                            type="file"
+                            accept=".naif,application/zip,application/vnd.nai-factory.project+zip"
+                            onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                        />
+                    </section>
+
+                    <div className="border-t" />
+
                     <section className="flex flex-col gap-3">
                         <div className="flex items-center justify-between gap-3">
                             <div className="flex flex-col gap-0.5">
@@ -428,9 +476,9 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
                                 {pendingMethod === 'server' ? '복사 중...' : '서버 경로로 복사'}
                             </Button>
                         </div>
-
-                        {message && <p className="text-xs text-muted-foreground">{message}</p>}
                     </section>
+
+                    {message && <p className="text-xs text-muted-foreground">{message}</p>}
                 </div>
             </DialogContent>
         </Dialog>

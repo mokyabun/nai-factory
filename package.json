@@ -11,6 +11,7 @@
         "build:server:prod": "bun --filter '@nai-factory/server' build:prod",
         "build:web": "bun --filter '@nai-factory/web' build",
         "test": "bun --filter '@nai-factory/server' test && bun --filter '@nai-factory/web' test",
+        "check:type": "bun --filter @nai-factory/* check:type",
         "db:generate": "bun --filter '@nai-factory/server' db:generate",
         "db:migrate": "bun --filter '@nai-factory/server' db:migrate",
         "check": "bun --filter @nai-factory/* check .",
@@ -30,6 +31,7 @@
     ],
     "devDependencies": {
         "@biomejs/biome": "^2.4.15",
+        "typescript": "^6.0.3",
         "wait-on": "^9.0.10"
     }
 }

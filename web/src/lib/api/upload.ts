@@ -1,22 +1,33 @@
-import type { CharacterReferenceUploadBody, VibeTransferUploadBody } from '@nai-factory/shared'
+import type {
+    CharacterReferenceUploadBody,
+    ProjectArchiveImportBody,
+    VibeTransferUploadBody,
+} from '@nai-factory/shared'
 import { request } from './client'
 
-type ImageUploadBody = VibeTransferUploadBody | CharacterReferenceUploadBody
+type UploadBody = VibeTransferUploadBody | CharacterReferenceUploadBody | ProjectArchiveImportBody
+type UploadFile = UploadBody extends Record<string, infer File> ? File : never
 
-async function formDataFromUpload(body: ImageUploadBody) {
+function uploadEntry(body: UploadBody): [string, UploadFile] {
+    if ('image' in body) return ['image', body.image]
+    return ['archive', body.archive]
+}
+
+async function formDataFromUpload(body: UploadBody) {
     const formData = new FormData()
+    const [name, file] = uploadEntry(body)
 
-    if (body.image instanceof Blob) {
-        formData.set('image', body.image, body.image.name)
+    if (file instanceof Blob) {
+        formData.set(name, file, file.name)
         return formData
     }
 
-    const blob = new Blob([await body.image.arrayBuffer()], { type: body.image.type })
-    formData.set('image', blob, body.image.name)
+    const blob = new Blob([await file.arrayBuffer()], { type: file.type })
+    formData.set(name, blob, file.name)
     return formData
 }
 
-export async function postUpload<T>(path: string, body: ImageUploadBody) {
+export async function postUpload<T>(path: string, body: UploadBody) {
     return request<T>(path, {
         method: 'post',
         body: await formDataFromUpload(body),

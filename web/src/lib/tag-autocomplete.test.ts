@@ -1,5 +1,5 @@
 import { CompletionContext } from '@codemirror/autocomplete'
-import { EditorState } from '@codemirror/state'
+import { EditorState, type TransactionSpec } from '@codemirror/state'
 import { describe, expect, it, vi } from 'vitest'
 import { api } from './api'
 import { createPromptCompletionSource, tagCompletionSource } from './tag-autocomplete'
@@ -55,17 +55,19 @@ describe('prompt autocomplete', () => {
         expect(api.tags.autocomplete.get).toHaveBeenCalledWith({
             query: { q: 'ca', limit: 20 },
         })
-        expect(result?.from).toBe('0.5::'.length)
-        expect(result?.options[0]?.label).toBe('cat')
+        expect(result).not.toBeNull()
+        if (!result) throw new Error('Expected tag completion result')
+        expect(result.from).toBe('0.5::'.length)
+        expect(result.options[0]?.label).toBe('cat')
 
         let nextDoc = state.doc.toString()
-        const apply = result?.options[0]?.apply
+        const apply = result.options[0]?.apply
         expect(typeof apply).toBe('function')
         if (typeof apply === 'function') {
             apply(
                 {
                     state,
-                    dispatch: (spec) => {
+                    dispatch: (spec: TransactionSpec) => {
                         nextDoc = state.update(spec).state.doc.toString()
                     },
                 } as never,

@@ -19,6 +19,7 @@ import type {
     PlaygroundSettingsPatchBody,
     Project,
     ProjectArchiveExportBody,
+    ProjectArchiveImportBody,
     ProjectExportBody,
     ProjectExportResult,
     ProjectGetQuery,
@@ -161,6 +162,9 @@ const projects = Object.assign(
         get: ({ query }: { query?: ProjectGetQuery } = {}) =>
             http.get<Project[]>('/projects', query),
         post: (json: ProjectPostBody) => http.post<Project>('/projects', json),
+        import: {
+            post: (body: ProjectArchiveImportBody) => postUpload<Project>('/projects/import', body),
+        },
     },
 )
 

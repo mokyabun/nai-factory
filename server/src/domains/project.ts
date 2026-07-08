@@ -1,6 +1,7 @@
 import { zValidator } from '@hono/zod-validator'
 import {
     DEFAULT_PROJECT_SETTINGS,
+    ProjectArchiveImportBody,
     ProjectGetQuery,
     ProjectIdParams,
     ProjectPatchBody,
@@ -12,6 +13,7 @@ import { HTTPException } from 'hono/http-exception'
 import { db, projects, scenes, sceneVariations } from '../db'
 import logger from '../logger'
 import { removeByProject, removeCharacterReferencesByProject } from '../services'
+import { importProjectArchive } from '../services/app/project-archive'
 import { requireEntity, withNormalizedVariables, withUpdatedAt } from '../utils'
 
 const log = logger.child({ module: 'project-domain' })
@@ -162,6 +164,9 @@ export const project = new Hono()
     .post('/', zValidator('json', ProjectPostBody), async (c) => {
         const body = c.req.valid('json')
         return c.json(await create(body), 201)
+    })
+    .post('/import', zValidator('form', ProjectArchiveImportBody), async (c) => {
+        return c.json(await importProjectArchive(c.req.valid('form').archive), 201)
     })
     .patch(
         '/:projectId',

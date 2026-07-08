@@ -642,7 +642,12 @@ function ProjectSettingsDialog({
 
                     <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
                         <Label htmlFor="project-scene-card-size">씬 카드 크기</Label>
-                        <Select value={sceneCardSize} onValueChange={onSceneCardSizeChange}>
+                        <Select
+                            value={sceneCardSize}
+                            onValueChange={(value) => {
+                                if (value) onSceneCardSizeChange(value)
+                            }}
+                        >
                             <SelectTrigger id="project-scene-card-size" className="w-full">
                                 <SelectValue />
                             </SelectTrigger>
