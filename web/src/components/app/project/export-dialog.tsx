@@ -1,12 +1,16 @@
-import type { Project, ProjectExportBody } from '@nai-factory/shared'
-import { DEFAULT_PROJECT_SETTINGS } from '@nai-factory/shared'
+import type { Project, ProjectArchiveExportBody, ProjectExportBody } from '@nai-factory/shared'
+import {
+    DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS,
+    DEFAULT_PROJECT_SETTINGS,
+} from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
-import { Archive, CircleHelp, FolderDown, Server } from 'lucide-react'
+import { Archive, CircleHelp, Download, FolderDown, Server } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { api, imageUrl, type SceneSummary } from '@/lib/api'
 import { qk } from '@/lib/queries'
@@ -32,6 +36,8 @@ interface ExportDialogProps {
 }
 
 type ExportMethod = 'zip' | 'directory' | 'server'
+type ArchiveMethod = 'archive'
+type PendingMethod = ExportMethod | ArchiveMethod
 
 export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDialogProps) {
     const queryClient = useQueryClient()
@@ -39,7 +45,8 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
     const [template, setTemplate] = useState(DEFAULT_PROJECT_SETTINGS.outputTemplate)
     const [previewTemplate, setPreviewTemplate] = useState(DEFAULT_PROJECT_SETTINGS.outputTemplate)
     const [imageCount, setImageCount] = useState(1)
-    const [pendingMethod, setPendingMethod] = useState<ExportMethod | null>(null)
+    const [archiveInclude, setArchiveInclude] = useState(DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS)
+    const [pendingMethod, setPendingMethod] = useState<PendingMethod | null>(null)
     const [message, setMessage] = useState('')
 
     const saveTemplate = useRef(
@@ -64,6 +71,7 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
             project.settings.outputTemplate ?? DEFAULT_PROJECT_SETTINGS.outputTemplate
         setTemplate(outputTemplate)
         setPreviewTemplate(outputTemplate)
+        setArchiveInclude(DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS)
         setMessage('')
     }, [project])
 
@@ -81,10 +89,33 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
         }
     }
 
+    function archiveBody(): ProjectArchiveExportBody {
+        return { include: archiveInclude }
+    }
+
+    function updateArchiveInclude(key: keyof typeof archiveInclude, checked: boolean) {
+        setArchiveInclude((current) => ({ ...current, [key]: checked }))
+    }
+
     function updateTemplate(value: string) {
         setTemplate(value)
         updatePreviewTemplate.current(value)
         if (projectId && value.trim()) saveTemplate.current(projectId, value.trim())
+    }
+
+    async function exportProjectArchive() {
+        if (!project) return
+        const { data, error } = await api
+            .projects({ projectId: project.id })
+            .archive.post(archiveBody())
+        if (error || !data) throw new Error('Project archive export failed')
+
+        const url = URL.createObjectURL(data)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `${sanitizeFilename(project.name)}.naif`
+        link.click()
+        URL.revokeObjectURL(url)
     }
 
     async function exportZip() {
@@ -134,12 +165,13 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
         if (error) throw new Error('Server export failed')
     }
 
-    async function run(method: ExportMethod) {
+    async function run(method: PendingMethod) {
         setPendingMethod(method)
         setMessage('')
 
         try {
-            if (method === 'zip') await exportZip()
+            if (method === 'archive') await exportProjectArchive()
+            else if (method === 'zip') await exportZip()
             else if (method === 'directory') await exportDirectory()
             else await exportServer()
 
@@ -152,106 +184,294 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
     }
 
     const disabled = !project || !template.trim() || pendingMethod !== null
+    const archiveDisabled = !project || pendingMethod !== null
     const preview = renderPreviewFilename(project, scenes, previewTemplate)
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex max-w-md flex-col gap-4">
+            <DialogContent className="flex max-h-[85vh] max-w-lg flex-col gap-4 overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Output Export</DialogTitle>
+                    <DialogTitle>Export</DialogTitle>
                 </DialogHeader>
 
                 <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                            <Label htmlFor="output-template">템플릿</Label>
-                            <Tooltip>
-                                <TooltipTrigger
-                                    render={
-                                        <button
-                                            type="button"
-                                            className="flex h-6 w-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-                                            aria-label="템플릿 사용법"
-                                        />
-                                    }
-                                >
-                                    <CircleHelp className="h-3.5 w-3.5" />
-                                </TooltipTrigger>
-                                <TooltipContent side="left" align="start" className="max-w-64">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="font-medium">템플릿 토큰</span>
-                                        <span>{'{character}'}: 프로젝트명</span>
-                                        <span>{'{scene}'}: 씬명</span>
-                                        <span>{'{number}'}: 씬별 순번</span>
-                                        <span>{'{extension}'}: 원본 확장자</span>
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
+                    <section className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex flex-col gap-0.5">
+                                <h3 className="text-sm font-medium">Project Archive</h3>
+                                <p className="text-xs text-muted-foreground">
+                                    프로젝트를 .naif 파일 하나로 다운로드
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                size="sm"
+                                className="gap-2"
+                                disabled={archiveDisabled}
+                                onClick={() => run('archive')}
+                            >
+                                <Download className="h-4 w-4" />
+                                {pendingMethod === 'archive' ? '생성 중...' : '.naif 다운로드'}
+                            </Button>
                         </div>
-                        <Input
-                            id="output-template"
-                            value={template}
-                            onChange={(event) => updateTemplate(event.target.value)}
-                            className="font-mono text-xs"
-                        />
-                        <p className="truncate text-[11px] text-muted-foreground">
-                            예상 출력: <span className="font-mono">{preview}</span>
-                        </p>
-                    </div>
 
-                    <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="export-count">상위 N개</Label>
-                        <Input
-                            id="export-count"
-                            type="number"
-                            min={1}
-                            max={500}
-                            value={imageCount}
-                            onChange={(event) =>
-                                setImageCount(
-                                    Math.min(500, Math.max(1, Number(event.target.value) || 1)),
-                                )
-                            }
-                            className="w-28"
-                        />
-                    </div>
+                        <div className="grid gap-3 rounded-md border p-3">
+                            <ArchiveOption
+                                id="archive-project-prompt"
+                                label="프롬프트"
+                                description="프로젝트 프롬프트와 네거티브 프롬프트"
+                                checked={archiveInclude.projectPrompt}
+                                onChange={(checked) =>
+                                    updateArchiveInclude('projectPrompt', checked)
+                                }
+                            />
+                            <ArchiveOption
+                                id="archive-character-prompts"
+                                label="캐릭터 프롬프트"
+                                description="NAI character prompt 설정"
+                                checked={archiveInclude.characterPrompts}
+                                onChange={(checked) =>
+                                    updateArchiveInclude('characterPrompts', checked)
+                                }
+                            />
+                            <ArchiveOption
+                                id="archive-project-variables"
+                                label="변수"
+                                description="프로젝트 변수"
+                                checked={archiveInclude.projectVariables}
+                                onChange={(checked) =>
+                                    updateArchiveInclude('projectVariables', checked)
+                                }
+                            />
+                            <ArchiveOption
+                                id="archive-project-parameters"
+                                label="파라미터"
+                                description="모델, 해상도, 샘플러 등 생성 설정"
+                                checked={archiveInclude.projectParameters}
+                                onChange={(checked) =>
+                                    updateArchiveInclude('projectParameters', checked)
+                                }
+                            />
+                            <ArchiveOption
+                                id="archive-project-settings"
+                                label="프로젝트 설정"
+                                description="카드 크기, 출력 템플릿 등 UI/출력 설정"
+                                checked={archiveInclude.projectSettings}
+                                onChange={(checked) =>
+                                    updateArchiveInclude('projectSettings', checked)
+                                }
+                            />
+                            <ArchiveOption
+                                id="archive-scenes"
+                                label="씬"
+                                description="씬 이름과 정렬 순서"
+                                checked={archiveInclude.scenes}
+                                onChange={(checked) => updateArchiveInclude('scenes', checked)}
+                            />
+                            <ArchiveOption
+                                id="archive-scene-variations"
+                                label="씬 변수"
+                                description="씬별 variation 변수"
+                                checked={archiveInclude.sceneVariations}
+                                disabled={!archiveInclude.scenes}
+                                onChange={(checked) =>
+                                    updateArchiveInclude('sceneVariations', checked)
+                                }
+                            />
+                            <ArchiveOption
+                                id="archive-character-references"
+                                label="레퍼런스"
+                                description="캐릭터 레퍼런스 이미지와 강도 설정"
+                                checked={archiveInclude.characterReferences}
+                                onChange={(checked) =>
+                                    updateArchiveInclude('characterReferences', checked)
+                                }
+                            />
+                            <ArchiveOption
+                                id="archive-vibe-transfers"
+                                label="바이브"
+                                description="Vibe Transfer 이미지와 강도 설정"
+                                checked={archiveInclude.vibeTransfers}
+                                onChange={(checked) =>
+                                    updateArchiveInclude('vibeTransfers', checked)
+                                }
+                            />
+                            <ArchiveOption
+                                id="archive-images"
+                                label="이미지"
+                                description="씬에 저장된 생성 이미지 원본"
+                                checked={archiveInclude.images}
+                                disabled={!archiveInclude.scenes}
+                                onChange={(checked) => updateArchiveInclude('images', checked)}
+                            />
+                            <ArchiveOption
+                                id="archive-image-metadata"
+                                label="이미지 메타데이터"
+                                description="이미지별 생성 메타데이터"
+                                checked={archiveInclude.imageMetadata}
+                                disabled={!archiveInclude.images}
+                                onChange={(checked) =>
+                                    updateArchiveInclude('imageMetadata', checked)
+                                }
+                            />
+                            <ArchiveOption
+                                id="archive-thumbnails"
+                                label="썸네일"
+                                description="이미지/레퍼런스 썸네일 파일"
+                                checked={archiveInclude.thumbnails}
+                                onChange={(checked) => updateArchiveInclude('thumbnails', checked)}
+                            />
+                            <ArchiveOption
+                                id="archive-derived-caches"
+                                label="가공 데이터"
+                                description="처리된 레퍼런스, 인코딩된 vibe 데이터"
+                                checked={archiveInclude.derivedCaches}
+                                onChange={(checked) =>
+                                    updateArchiveInclude('derivedCaches', checked)
+                                }
+                            />
+                        </div>
+                    </section>
 
-                    <div className="flex flex-col gap-2">
-                        <Button
-                            type="button"
-                            className="justify-start gap-2"
-                            disabled={disabled}
-                            onClick={() => run('zip')}
-                        >
-                            <Archive className="h-4 w-4" />
-                            {pendingMethod === 'zip' ? 'ZIP 생성 중...' : 'ZIP 다운로드'}
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            className="justify-start gap-2"
-                            disabled={disabled}
-                            onClick={() => run('directory')}
-                        >
-                            <FolderDown className="h-4 w-4" />
-                            {pendingMethod === 'directory' ? '저장 중...' : '폴더에 바로 저장'}
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            className="justify-start gap-2"
-                            disabled={disabled}
-                            onClick={() => run('server')}
-                        >
-                            <Server className="h-4 w-4" />
-                            {pendingMethod === 'server' ? '복사 중...' : '서버 경로로 복사'}
-                        </Button>
-                    </div>
+                    <div className="border-t" />
 
-                    {message && <p className="text-xs text-muted-foreground">{message}</p>}
+                    <section className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-0.5">
+                            <h3 className="text-sm font-medium">Output Images</h3>
+                            <p className="text-xs text-muted-foreground">
+                                생성된 이미지만 별도 파일로 export
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                                <Label htmlFor="output-template">템플릿</Label>
+                                <Tooltip>
+                                    <TooltipTrigger
+                                        render={
+                                            <button
+                                                type="button"
+                                                className="flex h-6 w-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                                                aria-label="템플릿 사용법"
+                                            />
+                                        }
+                                    >
+                                        <CircleHelp className="h-3.5 w-3.5" />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" align="start" className="max-w-64">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="font-medium">템플릿 토큰</span>
+                                            <span>{'{character}'}: 프로젝트명</span>
+                                            <span>{'{scene}'}: 씬명</span>
+                                            <span>{'{number}'}: 씬별 순번</span>
+                                            <span>{'{extension}'}: 원본 확장자</span>
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                            <Input
+                                id="output-template"
+                                value={template}
+                                onChange={(event) => updateTemplate(event.target.value)}
+                                className="font-mono text-xs"
+                            />
+                            <p className="truncate text-[11px] text-muted-foreground">
+                                예상 출력: <span className="font-mono">{preview}</span>
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="export-count">상위 N개</Label>
+                            <Input
+                                id="export-count"
+                                type="number"
+                                min={1}
+                                max={500}
+                                value={imageCount}
+                                onChange={(event) =>
+                                    setImageCount(
+                                        Math.min(500, Math.max(1, Number(event.target.value) || 1)),
+                                    )
+                                }
+                                className="w-28"
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <Button
+                                type="button"
+                                className="justify-start gap-2"
+                                disabled={disabled}
+                                onClick={() => run('zip')}
+                            >
+                                <Archive className="h-4 w-4" />
+                                {pendingMethod === 'zip' ? 'ZIP 생성 중...' : 'ZIP 다운로드'}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="justify-start gap-2"
+                                disabled={disabled}
+                                onClick={() => run('directory')}
+                            >
+                                <FolderDown className="h-4 w-4" />
+                                {pendingMethod === 'directory' ? '저장 중...' : '폴더에 바로 저장'}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="justify-start gap-2"
+                                disabled={disabled}
+                                onClick={() => run('server')}
+                            >
+                                <Server className="h-4 w-4" />
+                                {pendingMethod === 'server' ? '복사 중...' : '서버 경로로 복사'}
+                            </Button>
+                        </div>
+
+                        {message && <p className="text-xs text-muted-foreground">{message}</p>}
+                    </section>
                 </div>
             </DialogContent>
         </Dialog>
+    )
+}
+
+interface ArchiveOptionProps {
+    id: string
+    label: string
+    description: string
+    checked: boolean
+    disabled?: boolean
+    onChange: (checked: boolean) => void
+}
+
+function ArchiveOption({
+    id,
+    label,
+    description,
+    checked,
+    disabled,
+    onChange,
+}: ArchiveOptionProps) {
+    return (
+        <div className="flex items-start justify-between gap-4">
+            <Label
+                htmlFor={id}
+                className="flex min-w-0 cursor-pointer flex-col gap-0.5 data-disabled:cursor-not-allowed data-disabled:opacity-50"
+                data-disabled={disabled ? '' : undefined}
+            >
+                <span className="text-sm">{label}</span>
+                <span className="text-xs font-normal text-muted-foreground">{description}</span>
+            </Label>
+            <Switch
+                id={id}
+                checked={checked}
+                onCheckedChange={onChange}
+                disabled={disabled}
+                className="mt-0.5 shrink-0"
+            />
+        </div>
     )
 }
 

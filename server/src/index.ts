@@ -13,6 +13,7 @@ import {
     image,
     playground,
     project,
+    projectExport,
     queue,
     scene,
     sdStudio,
@@ -36,6 +37,7 @@ function routeApi(app: Hono<AppEnv>, prefix: string) {
     return app
         .route(`${prefix}/groups`, group)
         .route(`${prefix}/projects`, project)
+        .route(`${prefix}/projects/:projectId`, projectExport)
         .route(`${prefix}/projects/:projectId/character-references`, characterReference)
         .route(`${prefix}/projects/:projectId/vibe-transfers`, vibeTransfer)
         .route(`${prefix}/scenes`, scene)

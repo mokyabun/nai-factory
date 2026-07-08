@@ -18,6 +18,7 @@ import type {
     PlaygroundSettings,
     PlaygroundSettingsPatchBody,
     Project,
+    ProjectArchiveExportBody,
     ProjectExportBody,
     ProjectExportResult,
     ProjectGetQuery,
@@ -134,6 +135,10 @@ const projects = Object.assign(
         delete: () => http.delete<void>(`/projects/${projectId}`),
         duplicate: {
             post: () => http.post<Project>(`/projects/${projectId}/duplicate`),
+        },
+        archive: {
+            post: (json: ProjectArchiveExportBody) =>
+                requestBlob(`/projects/${projectId}/archive`, { method: 'post', json }),
         },
         export: {
             files: {
