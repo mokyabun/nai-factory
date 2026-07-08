@@ -193,7 +193,7 @@ function PromptPreviewPanel({
     return (
         <aside className="flex min-h-0 flex-col gap-3 rounded-md border bg-card p-3">
             <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-medium">Compiled Preview</h2>
+                <h2 className="text-sm font-medium">프롬프트 프리뷰</h2>
                 <span className="text-[11px] text-muted-foreground">
                     {pendingSave ? 'Saving...' : 'Saved state'}
                 </span>
