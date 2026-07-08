@@ -55,6 +55,13 @@ describe('runtime config', () => {
         expect(config.LOG_LEVEL).toBe('error')
     })
 
+    it('uses a separate default data directory during tests', () => {
+        const config = parseEnvConfig({ NODE_ENV: 'test' })
+
+        expect(config.NAI_FACTORY_DATA_DIR).toBe('./.test-data')
+        expect(config.DATABASE_URL).toBe('.test-data/database.db')
+    })
+
     it('parses data encryption settings from env', () => {
         const key = Buffer.alloc(32, 1).toString('base64')
         const config = parseEnvConfig({
