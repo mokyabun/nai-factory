@@ -163,13 +163,6 @@ function SceneCardContent({
                         />
                     }
                 >
-                    {/* Queue badge */}
-                    {inQueue && (
-                        <div className="absolute top-1.5 right-8 z-20 rounded bg-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-primary-foreground shadow">
-                            큐 {queueCount}
-                        </div>
-                    )}
-
                     <DropdownMenu>
                         <DropdownMenuTrigger
                             render={
@@ -275,9 +268,16 @@ function SceneCardContent({
 
                         {/* Bottom overlay */}
                         <div className="absolute right-0 bottom-0 left-0 flex items-end justify-between gap-1 bg-gradient-to-t from-black/65 to-transparent px-1.5 pt-8 pb-1.5">
-                            <span className="min-w-0 truncate text-[10px] font-medium text-white/90">
-                                {scene.name}
-                            </span>
+                            <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                                {inQueue && (
+                                    <span className="rounded bg-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-primary-foreground shadow">
+                                        큐 {queueCount}
+                                    </span>
+                                )}
+                                <span className="max-w-full truncate text-[10px] font-medium text-white/90">
+                                    {scene.name}
+                                </span>
+                            </div>
 
                             {cycleImages.length > 1 && (
                                 <div className="flex shrink-0 gap-1">
