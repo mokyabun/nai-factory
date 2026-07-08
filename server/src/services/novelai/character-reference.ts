@@ -5,12 +5,13 @@ import type {
     CharacterReferenceUploadFile,
     NovelAICharacterReferenceImage,
 } from '@nai-factory/shared'
-import { asc, desc, eq } from 'drizzle-orm'
+import { asc, desc, eq, inArray } from 'drizzle-orm'
 import sharp from 'sharp'
 import { envConfig } from '@/config'
 import * as dataStorage from '@/data'
 import { characterReferences, db } from '@/db'
 import logger from '@/logger'
+import { createAsset, getAssetPath, removeAssets } from '@/services/app/assets'
 import { nextDisplayOrder } from '@/services/order'
 import { nowIso } from '@/utils'
 import { createUniqueReferenceCacheKey, isReferenceCacheFresh } from './reference-cache'
@@ -120,6 +121,8 @@ export async function uploadCharacterReference(
 
     await dataStorage.writeFile(sourceImagePath, Buffer.from(await imageFile.arrayBuffer()))
     await generateCharacterReferenceThumbnail(sourceImagePath, thumbnailPath)
+    const sourceAsset = await createAsset('character-reference-source', sourceImagePath)
+    const thumbnailAsset = await createAsset('character-reference-thumbnail', thumbnailPath)
 
     const [last] = await db
         .select({ displayOrder: characterReferences.displayOrder })
@@ -133,6 +136,8 @@ export async function uploadCharacterReference(
         .values({
             projectId,
             displayOrder: nextDisplayOrder(last?.displayOrder),
+            sourceAssetId: sourceAsset.id,
+            thumbnailAssetId: thumbnailAsset.id,
             sourceImagePath: normalizePath(sourceImagePath),
             thumbnailPath: normalizePath(thumbnailPath),
         })
@@ -154,7 +159,12 @@ export async function uploadCharacterReference(
 export async function deleteCharacterReferenceFiles(
     ref: Pick<
         typeof characterReferences.$inferSelect,
-        'sourceImagePath' | 'thumbnailPath' | 'processedImagePath'
+        | 'sourceAssetId'
+        | 'thumbnailAssetId'
+        | 'processedAssetId'
+        | 'sourceImagePath'
+        | 'thumbnailPath'
+        | 'processedImagePath'
     >,
 ) {
     await Promise.all([
@@ -162,6 +172,7 @@ export async function deleteCharacterReferenceFiles(
         safeRemove(ref.thumbnailPath),
         safeRemove(ref.processedImagePath),
     ])
+    await removeAssets([ref.sourceAssetId, ref.thumbnailAssetId, ref.processedAssetId])
 }
 
 export async function removeCharacterReferencesByProject(projectId: number) {
@@ -169,6 +180,26 @@ export async function removeCharacterReferencesByProject(projectId: number) {
         recursive: true,
         force: true,
     })
+    const rows = await db
+        .select({
+            id: characterReferences.id,
+            sourceAssetId: characterReferences.sourceAssetId,
+            thumbnailAssetId: characterReferences.thumbnailAssetId,
+            processedAssetId: characterReferences.processedAssetId,
+        })
+        .from(characterReferences)
+        .where(eq(characterReferences.projectId, projectId))
+    if (rows.length > 0) {
+        await db.delete(characterReferences).where(
+            inArray(
+                characterReferences.id,
+                rows.map((row) => row.id),
+            ),
+        )
+        await removeAssets(
+            rows.flatMap((row) => [row.sourceAssetId, row.thumbnailAssetId, row.processedAssetId]),
+        )
+    }
     log.debug({ projectId }, 'Character reference directory removed')
 }
 
@@ -195,7 +226,9 @@ export async function prepareCharacterReferencesForProject(
     const prepared: NovelAICharacterReferenceImage[] = []
 
     for (const [index, ref] of enabledRefs.entries()) {
-        let processedImagePath = ref.processedImagePath
+        const sourceImagePath = (await getAssetPath(ref.sourceAssetId)) ?? ref.sourceImagePath
+        let processedImagePath =
+            (await getAssetPath(ref.processedAssetId)) ?? ref.processedImagePath
         const processedExists = await dataStorage.exists(processedImagePath)
 
         if (!processedImagePath || !processedExists) {
@@ -203,10 +236,18 @@ export async function prepareCharacterReferencesForProject(
                 { projectId, characterReferenceId: ref.id, processedExists },
                 'Processing character reference image',
             )
-            processedImagePath = await processCharacterReferenceImage(ref.sourceImagePath)
+            processedImagePath = await processCharacterReferenceImage(sourceImagePath)
+            const processedAsset = await createAsset(
+                'character-reference-processed',
+                processedImagePath,
+            )
             await db
                 .update(characterReferences)
-                .set({ processedImagePath, updatedAt: nowIso() })
+                .set({
+                    processedAssetId: processedAsset.id,
+                    processedImagePath,
+                    updatedAt: nowIso(),
+                })
                 .where(eq(characterReferences.id, ref.id))
         }
 

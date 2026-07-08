@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import { basename, extname, join, parse } from 'node:path'
 import { DEFAULT_PROJECT_SETTINGS, type ProjectExportBody } from '@nai-factory/shared'
-import { asc, desc, eq, inArray } from 'drizzle-orm'
+import { asc, eq, inArray } from 'drizzle-orm'
 import { zipSync } from 'fflate'
 import * as dataStorage from '@/data'
 import { db, images, projects, scenes } from '@/db'
@@ -100,11 +100,10 @@ export async function collectExportAssets(projectId: number, body: ProjectExport
             id: images.id,
             sceneId: images.sceneId,
             filePath: images.filePath,
-            createdAt: images.createdAt,
         })
         .from(images)
         .where(inArray(images.sceneId, sceneIds))
-        .orderBy(asc(images.sceneId), desc(images.createdAt), desc(images.id))
+        .orderBy(asc(images.sceneId), asc(images.displayOrder), asc(images.id))
 
     const imagesBySceneId = new Map<number, typeof imageRows>()
     for (const image of imageRows) {

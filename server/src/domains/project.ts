@@ -40,7 +40,7 @@ async function getAllByGroupId(groupId?: number | 'null' | 'ungrouped') {
                   ? isNull(projects.groupId)
                   : eq(projects.groupId, groupId),
         )
-        .orderBy(asc(projects.id))
+        .orderBy(asc(projects.name), asc(projects.id))
 
     return rows.map(normalizeProject)
 }

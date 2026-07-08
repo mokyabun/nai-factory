@@ -1,3 +1,4 @@
+export * from './assets'
 export * from './events'
 export * from './image'
 export * from './prompt'

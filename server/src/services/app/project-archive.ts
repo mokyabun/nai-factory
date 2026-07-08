@@ -29,6 +29,7 @@ import {
     vibeTransfers,
 } from '@/db'
 import logger from '@/logger'
+import { type AssetKind, createAsset } from '@/services/app/assets'
 import { httpError, requireEntity, withNormalizedVariables } from '@/utils'
 
 const log = logger.child({ module: 'project-archive-service' })
@@ -37,6 +38,23 @@ type PendingWrite = {
     path: string
     data: Uint8Array
 }
+
+type PendingAssetUpdate =
+    | {
+          table: 'images'
+          id: number
+          field: 'assetId' | 'thumbnailAssetId'
+          kind: AssetKind
+          path: string
+      }
+    | {
+          table: 'characterReferences'
+          id: number
+          field: 'sourceAssetId' | 'thumbnailAssetId' | 'processedAssetId'
+          kind: AssetKind
+          path: string
+      }
+    | { table: 'vibeTransfers'; id: number; field: 'sourceAssetId'; kind: AssetKind; path: string }
 
 type ArchiveAssetFile = {
     asset: ProjectArchiveAsset
@@ -433,11 +451,34 @@ async function writePendingFiles(pendingWrites: PendingWrite[]) {
     }
 }
 
+async function applyPendingAssetUpdates(updates: PendingAssetUpdate[]) {
+    for (const update of updates) {
+        const asset = await createAsset(update.kind, update.path)
+        if (update.table === 'images') {
+            db.update(images)
+                .set({ [update.field]: asset.id })
+                .where(eq(images.id, update.id))
+                .run()
+        } else if (update.table === 'characterReferences') {
+            db.update(characterReferences)
+                .set({ [update.field]: asset.id })
+                .where(eq(characterReferences.id, update.id))
+                .run()
+        } else {
+            db.update(vibeTransfers)
+                .set({ sourceAssetId: asset.id })
+                .where(eq(vibeTransfers.id, update.id))
+                .run()
+        }
+    }
+}
+
 export async function importProjectArchive(file: ProjectArchiveImportBody['archive']) {
     const entries = parseArchiveEntries(new Uint8Array(await file.arrayBuffer()))
     const manifest = parseArchiveManifest(entries)
     const readAsset = buildAssetReader(manifest, entries)
     const pendingWrites: PendingWrite[] = []
+    const pendingAssetUpdates: PendingAssetUpdate[] = []
 
     const project = db.transaction(() => {
         const createdProject = db
@@ -524,9 +565,23 @@ export async function importProjectArchive(file: ProjectArchiveImportBody['archi
                     .where(eq(images.id, image.id))
                     .run()
                 pendingWrites.push({ path: filePath, data: imageAsset.data })
+                pendingAssetUpdates.push({
+                    table: 'images',
+                    id: image.id,
+                    field: 'assetId',
+                    kind: 'image',
+                    path: filePath,
+                })
                 if (thumbnailAsset && thumbnailPath) {
                     const path = thumbnailPath
                     pendingWrites.push({ path, data: thumbnailAsset.data })
+                    pendingAssetUpdates.push({
+                        table: 'images',
+                        id: image.id,
+                        field: 'thumbnailAssetId',
+                        kind: 'image-thumbnail',
+                        path,
+                    })
                 }
             }
         }
@@ -585,13 +640,34 @@ export async function importProjectArchive(file: ProjectArchiveImportBody['archi
                 .where(eq(characterReferences.id, reference.id))
                 .run()
             pendingWrites.push({ path: sourceImagePath, data: sourceAsset.data })
+            pendingAssetUpdates.push({
+                table: 'characterReferences',
+                id: reference.id,
+                field: 'sourceAssetId',
+                kind: 'character-reference-source',
+                path: sourceImagePath,
+            })
             if (thumbnailAsset && thumbnailPath) {
                 const path = thumbnailPath
                 pendingWrites.push({ path, data: thumbnailAsset.data })
+                pendingAssetUpdates.push({
+                    table: 'characterReferences',
+                    id: reference.id,
+                    field: 'thumbnailAssetId',
+                    kind: 'character-reference-thumbnail',
+                    path,
+                })
             }
             if (processedAsset && processedImagePath) {
                 const path = processedImagePath
                 pendingWrites.push({ path, data: processedAsset.data })
+                pendingAssetUpdates.push({
+                    table: 'characterReferences',
+                    id: reference.id,
+                    field: 'processedAssetId',
+                    kind: 'character-reference-processed',
+                    path,
+                })
             }
         }
 
@@ -626,6 +702,13 @@ export async function importProjectArchive(file: ProjectArchiveImportBody['archi
                 .where(eq(vibeTransfers.id, vibe.id))
                 .run()
             pendingWrites.push({ path: sourceImagePath, data: sourceAsset.data })
+            pendingAssetUpdates.push({
+                table: 'vibeTransfers',
+                id: vibe.id,
+                field: 'sourceAssetId',
+                kind: 'vibe-source',
+                path: sourceImagePath,
+            })
         }
 
         return createdProject
@@ -633,6 +716,7 @@ export async function importProjectArchive(file: ProjectArchiveImportBody['archi
 
     try {
         await writePendingFiles(pendingWrites)
+        await applyPendingAssetUpdates(pendingAssetUpdates)
     } catch (error) {
         await db.delete(projects).where(eq(projects.id, project.id))
         throw error

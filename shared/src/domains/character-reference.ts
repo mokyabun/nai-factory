@@ -6,6 +6,9 @@ export const CharacterReference = z.object({
     projectId: z.number(),
 
     displayOrder: z.string(),
+    sourceAssetId: z.number().nullable(),
+    thumbnailAssetId: z.number().nullable(),
+    processedAssetId: z.number().nullable(),
     sourceImagePath: z.string(),
     thumbnailPath: z.string().nullable(),
     processedImagePath: z.string().nullable(),

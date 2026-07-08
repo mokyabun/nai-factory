@@ -3,6 +3,7 @@ import { asc, eq } from 'drizzle-orm'
 import * as dataStorage from '@/data'
 import { db, vibeTransfers } from '@/db'
 import logger from '@/logger'
+import { getAssetPath } from '@/services/app/assets'
 import { nowIso } from '@/utils'
 import { createUniqueReferenceCacheKey, isReferenceCacheFresh } from './reference-cache'
 
@@ -17,8 +18,10 @@ export async function checkVibe(
 
     if (!vibe) throw new Error(`Vibe transfer ${vibeTransferId} not found`)
 
-    if (!(await dataStorage.exists(vibe.sourceImagePath))) {
-        throw new Error(`Vibe source image not found: ${vibe.sourceImagePath}`)
+    const sourceImagePath = (await getAssetPath(vibe.sourceAssetId)) ?? vibe.sourceImagePath
+
+    if (!(await dataStorage.exists(sourceImagePath))) {
+        throw new Error(`Vibe source image not found: ${sourceImagePath}`)
     }
 
     let cacheSecretKey = vibe.cacheSecretKey
@@ -28,7 +31,7 @@ export async function checkVibe(
     if (!isReferenceCacheFresh(vibe.cacheSecretKey, vibe.cacheCreatedAt)) {
         cacheSecretKey = await createUniqueReferenceCacheKey()
         uploadFieldName = 'ref_multiple_0'
-        filePath = vibe.sourceImagePath
+        filePath = sourceImagePath
 
         await db
             .update(vibeTransfers)

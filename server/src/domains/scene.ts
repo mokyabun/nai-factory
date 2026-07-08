@@ -45,7 +45,7 @@ const summaryColumns = {
             select id, file_path, thumbnail_path
             from images
             where scene_id = scenes.id
-            order by created_at desc, id desc
+            order by display_order asc, id asc
             limit 10
         ) i
     )`,
@@ -152,7 +152,7 @@ async function getById(id: number) {
             .select()
             .from(images)
             .where(eq(images.sceneId, id))
-            .orderBy(desc(images.createdAt), desc(images.id)),
+            .orderBy(asc(images.displayOrder), asc(images.id)),
         getVariations(id),
     ])
 

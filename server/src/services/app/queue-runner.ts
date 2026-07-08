@@ -180,7 +180,7 @@ async function generateAndSaveImage(
     if (!image) throw new Error('Failed to create image record')
 
     try {
-        const { filePath, thumbnailPath } = await imageService.save(
+        const { filePath, thumbnailPath, assetId, thumbnailAssetId } = await imageService.save(
             project.id,
             scene.id,
             image.id,
@@ -189,7 +189,10 @@ async function generateAndSaveImage(
             metadata,
         )
 
-        await db.update(images).set({ filePath, thumbnailPath }).where(eq(images.id, image.id))
+        await db
+            .update(images)
+            .set({ filePath, thumbnailPath, assetId, thumbnailAssetId })
+            .where(eq(images.id, image.id))
 
         log.debug({ imageId: image.id, filePath }, 'Image saved')
     } catch (error) {
@@ -230,16 +233,12 @@ async function generateAndSavePlaygroundImage(
     if (!image) throw new Error('Failed to create playground image record')
 
     try {
-        const { filePath, thumbnailPath } = await imageService.savePlayground(
-            image.id,
-            imageData,
-            globalSettings.image,
-            metadata,
-        )
+        const { filePath, thumbnailPath, assetId, thumbnailAssetId } =
+            await imageService.savePlayground(image.id, imageData, globalSettings.image, metadata)
 
         await db
             .update(playgroundImages)
-            .set({ filePath, thumbnailPath })
+            .set({ filePath, thumbnailPath, assetId, thumbnailAssetId })
             .where(eq(playgroundImages.id, image.id))
 
         log.debug({ imageId: image.id, filePath }, 'Playground image saved')

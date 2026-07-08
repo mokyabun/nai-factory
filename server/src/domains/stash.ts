@@ -31,7 +31,7 @@ async function list(query: { type?: StashItemType['type'] }) {
         .select()
         .from(stashItems)
         .where(query.type ? eq(stashItems.type, query.type) : undefined)
-        .orderBy(desc(stashItems.updatedAt), desc(stashItems.id))
+        .orderBy(asc(stashItems.name), asc(stashItems.id))
 
     return rows.map(normalizeStashItem)
 }
