@@ -12,7 +12,7 @@
     },
     "server": {
       "name": "@nai-factory/server",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "dependencies": {
         "@hono/zod-validator": "^0.8.0",
         "@nai-factory/shared": "workspace:*",
@@ -39,7 +39,7 @@
     },
     "shared": {
       "name": "@nai-factory/shared",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "dependencies": {
         "zod": "^4.4.3",
       },
@@ -50,7 +50,7 @@
     },
     "web": {
       "name": "@nai-factory/web",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "dependencies": {
         "@base-ui/react": "^1.5.0",
         "@codemirror/autocomplete": "^6.20.2",
