@@ -39,7 +39,7 @@ export const EnvConfigSchema = z
         HOST: z.string().min(1).default('0.0.0.0'),
         PORT: EnvPositiveIntegerSchema.default(3000),
         WEB_DIST_DIR: z.string().min(1).optional(),
-        NAI_FACTORY_DATA_DIR: z.string().min(1).default('./data'),
+        NAI_FACTORY_DATA_DIR: z.string().min(1).optional(),
         NAI_FACTORY_IMAGES_DIR: z.string().min(1).optional(),
         NAI_FACTORY_THUMBNAILS_DIR: z.string().min(1).optional(),
         NAI_FACTORY_VIBES_DIR: z.string().min(1).optional(),
@@ -73,6 +73,8 @@ export const EnvConfigSchema = z
             )
         }
 
+        const dataDir = raw.NAI_FACTORY_DATA_DIR ?? (isTest ? './.test-data' : './data')
+
         return {
             NODE_ENV: raw.NODE_ENV,
             HOST: raw.HOST,
@@ -80,17 +82,14 @@ export const EnvConfigSchema = z
             WEB_DIST_DIR:
                 raw.WEB_DIST_DIR ??
                 (isProduction ? join(import.meta.dir, 'public') : '../web/dist'),
-            NAI_FACTORY_DATA_DIR: raw.NAI_FACTORY_DATA_DIR,
-            NAI_FACTORY_IMAGES_DIR:
-                raw.NAI_FACTORY_IMAGES_DIR ?? join(raw.NAI_FACTORY_DATA_DIR, 'images'),
+            NAI_FACTORY_DATA_DIR: dataDir,
+            NAI_FACTORY_IMAGES_DIR: raw.NAI_FACTORY_IMAGES_DIR ?? join(dataDir, 'images'),
             NAI_FACTORY_THUMBNAILS_DIR:
-                raw.NAI_FACTORY_THUMBNAILS_DIR ?? join(raw.NAI_FACTORY_DATA_DIR, 'thumbnails'),
-            NAI_FACTORY_VIBES_DIR:
-                raw.NAI_FACTORY_VIBES_DIR ?? join(raw.NAI_FACTORY_DATA_DIR, 'vibes'),
+                raw.NAI_FACTORY_THUMBNAILS_DIR ?? join(dataDir, 'thumbnails'),
+            NAI_FACTORY_VIBES_DIR: raw.NAI_FACTORY_VIBES_DIR ?? join(dataDir, 'vibes'),
             NAI_FACTORY_CHARACTER_REFERENCES_DIR:
-                raw.NAI_FACTORY_CHARACTER_REFERENCES_DIR ??
-                join(raw.NAI_FACTORY_DATA_DIR, 'character-references'),
-            DATABASE_URL: raw.DATABASE_URL ?? join(raw.NAI_FACTORY_DATA_DIR, 'database.db'),
+                raw.NAI_FACTORY_CHARACTER_REFERENCES_DIR ?? join(dataDir, 'character-references'),
+            DATABASE_URL: raw.DATABASE_URL ?? join(dataDir, 'database.db'),
             DATABASE_WAL: raw.DATABASE_WAL,
             DATABASE_CACHE_SIZE: raw.DATABASE_CACHE_SIZE,
             LOG_LEVEL: raw.LOG_LEVEL ?? (isTest ? 'silent' : 'info'),

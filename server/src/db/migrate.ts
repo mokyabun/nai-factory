@@ -3,16 +3,10 @@ import { readFileSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import logger from '../logger'
 import InitialPath from './migrations/0000_initial.sql' with { type: 'file' }
-import OrderedVariablesPath from './migrations/0001_ordered_variables.sql' with { type: 'file' }
-import DebugRequestsPath from './migrations/0002_debug_requests.sql' with { type: 'file' }
 
 const log = logger.child({ module: 'migrate' })
 
-const migrations: { tag: string; path: string }[] = [
-    { tag: '0000_initial', path: InitialPath },
-    { tag: '0001_ordered_variables', path: OrderedVariablesPath },
-    { tag: '0002_debug_requests', path: DebugRequestsPath },
-]
+const migrations: { tag: string; path: string }[] = [{ tag: '0000_initial', path: InitialPath }]
 
 function resolveMigrationPath(path: string) {
     if (path.startsWith('$bunfs/') || isAbsolute(path)) return path
@@ -46,15 +40,40 @@ export function migrate(db: Database) {
             .map((s) => s.trim())
             .filter(Boolean)
 
-        for (const statement of statements) {
-            db.run(statement)
-        }
+        db.transaction(() => {
+            for (const statement of statements) {
+                db.run(statement)
+            }
 
-        db.run('INSERT INTO _migration_history (tag, applied_at) VALUES (?, ?)', [
-            migration.tag,
-            Date.now(),
-        ])
+            db.run('INSERT INTO _migration_history (tag, applied_at) VALUES (?, ?)', [
+                migration.tag,
+                Date.now(),
+            ])
+        })()
     }
 
+    ensureNestedGroupSchema(db)
+
     log.info({ event: 'db.migrations.completed' }, 'Migrations complete')
+}
+
+function ensureNestedGroupSchema(db: Database) {
+    const columns = db.query("PRAGMA table_info('groups')").all() as { name: string }[]
+    if (columns.some((column) => column.name === 'parent_group_id')) return
+
+    log.info(
+        { event: 'db.schema.compat', table: 'groups', column: 'parent_group_id' },
+        'Adding nested group parent column',
+    )
+
+    db.transaction(() => {
+        db.run(`
+            ALTER TABLE groups
+            ADD COLUMN parent_group_id integer REFERENCES groups(id) ON DELETE cascade
+        `)
+        db.run(`
+            CREATE INDEX IF NOT EXISTS groups_parent_group_id_name_id_idx
+            ON groups (parent_group_id, name, id)
+        `)
+    })()
 }

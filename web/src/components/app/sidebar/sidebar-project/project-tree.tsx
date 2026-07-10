@@ -18,9 +18,9 @@ import {
 } from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
 import type { GroupWithProjects, ProjectGroupId } from '@/lib/api'
-import { activeProjectDragIdAtom, type ProjectSummary } from './atom'
+import { activeGroupDragIdAtom, activeProjectDragIdAtom, type ProjectSummary } from './atom'
 import { ProjectGroup } from './project-group'
-import { ProjectDragPreview, SidebarMessage } from './project-tree-parts'
+import { GroupDragPreview, ProjectDragPreview, SidebarMessage } from './project-tree-parts'
 import type { ProjectTreeProps } from './project-tree-types'
 import { RootProjects } from './root-projects'
 
@@ -35,6 +35,7 @@ export function ProjectTree({
     onCancelRename,
 }: ProjectTreeProps) {
     const [activeProjectId, setActiveProjectId] = useAtom(activeProjectDragIdAtom)
+    const [activeGroupId, setActiveGroupId] = useAtom(activeGroupDragIdAtom)
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
     const groupItems = useMemo(
         () => groups.filter((group): group is GroupWithProjects => group.type === 'group'),
@@ -48,25 +49,53 @@ export function ProjectTree({
         () =>
             activeProjectId === null
                 ? null
-                : (groups
-                      .flatMap((group) => group.projects)
-                      .find((project) => project.id === activeProjectId) ?? null),
-        [activeProjectId, groups],
+                : (ungroupedProjects.find((project) => project.id === activeProjectId) ??
+                  groupItems
+                      .flatMap((group) => flattenGroupProjects(group))
+                      .find((project) => project.id === activeProjectId) ??
+                  null),
+        [activeProjectId, groupItems, ungroupedProjects],
+    )
+    const activeGroup = useMemo(
+        () =>
+            activeGroupId === null
+                ? null
+                : (groupItems
+                      .flatMap((group) => flattenGroupTree(group))
+                      .find((group) => group.id === activeGroupId) ?? null),
+        [activeGroupId, groupItems],
     )
 
     function handleDragStart(event: DragStartEvent) {
         const project = event.active.data.current?.project as ProjectSummary | undefined
+        const group = event.active.data.current?.group as GroupWithProjects | undefined
         setActiveProjectId(project?.id ?? null)
+        setActiveGroupId(group?.id ?? null)
     }
 
     function handleDragEnd(event: DragEndEvent) {
         const project = event.active.data.current?.project as ProjectSummary | undefined
-        const groupId = (event.over?.data.current?.groupId ?? null) as ProjectGroupId
+        const group = event.active.data.current?.group as GroupWithProjects | undefined
 
         setActiveProjectId(null)
+        setActiveGroupId(null)
 
-        if (!project || project.groupId === groupId) return
-        actions.moveProject(project, groupId)
+        if (!event.over) return
+
+        const groupId = (event.over.data.current?.groupId ?? null) as ProjectGroupId
+
+        if (project) {
+            if (project.groupId === groupId) return
+            actions.moveProject(project, groupId)
+            return
+        }
+
+        if (!group) return
+        if (group.parentGroupId === groupId) return
+        if (group.id === groupId) return
+        if (groupId !== null && isDescendantGroup(group, groupId)) return
+
+        actions.moveGroup(group, groupId)
     }
 
     return (
@@ -76,7 +105,7 @@ export function ProjectTree({
                 <button
                     type="button"
                     className="rounded p-0.5 hover:bg-sidebar-accent"
-                    onClick={actions.createGroup}
+                    onClick={() => actions.createGroup(null)}
                 >
                     <Plus className="h-3.5 w-3.5" />
                 </button>
@@ -90,7 +119,10 @@ export function ProjectTree({
                             collisionDetection={closestCenter}
                             onDragStart={handleDragStart}
                             onDragEnd={handleDragEnd}
-                            onDragCancel={() => setActiveProjectId(null)}
+                            onDragCancel={() => {
+                                setActiveProjectId(null)
+                                setActiveGroupId(null)
+                            }}
                         >
                             <Base.SidebarMenu>
                                 {isLoading ? (
@@ -123,8 +155,9 @@ export function ProjectTree({
                                     </>
                                 )}
                             </Base.SidebarMenu>
-                            <DragOverlay>
+                            <DragOverlay dropAnimation={null}>
                                 {activeProject && <ProjectDragPreview project={activeProject} />}
+                                {activeGroup && <GroupDragPreview group={activeGroup} />}
                             </DragOverlay>
                         </DndContext>
                     </ContextMenuTrigger>
@@ -133,10 +166,29 @@ export function ProjectTree({
                         <ContextMenuItem onClick={() => actions.createProject(null)}>
                             새 프로젝트
                         </ContextMenuItem>
-                        <ContextMenuItem onClick={actions.createGroup}>새 그룹</ContextMenuItem>
+                        <ContextMenuItem onClick={() => actions.createGroup(null)}>
+                            새 그룹
+                        </ContextMenuItem>
                     </ContextMenuContent>
                 </ContextMenu>
             </Base.SidebarGroupContent>
         </Base.SidebarGroup>
+    )
+}
+
+function flattenGroupTree(group: GroupWithProjects): GroupWithProjects[] {
+    return [group, ...group.groups.flatMap((childGroup) => flattenGroupTree(childGroup))]
+}
+
+function flattenGroupProjects(group: GroupWithProjects): ProjectSummary[] {
+    return [
+        ...group.projects,
+        ...group.groups.flatMap((childGroup) => flattenGroupProjects(childGroup)),
+    ]
+}
+
+function isDescendantGroup(group: GroupWithProjects, groupId: number): boolean {
+    return group.groups.some(
+        (childGroup) => childGroup.id === groupId || isDescendantGroup(childGroup, groupId),
     )
 }

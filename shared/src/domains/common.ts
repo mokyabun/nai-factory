@@ -39,6 +39,7 @@ export const ImageUpload = z.custom<ImageUploadFile>(
 )
 
 export type ImageUpload = z.infer<typeof ImageUpload>
+export type CharacterReferenceUploadFile = ImageUploadFile
 export type IdParams = z.infer<typeof IdParams>
 export type ProjectIdParams = z.infer<typeof ProjectIdParams>
 export type OptionalOrderBody = z.infer<typeof OptionalOrderBody>

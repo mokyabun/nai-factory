@@ -6,6 +6,8 @@ export const Image = z.object({
     sceneId: z.number(),
 
     displayOrder: z.string(),
+    assetId: z.number().nullable(),
+    thumbnailAssetId: z.number().nullable(),
     filePath: z.string(),
     thumbnailPath: z.string().nullable(),
     metadata: z.record(z.string(), z.unknown()),

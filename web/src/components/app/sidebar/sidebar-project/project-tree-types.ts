@@ -7,7 +7,7 @@ export interface RenameState {
 }
 
 export interface ProjectTreeActions {
-    createGroup: () => void
+    createGroup: (group: GroupWithProjects | null) => void
     createProject: (group: GroupWithProjects | null) => void
     renameGroup: (group: GroupWithProjects) => void
     deleteGroup: (group: GroupWithProjects) => void
@@ -16,6 +16,7 @@ export interface ProjectTreeActions {
     renameProject: (project: ProjectSummary) => void
     duplicateProject: (project: ProjectSummary) => void
     moveProject: (project: ProjectSummary, groupId: ProjectGroupId) => void
+    moveGroup: (group: GroupWithProjects, parentGroupId: ProjectGroupId) => void
     deleteProject: (project: ProjectSummary) => void
 }
 
@@ -32,6 +33,7 @@ export interface ProjectTreeProps {
 
 export interface ProjectGroupProps extends Omit<ProjectTreeProps, 'groups' | 'isLoading'> {
     group: GroupWithProjects
+    depth?: number
 }
 
 export interface RootProjectsProps extends Omit<ProjectTreeProps, 'groups' | 'isLoading'> {

@@ -15,7 +15,7 @@ import { envConfig } from '@/config'
 import * as dataStorage from '@/data'
 import { db, projects, vibeTransfers } from '@/db'
 import logger from '@/logger'
-import { invalidateVibe } from '@/services'
+import { createAsset, invalidateVibe, removeAssets } from '@/services'
 import { nextDisplayOrder, planDisplayOrderUpdate } from '@/services/order'
 import { requireEntity, withUpdatedAt } from '@/utils'
 
@@ -45,6 +45,7 @@ async function upload(projectId: number, imageFile: ImageUploadFile) {
     const ext = extname(imageFile.name) || '.png'
     const filePath = join(envConfig.NAI_FACTORY_VIBES_DIR, String(projectId), `${Date.now()}${ext}`)
     await dataStorage.writeFile(filePath, Buffer.from(await imageFile.arrayBuffer()))
+    const sourceAsset = await createAsset('vibe-source', filePath)
 
     const [last] = await db
         .select({ displayOrder: vibeTransfers.displayOrder })
@@ -58,6 +59,7 @@ async function upload(projectId: number, imageFile: ImageUploadFile) {
         .values({
             projectId,
             displayOrder: nextDisplayOrder(last?.displayOrder),
+            sourceAssetId: sourceAsset.id,
             sourceImagePath: filePath.replaceAll('\\', '/'),
             referenceStrength: 0.6,
             informationExtracted: 1,
@@ -157,6 +159,7 @@ async function remove(projectId: number, id: number) {
 
     await db.delete(vibeTransfers).where(eq(vibeTransfers.id, id))
     await dataStorage.remove(existing.sourceImagePath)
+    await removeAssets([existing.sourceAssetId])
 
     log.debug({ projectId, vibeTransferId: id }, 'Vibe transfer deleted')
     return true

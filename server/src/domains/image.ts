@@ -1,11 +1,11 @@
 import { zValidator } from '@hono/zod-validator'
 import { IdParams, ImageGetQuery, ImageOrderPatchBody, ImagePatchBody } from '@nai-factory/shared'
-import { asc, desc, eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, images, scenes } from '@/db'
 import logger from '@/logger'
-import { remove as removeFile } from '@/services'
+import { removeAssets, remove as removeFile } from '@/services'
 import { planDisplayOrderUpdate } from '@/services/order'
 
 const log = logger.child({ module: 'image-domain' })
@@ -18,7 +18,7 @@ async function getAllBySceneId(sceneId: number) {
         .select()
         .from(images)
         .where(eq(images.sceneId, sceneId))
-        .orderBy(desc(images.createdAt), desc(images.id))
+        .orderBy(asc(images.displayOrder), asc(images.id))
 }
 
 async function update(id: number, data: ImagePatchBody) {
@@ -84,6 +84,7 @@ async function remove(id: number) {
 
     await db.delete(images).where(eq(images.id, id))
     await removeFile(image.filePath, image.thumbnailPath ?? null)
+    await removeAssets([image.assetId, image.thumbnailAssetId])
 
     log.debug({ imageId: id, sceneId: image.sceneId }, 'Image deleted')
     return true

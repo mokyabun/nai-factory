@@ -11,7 +11,7 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, playgroundImages, playgroundSettings } from '@/db'
 import logger from '@/logger'
-import { queueManager, remove as removeFile } from '@/services'
+import { queueManager, removeAssets, remove as removeFile } from '@/services'
 
 const log = logger.child({ module: 'playground-domain' })
 
@@ -65,6 +65,7 @@ async function remove(id: number) {
 
     await db.delete(playgroundImages).where(eq(playgroundImages.id, id))
     await removeFile(image.filePath, image.thumbnailPath ?? null)
+    await removeAssets([image.assetId, image.thumbnailAssetId])
 
     log.debug({ playgroundImageId: id }, 'Playground image deleted')
     return true

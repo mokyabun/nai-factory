@@ -7,16 +7,37 @@ import {
     useSensors,
 } from '@dnd-kit/core'
 import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
-import type { ProjectSettings, ProjectSettingsPatch } from '@nai-factory/shared'
+import type {
+    Project,
+    ProjectSettings,
+    ProjectSettingsPatch,
+    StashItem,
+    StashPostBody,
+} from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { Check, Download, ListPlus, Plus, Settings, Trash2, X } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import {
+    Archive,
+    Check,
+    Download,
+    FileText,
+    Layers,
+    ListPlus,
+    Plus,
+    Save,
+    Settings,
+    SlidersHorizontal,
+    Trash2,
+    X,
+} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
 import { ExportDialog } from '@/components/app/project/export-dialog'
+import { ProjectFilesSettings } from '@/components/app/project/project-files-dialog'
 import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -28,8 +49,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { api } from '@/lib/api'
+import { api, type SceneSummary } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
 import {
@@ -94,6 +116,14 @@ function ProjectPageContent() {
         queryFn: async () => {
             const { data } = await api.queue.status.get()
             return data
+        },
+    })
+
+    const stashQuery = useQuery({
+        queryKey: qk.stash(),
+        queryFn: async () => {
+            const { data } = await api.stash.get()
+            return data ?? []
         },
     })
 
@@ -190,6 +220,32 @@ function ProjectPageContent() {
             }
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
+            queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
+            clearSelection()
+            setProjectDialog(null)
+        },
+    })
+
+    const saveStash = useMutation({
+        mutationFn: (body: StashPostBody) => api.stash.post(body),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.stash() }),
+    })
+
+    const deleteStash = useMutation({
+        mutationFn: (id: number) => api.stash({ id }).delete(),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.stash() }),
+    })
+
+    const applyStash = useMutation({
+        mutationFn: ({ id, mode }: { id: number; mode?: 'append' | 'replace' }) =>
+            api.stash({ id }).apply.post({
+                projectId: projId,
+                mode,
+            }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: qk.project(projId) })
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
@@ -405,6 +461,22 @@ function ProjectPageContent() {
                                 <Button
                                     variant="outline"
                                     size="icon-sm"
+                                    aria-label="Stash"
+                                    onClick={() => setProjectDialog({ type: 'stash' })}
+                                    disabled={!projectQuery.data}
+                                />
+                            }
+                        >
+                            <Archive className="h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>Stash</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger
+                            render={
+                                <Button
+                                    variant="outline"
+                                    size="icon-sm"
                                     aria-label="프로젝트 설정"
                                     onClick={() => setProjectDialog({ type: 'settings' })}
                                     disabled={!projectQuery.data}
@@ -510,8 +582,25 @@ function ProjectPageContent() {
                 }}
                 slideshowImageCount={slideshowImageCount}
                 sceneCardSize={sceneCardSize}
+                project={projectQuery.data ?? null}
+                scenes={items}
+                selectedSceneIds={selectedSceneIds}
                 onSlideshowImageCountChange={handleSlideshowImageCountChange}
                 onSceneCardSizeChange={handleSceneCardSizeChange}
+            />
+            <StashDialog
+                open={projectDialog?.type === 'stash'}
+                onOpenChange={(open) => {
+                    if (!open) setProjectDialog(null)
+                }}
+                project={projectQuery.data}
+                scenes={items}
+                selectedSceneIds={selectedSceneIds}
+                stashItems={stashQuery.data ?? []}
+                isPending={saveStash.isPending || deleteStash.isPending || applyStash.isPending}
+                onSave={(body) => saveStash.mutateAsync(body)}
+                onDelete={(item) => deleteStash.mutateAsync(item.id)}
+                onApply={(item, mode) => applyStash.mutateAsync({ id: item.id, mode })}
             />
         </div>
     )
@@ -522,6 +611,9 @@ interface ProjectSettingsDialogProps {
     onOpenChange: (open: boolean) => void
     slideshowImageCount: number
     sceneCardSize: ProjectSettings['sceneCardSize']
+    project: Project | null
+    scenes: SceneSummary[]
+    selectedSceneIds: number[]
     onSlideshowImageCountChange: (value: string) => void
     onSceneCardSizeChange: (value: ProjectSettings['sceneCardSize']) => void
 }
@@ -531,48 +623,321 @@ function ProjectSettingsDialog({
     onOpenChange,
     slideshowImageCount,
     sceneCardSize,
+    project,
+    scenes,
+    selectedSceneIds,
     onSlideshowImageCountChange,
     onSceneCardSizeChange,
 }: ProjectSettingsDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col overflow-hidden">
                 <DialogHeader>
                     <DialogTitle>프로젝트 설정</DialogTitle>
                 </DialogHeader>
 
-                <div className="flex flex-col gap-4">
-                    <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
-                        <Label htmlFor="project-slideshow-image-count">회전 이미지 개수</Label>
-                        <Input
-                            id="project-slideshow-image-count"
-                            type="number"
-                            min={1}
-                            max={10}
-                            value={slideshowImageCount}
-                            onChange={(event) => onSlideshowImageCountChange(event.target.value)}
-                            className="h-8 text-xs"
-                        />
-                    </div>
+                <Tabs defaultValue="general" className="min-h-0">
+                    <TabsList>
+                        <TabsTrigger value="general">일반</TabsTrigger>
+                        <TabsTrigger value="files">씬 / 아카이브</TabsTrigger>
+                    </TabsList>
+                    <div className="mt-4 max-h-[65vh] overflow-y-auto pr-1">
+                        <TabsContent value="general" className="flex flex-col gap-4">
+                            <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
+                                <Label htmlFor="project-slideshow-image-count">
+                                    회전 이미지 개수
+                                </Label>
+                                <Input
+                                    id="project-slideshow-image-count"
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    value={slideshowImageCount}
+                                    onChange={(event) =>
+                                        onSlideshowImageCountChange(event.target.value)
+                                    }
+                                    className="h-8 text-xs"
+                                />
+                            </div>
 
-                    <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
-                        <Label htmlFor="project-scene-card-size">씬 카드 크기</Label>
-                        <Select value={sceneCardSize} onValueChange={onSceneCardSizeChange}>
-                            <SelectTrigger id="project-scene-card-size" className="w-full">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {SCENE_CARD_SIZE_OPTIONS.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
+                                <Label htmlFor="project-scene-card-size">씬 카드 크기</Label>
+                                <Select
+                                    value={sceneCardSize}
+                                    onValueChange={(value) => {
+                                        if (value) onSceneCardSizeChange(value)
+                                    }}
+                                >
+                                    <SelectTrigger id="project-scene-card-size" className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {SCENE_CARD_SIZE_OPTIONS.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="files">
+                            <ProjectFilesSettings
+                                project={project}
+                                scenes={scenes}
+                                selectedSceneIds={selectedSceneIds}
+                                onImported={() => onOpenChange(false)}
+                            />
+                        </TabsContent>
                     </div>
-                </div>
+                </Tabs>
             </DialogContent>
         </Dialog>
+    )
+}
+
+interface StashDialogProps {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    project: Project | null | undefined
+    scenes: SceneSummary[]
+    selectedSceneIds: number[]
+    stashItems: StashItem[]
+    isPending: boolean
+    onSave: (body: StashPostBody) => Promise<unknown>
+    onDelete: (item: StashItem) => Promise<unknown>
+    onApply: (item: StashItem, mode?: 'append' | 'replace') => Promise<unknown>
+}
+
+type StashTab = StashItem['type']
+
+const STASH_TAB_LABELS: Record<StashTab, string> = {
+    prompt: '프롬프트',
+    scene: '씬',
+    parameters: '파라미터',
+}
+
+function StashDialog({
+    open,
+    onOpenChange,
+    project,
+    scenes,
+    selectedSceneIds,
+    stashItems,
+    isPending,
+    onSave,
+    onDelete,
+    onApply,
+}: StashDialogProps) {
+    const [activeTab, setActiveTab] = useState<StashTab>('scene')
+    const [name, setName] = useState('')
+    const [replaceItem, setReplaceItem] = useState<StashItem | null>(null)
+    const selectedSceneSet = new Set(selectedSceneIds)
+    const stashedItems = stashItems.filter((item) => item.type === activeTab)
+    const stashedScenes =
+        selectedSceneIds.length > 0
+            ? scenes.filter((scene) => selectedSceneSet.has(scene.id))
+            : scenes
+    const canSave =
+        !!project && name.trim().length > 0 && (activeTab !== 'scene' || stashedScenes.length > 0)
+
+    async function handleSave() {
+        if (!project) return
+        const stashName = name.trim()
+        if (!stashName) return
+
+        if (activeTab === 'prompt') {
+            await onSave({
+                type: 'prompt',
+                name: stashName,
+                payload: {
+                    prompt: project.prompt,
+                    negativePrompt: project.negativePrompt,
+                    variables: project.variables,
+                    characterPrompts: project.characterPrompts,
+                },
+            })
+        } else if (activeTab === 'parameters') {
+            await onSave({
+                type: 'parameters',
+                name: stashName,
+                payload: project.parameters,
+            })
+        } else {
+            await onSave({
+                type: 'scene',
+                name: stashName,
+                payload: {
+                    scenes: stashedScenes.map((scene) => ({
+                        name: scene.name,
+                        variations: scene.variations.map((variation) => ({
+                            variables: variation.variables,
+                        })),
+                    })),
+                },
+            })
+        }
+
+        setName('')
+    }
+
+    return (
+        <>
+            <Dialog open={open} onOpenChange={onOpenChange}>
+                <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Stash</DialogTitle>
+                    </DialogHeader>
+
+                    <Tabs
+                        value={activeTab}
+                        onValueChange={(value) => setActiveTab(value as StashTab)}
+                    >
+                        <TabsList className="w-full">
+                            <TabsTrigger value="scene">
+                                <Layers className="h-4 w-4" />씬
+                            </TabsTrigger>
+                            <TabsTrigger value="prompt">
+                                <FileText className="h-4 w-4" />
+                                프롬프트
+                            </TabsTrigger>
+                            <TabsTrigger value="parameters">
+                                <SlidersHorizontal className="h-4 w-4" />
+                                파라미터
+                            </TabsTrigger>
+                        </TabsList>
+
+                        {(['scene', 'prompt', 'parameters'] as const).map((type) => (
+                            <TabsContent key={type} value={type} className="mt-2">
+                                <div className="flex flex-col gap-4">
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={name}
+                                            onChange={(event) => setName(event.target.value)}
+                                            placeholder={`${STASH_TAB_LABELS[type]} Stash 이름`}
+                                            className="h-8"
+                                        />
+                                        <Button
+                                            size="sm"
+                                            className="shrink-0 gap-1.5"
+                                            onClick={handleSave}
+                                            disabled={isPending || !canSave}
+                                        >
+                                            <Save className="h-4 w-4" />
+                                            저장
+                                        </Button>
+                                    </div>
+
+                                    {type === 'scene' && (
+                                        <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs text-muted-foreground">
+                                            <span>
+                                                {selectedSceneIds.length > 0
+                                                    ? `선택된 씬 ${stashedScenes.length}개 저장`
+                                                    : `전체 씬 ${stashedScenes.length}개 저장`}
+                                            </span>
+                                            {selectedSceneIds.length > 0 && (
+                                                <Badge variant="outline">선택 저장</Badge>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {stashedItems.length === 0 ? (
+                                        <div className="rounded-md border border-dashed px-3 py-8 text-center text-xs text-muted-foreground">
+                                            저장된 Stash가 없습니다
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-2">
+                                            {stashedItems.map((item) => (
+                                                <StashItemRow
+                                                    key={item.id}
+                                                    item={item}
+                                                    isPending={isPending}
+                                                    onDelete={onDelete}
+                                                    onApply={onApply}
+                                                    onReplace={() => setReplaceItem(item)}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </TabsContent>
+                        ))}
+                    </Tabs>
+                </DialogContent>
+            </Dialog>
+            <ConfirmDeleteDialog
+                open={replaceItem !== null}
+                onOpenChange={(nextOpen) => {
+                    if (!nextOpen) setReplaceItem(null)
+                }}
+                title="씬 Stash 덮어쓰기"
+                description="현재 프로젝트의 모든 씬과 생성된 이미지를 삭제하고 Stash의 씬으로 교체합니다. 되돌릴 수 없습니다."
+                onConfirm={async () => {
+                    if (!replaceItem) return
+                    await onApply(replaceItem, 'replace')
+                    setReplaceItem(null)
+                }}
+            />
+        </>
+    )
+}
+
+interface StashItemRowProps {
+    item: StashItem
+    isPending: boolean
+    onDelete: (item: StashItem) => Promise<unknown>
+    onApply: (item: StashItem, mode?: 'append' | 'replace') => Promise<unknown>
+    onReplace: () => void
+}
+
+function StashItemRow({ item, isPending, onDelete, onApply, onReplace }: StashItemRowProps) {
+    const meta =
+        item.type === 'scene'
+            ? `씬 ${item.payload.scenes.length}개`
+            : item.type === 'prompt'
+              ? '프로젝트 프롬프트'
+              : `${item.payload.width}x${item.payload.height}`
+
+    return (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+            <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{item.name}</div>
+                <div className="text-xs text-muted-foreground">{meta}</div>
+            </div>
+            {item.type === 'scene' ? (
+                <>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onApply(item, 'append')}
+                        disabled={isPending}
+                    >
+                        추가
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={onReplace} disabled={isPending}>
+                        덮어쓰기
+                    </Button>
+                </>
+            ) : (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onApply(item)}
+                    disabled={isPending}
+                >
+                    적용
+                </Button>
+            )}
+            <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`${item.name} Stash 삭제`}
+                onClick={() => onDelete(item)}
+                disabled={isPending}
+            >
+                <Trash2 className="h-4 w-4" />
+            </Button>
+        </div>
     )
 }
 

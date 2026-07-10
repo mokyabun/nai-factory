@@ -37,9 +37,7 @@ function ImagesPage() {
     const images = useMemo(
         () =>
             [...(imagesQuery.data ?? [])].sort(
-                (a, b) =>
-                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() ||
-                    b.id - a.id,
+                (a, b) => a.displayOrder.localeCompare(b.displayOrder) || a.id - b.id,
             ),
         [imagesQuery.data],
     )

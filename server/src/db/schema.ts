@@ -8,15 +8,44 @@ import {
     type Parameters,
     type ProjectSettings,
     type PromptVariable,
+    type StashItem,
+    type StashType,
 } from '@nai-factory/shared'
 import { sql } from 'drizzle-orm'
-import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import {
+    type AnySQLiteColumn,
+    index,
+    integer,
+    real,
+    sqliteTable,
+    text,
+    uniqueIndex,
+} from 'drizzle-orm/sqlite-core'
+
+export const assets = sqliteTable(
+    'assets',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        kind: text('kind').notNull(),
+        path: text('path').notNull(),
+        contentType: text('content_type').notNull().default('application/octet-stream'),
+        sizeBytes: integer('size_bytes'),
+        width: integer('width'),
+        height: integer('height'),
+        sha256: text('sha256'),
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+    },
+    (t) => [uniqueIndex('assets_path_unique').on(t.path), index('assets_kind_idx').on(t.kind)],
+)
 
 // Groups
 export const groups = sqliteTable(
     'groups',
     {
         id: integer('id').primaryKey(),
+        parentGroupId: integer('parent_group_id').references((): AnySQLiteColumn => groups.id, {
+            onDelete: 'cascade',
+        }),
         name: text('name').notNull(),
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
         updatedAt: text('updated_at')
@@ -24,7 +53,10 @@ export const groups = sqliteTable(
             .default(sql`(datetime('now'))`)
             .$onUpdate(() => new Date().toISOString()),
     },
-    (t) => [index('groups_name_idx').on(t.name)],
+    (t) => [
+        index('groups_parent_group_id_name_id_idx').on(t.parentGroupId, t.name, t.id),
+        index('groups_name_idx').on(t.name),
+    ],
 )
 
 export const projects = sqliteTable(
@@ -61,7 +93,7 @@ export const projects = sqliteTable(
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
         updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
     },
-    (t) => [index('projects_group_id_name_idx').on(t.groupId, t.name)],
+    (t) => [index('projects_group_id_name_id_idx').on(t.groupId, t.name, t.id)],
 )
 
 // Vibe Transfers
@@ -75,6 +107,7 @@ export const vibeTransfers = sqliteTable(
 
         displayOrder: text('display_order').notNull().default(''),
 
+        sourceAssetId: integer('source_asset_id').references(() => assets.id),
         sourceImagePath: text('source_image_path').notNull(),
 
         referenceStrength: real('reference_strength').notNull().default(0.6),
@@ -90,7 +123,14 @@ export const vibeTransfers = sqliteTable(
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
         updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
     },
-    (t) => [index('vibe_transfers_project_id_display_order_idx').on(t.projectId, t.displayOrder)],
+    (t) => [
+        uniqueIndex('vibe_transfers_project_id_display_order_unique').on(
+            t.projectId,
+            t.displayOrder,
+        ),
+        index('vibe_transfers_project_id_display_order_idx').on(t.projectId, t.displayOrder),
+        index('vibe_transfers_source_asset_id_idx').on(t.sourceAssetId),
+    ],
 )
 
 // Character References
@@ -104,6 +144,9 @@ export const characterReferences = sqliteTable(
 
         displayOrder: text('display_order').notNull().default(''),
 
+        sourceAssetId: integer('source_asset_id').references(() => assets.id),
+        thumbnailAssetId: integer('thumbnail_asset_id').references(() => assets.id),
+        processedAssetId: integer('processed_asset_id').references(() => assets.id),
         sourceImagePath: text('source_image_path').notNull(),
         thumbnailPath: text('thumbnail_path'),
         processedImagePath: text('processed_image_path'),
@@ -120,7 +163,14 @@ export const characterReferences = sqliteTable(
         updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
     },
     (t) => [
+        uniqueIndex('character_references_project_id_display_order_unique').on(
+            t.projectId,
+            t.displayOrder,
+        ),
         index('character_references_project_id_display_order_idx').on(t.projectId, t.displayOrder),
+        index('character_references_source_asset_id_idx').on(t.sourceAssetId),
+        index('character_references_thumbnail_asset_id_idx').on(t.thumbnailAssetId),
+        index('character_references_processed_asset_id_idx').on(t.processedAssetId),
     ],
 )
 
@@ -141,7 +191,10 @@ export const scenes = sqliteTable(
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
         updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
     },
-    (t) => [index('scenes_display_order_idx').on(t.projectId, t.displayOrder)],
+    (t) => [
+        uniqueIndex('scenes_project_id_display_order_unique').on(t.projectId, t.displayOrder),
+        index('scenes_display_order_idx').on(t.projectId, t.displayOrder),
+    ],
 )
 
 export const sceneVariations = sqliteTable(
@@ -161,7 +214,10 @@ export const sceneVariations = sqliteTable(
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
         updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
     },
-    (t) => [index('scene_variations_scene_id_display_order_idx').on(t.sceneId, t.displayOrder)],
+    (t) => [
+        uniqueIndex('scene_variations_scene_id_display_order_unique').on(t.sceneId, t.displayOrder),
+        index('scene_variations_scene_id_display_order_idx').on(t.sceneId, t.displayOrder),
+    ],
 )
 
 // Images
@@ -176,13 +232,20 @@ export const images = sqliteTable(
         // Using fractional indexing
         displayOrder: text('display_order').notNull(),
 
+        assetId: integer('asset_id').references(() => assets.id),
+        thumbnailAssetId: integer('thumbnail_asset_id').references(() => assets.id),
         filePath: text('file_path').notNull(),
         thumbnailPath: text('thumbnail_path'),
         metadata: text('metadata', { mode: 'json' }).notNull().default('{}'),
 
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
     },
-    (t) => [index('images_scene_id_display_order_idx').on(t.sceneId, t.displayOrder)],
+    (t) => [
+        uniqueIndex('images_scene_id_display_order_unique').on(t.sceneId, t.displayOrder),
+        index('images_scene_id_display_order_idx').on(t.sceneId, t.displayOrder),
+        index('images_asset_id_idx').on(t.assetId),
+        index('images_thumbnail_asset_id_idx').on(t.thumbnailAssetId),
+    ],
 )
 
 // Queue
@@ -234,13 +297,19 @@ export const playgroundImages = sqliteTable(
         negativePrompt: text('negative_prompt').notNull().default(''),
         parameters: text('parameters', { mode: 'json' }).notNull().$type<Parameters>(),
 
+        assetId: integer('asset_id').references(() => assets.id),
+        thumbnailAssetId: integer('thumbnail_asset_id').references(() => assets.id),
         filePath: text('file_path').notNull(),
         thumbnailPath: text('thumbnail_path'),
         metadata: text('metadata', { mode: 'json' }).notNull().default('{}'),
 
         createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
     },
-    (t) => [index('playground_images_created_at_idx').on(t.createdAt)],
+    (t) => [
+        index('playground_images_created_at_id_idx').on(t.createdAt, t.id),
+        index('playground_images_asset_id_idx').on(t.assetId),
+        index('playground_images_thumbnail_asset_id_idx').on(t.thumbnailAssetId),
+    ],
 )
 
 export const playgroundSettings = sqliteTable('playground_settings', {
@@ -286,6 +355,25 @@ export const settings = sqliteTable('settings', {
 
     updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })
+
+export const stashItems = sqliteTable(
+    'stash_items',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        type: text('type').notNull().$type<StashType>(),
+        name: text('name').notNull(),
+        payload: text('payload', { mode: 'json' }).notNull().$type<StashItem['payload']>(),
+        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at')
+            .notNull()
+            .default(sql`(datetime('now'))`)
+            .$onUpdate(() => new Date().toISOString()),
+    },
+    (t) => [
+        index('stash_items_type_name_id_idx').on(t.type, t.name, t.id),
+        index('stash_items_name_id_idx').on(t.name, t.id),
+    ],
+)
 
 export const debugRequests = sqliteTable(
     'debug_requests',

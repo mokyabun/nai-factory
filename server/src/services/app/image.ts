@@ -1,10 +1,13 @@
 import fs from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { ImageSaveType, ImageSettings } from '@nai-factory/shared'
+import { eq, inArray } from 'drizzle-orm'
 import sharp from 'sharp'
 import { envConfig } from '@/config'
 import * as dataStorage from '@/data'
+import { db, images, scenes } from '@/db'
 import baseLogger from '@/logger'
+import { createAsset, removeAssets } from './assets'
 
 const logger = baseLogger.child({ module: 'image-service' })
 
@@ -107,9 +110,14 @@ export async function save(
 
     logger.debug({ filePath, sizeBytes: imageData.byteLength }, 'Image saved')
 
+    const sourceAsset = await createAsset('image', filePath)
+    const thumbnailAsset = await createAsset('image-thumbnail', thumbnailPath)
+
     return {
         filePath: filePath.replaceAll('\\', '/'),
         thumbnailPath: thumbnailPath.replaceAll('\\', '/'),
+        assetId: sourceAsset.id,
+        thumbnailAssetId: thumbnailAsset.id,
     }
 }
 
@@ -144,9 +152,14 @@ export async function savePlayground(
 
     logger.debug({ filePath, sizeBytes: imageData.byteLength }, 'Playground image saved')
 
+    const sourceAsset = await createAsset('playground-image', filePath)
+    const thumbnailAsset = await createAsset('playground-image-thumbnail', thumbnailPath)
+
     return {
         filePath: filePath.replaceAll('\\', '/'),
         thumbnailPath: thumbnailPath.replaceAll('\\', '/'),
+        assetId: sourceAsset.id,
+        thumbnailAssetId: thumbnailAsset.id,
     }
 }
 
@@ -163,6 +176,24 @@ export async function remove(filePath: string, thumbnailPath: string | null) {
 }
 
 export async function removeByScene(projectId: number, sceneId: number) {
+    const rows = await db
+        .select({
+            id: images.id,
+            assetId: images.assetId,
+            thumbnailAssetId: images.thumbnailAssetId,
+        })
+        .from(images)
+        .where(eq(images.sceneId, sceneId))
+    if (rows.length > 0) {
+        await db.delete(images).where(
+            inArray(
+                images.id,
+                rows.map((row) => row.id),
+            ),
+        )
+        await removeAssets(rows.flatMap((row) => [row.assetId, row.thumbnailAssetId]))
+    }
+
     const scenePath = join(envConfig.NAI_FACTORY_IMAGES_DIR, String(projectId), String(sceneId))
     const thumbnailScenePath = join(
         envConfig.NAI_FACTORY_THUMBNAILS_DIR,
@@ -183,6 +214,25 @@ export async function removeByScene(projectId: number, sceneId: number) {
 }
 
 export async function removeByProject(projectId: number) {
+    const rows = await db
+        .select({
+            id: images.id,
+            assetId: images.assetId,
+            thumbnailAssetId: images.thumbnailAssetId,
+        })
+        .from(images)
+        .innerJoin(scenes, eq(images.sceneId, scenes.id))
+        .where(eq(scenes.projectId, projectId))
+    if (rows.length > 0) {
+        await db.delete(images).where(
+            inArray(
+                images.id,
+                rows.map((row) => row.id),
+            ),
+        )
+        await removeAssets(rows.flatMap((row) => [row.assetId, row.thumbnailAssetId]))
+    }
+
     const projectPath = join(envConfig.NAI_FACTORY_IMAGES_DIR, String(projectId))
     const thumbnailProjectPath = join(envConfig.NAI_FACTORY_THUMBNAILS_DIR, String(projectId))
 

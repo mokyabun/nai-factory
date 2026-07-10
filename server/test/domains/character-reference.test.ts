@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { eq, inArray } from 'drizzle-orm'
 
 const tempDbPath = join(import.meta.dir, `character-reference-${Date.now()}.db`)
 const tempImagePath = join(import.meta.dir, `character-reference-${Date.now()}.png`)
@@ -157,6 +158,83 @@ describe('group domain', () => {
             id: group.id,
             projects: [{ id: groupedProject.id, groupId: group.id, name: 'grouped tree' }],
         })
+    })
+
+    it('returns nested groups in the project tree response', async () => {
+        const [parent] = await db.insert(groups).values({ name: 'parent tree' }).returning()
+        if (!parent) throw new Error('Failed to seed parent group')
+
+        const [child] = await db
+            .insert(groups)
+            .values({ parentGroupId: parent.id, name: 'child tree' })
+            .returning()
+        if (!child) throw new Error('Failed to seed child group')
+
+        const [childProject] = await db
+            .insert(projects)
+            .values({ groupId: child.id, name: 'nested project' })
+            .returning()
+        if (!childProject) throw new Error('Failed to seed nested project')
+
+        const response = await app.request('/groups')
+        expect(response.status).toBe(200)
+
+        const body = (await response.json()) as Array<{
+            id: number | null
+            type: string
+            groups?: Array<{
+                id: number
+                parentGroupId: number
+                projects: unknown[]
+            }>
+        }>
+        const parentItem = body.find((item) => item.type === 'group' && item.id === parent.id)
+
+        expect(parentItem?.groups).toContainEqual(
+            expect.objectContaining({
+                id: child.id,
+                parentGroupId: parent.id,
+                projects: [
+                    expect.objectContaining({
+                        id: childProject.id,
+                        groupId: child.id,
+                        name: 'nested project',
+                    }),
+                ],
+            }),
+        )
+    })
+
+    it('deletes descendant groups and projects when deleting a parent group', async () => {
+        const [parent] = await db.insert(groups).values({ name: 'delete parent' }).returning()
+        if (!parent) throw new Error('Failed to seed parent group')
+
+        const [child] = await db
+            .insert(groups)
+            .values({ parentGroupId: parent.id, name: 'delete child' })
+            .returning()
+        if (!child) throw new Error('Failed to seed child group')
+
+        const [childProject] = await db
+            .insert(projects)
+            .values({ groupId: child.id, name: 'delete nested project' })
+            .returning()
+        if (!childProject) throw new Error('Failed to seed nested project')
+
+        const response = await app.request(`/groups/${parent.id}`, { method: 'DELETE' })
+        expect(response.status).toBe(204)
+
+        const remainingGroups = await db
+            .select()
+            .from(groups)
+            .where(inArray(groups.id, [parent.id, child.id]))
+        const remainingProjects = await db
+            .select()
+            .from(projects)
+            .where(eq(projects.id, childProject.id))
+
+        expect(remainingGroups).toEqual([])
+        expect(remainingProjects).toEqual([])
     })
 
     it('lists ungrouped projects through the project domain query', async () => {

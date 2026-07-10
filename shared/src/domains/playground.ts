@@ -7,6 +7,8 @@ export const PlaygroundImage = z.object({
     prompt: z.string(),
     negativePrompt: z.string(),
     parameters: Parameters,
+    assetId: z.number().nullable(),
+    thumbnailAssetId: z.number().nullable(),
     filePath: z.string(),
     thumbnailPath: z.string().nullable(),
     metadata: z.record(z.string(), z.unknown()),

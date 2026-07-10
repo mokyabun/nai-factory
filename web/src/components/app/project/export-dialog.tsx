@@ -24,16 +24,32 @@ type DirectoryPicker = () => Promise<{
     }>
 }>
 
-interface ExportDialogProps {
-    open: boolean
-    onOpenChange: (open: boolean) => void
+interface OutputImagesSettingsProps {
     project: Project | null
     scenes: SceneSummary[]
+}
+
+interface ExportDialogProps extends OutputImagesSettingsProps {
+    open: boolean
+    onOpenChange: (open: boolean) => void
 }
 
 type ExportMethod = 'zip' | 'directory' | 'server'
 
 export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDialogProps) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="flex max-h-[85vh] max-w-xl flex-col gap-4 overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Output Images</DialogTitle>
+                </DialogHeader>
+                <OutputImagesSettings project={project} scenes={scenes} />
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsProps) {
     const queryClient = useQueryClient()
     const projectId = project?.id ?? null
     const [template, setTemplate] = useState(DEFAULT_PROJECT_SETTINGS.outputTemplate)
@@ -145,7 +161,7 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
 
             setMessage('Export 완료')
         } catch (error) {
-            setMessage(error instanceof Error ? error.message : 'Export 실패')
+            setMessage(error instanceof Error ? error.message : '작업 실패')
         } finally {
             setPendingMethod(null)
         }
@@ -155,103 +171,93 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
     const preview = renderPreviewFilename(project, scenes, previewTemplate)
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex max-w-md flex-col gap-4">
-                <DialogHeader>
-                    <DialogTitle>Output Export</DialogTitle>
-                </DialogHeader>
-
-                <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                            <Label htmlFor="output-template">템플릿</Label>
-                            <Tooltip>
-                                <TooltipTrigger
-                                    render={
-                                        <button
-                                            type="button"
-                                            className="flex h-6 w-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-                                            aria-label="템플릿 사용법"
-                                        />
-                                    }
-                                >
-                                    <CircleHelp className="h-3.5 w-3.5" />
-                                </TooltipTrigger>
-                                <TooltipContent side="left" align="start" className="max-w-64">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="font-medium">템플릿 토큰</span>
-                                        <span>{'{character}'}: 프로젝트명</span>
-                                        <span>{'{scene}'}: 씬명</span>
-                                        <span>{'{number}'}: 씬별 순번</span>
-                                        <span>{'{extension}'}: 원본 확장자</span>
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
-                        </div>
-                        <Input
-                            id="output-template"
-                            value={template}
-                            onChange={(event) => updateTemplate(event.target.value)}
-                            className="font-mono text-xs"
-                        />
-                        <p className="truncate text-[11px] text-muted-foreground">
-                            예상 출력: <span className="font-mono">{preview}</span>
-                        </p>
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="export-count">상위 N개</Label>
-                        <Input
-                            id="export-count"
-                            type="number"
-                            min={1}
-                            max={500}
-                            value={imageCount}
-                            onChange={(event) =>
-                                setImageCount(
-                                    Math.min(500, Math.max(1, Number(event.target.value) || 1)),
-                                )
+        <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="output-template">템플릿</Label>
+                    <Tooltip>
+                        <TooltipTrigger
+                            render={
+                                <button
+                                    type="button"
+                                    className="flex h-6 w-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                                    aria-label="템플릿 사용법"
+                                />
                             }
-                            className="w-28"
-                        />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <Button
-                            type="button"
-                            className="justify-start gap-2"
-                            disabled={disabled}
-                            onClick={() => run('zip')}
                         >
-                            <Archive className="h-4 w-4" />
-                            {pendingMethod === 'zip' ? 'ZIP 생성 중...' : 'ZIP 다운로드'}
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            className="justify-start gap-2"
-                            disabled={disabled}
-                            onClick={() => run('directory')}
-                        >
-                            <FolderDown className="h-4 w-4" />
-                            {pendingMethod === 'directory' ? '저장 중...' : '폴더에 바로 저장'}
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            className="justify-start gap-2"
-                            disabled={disabled}
-                            onClick={() => run('server')}
-                        >
-                            <Server className="h-4 w-4" />
-                            {pendingMethod === 'server' ? '복사 중...' : '서버 경로로 복사'}
-                        </Button>
-                    </div>
-
-                    {message && <p className="text-xs text-muted-foreground">{message}</p>}
+                            <CircleHelp className="h-3.5 w-3.5" />
+                        </TooltipTrigger>
+                        <TooltipContent side="left" align="start" className="max-w-64">
+                            <div className="flex flex-col gap-1">
+                                <span className="font-medium">템플릿 토큰</span>
+                                <span>{'{character}'}: 프로젝트명</span>
+                                <span>{'{scene}'}: 씬명</span>
+                                <span>{'{number}'}: 씬별 순번</span>
+                                <span>{'{extension}'}: 원본 확장자</span>
+                            </div>
+                        </TooltipContent>
+                    </Tooltip>
                 </div>
-            </DialogContent>
-        </Dialog>
+                <Input
+                    id="output-template"
+                    value={template}
+                    onChange={(event) => updateTemplate(event.target.value)}
+                    className="font-mono text-xs"
+                />
+                <p className="truncate text-[11px] text-muted-foreground">
+                    예상 출력: <span className="font-mono">{preview}</span>
+                </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+                <Label htmlFor="export-count">상위 N개</Label>
+                <Input
+                    id="export-count"
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={imageCount}
+                    onChange={(event) =>
+                        setImageCount(Math.min(500, Math.max(1, Number(event.target.value) || 1)))
+                    }
+                    className="w-28"
+                />
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3">
+                <Button
+                    type="button"
+                    className="justify-start gap-2"
+                    disabled={disabled}
+                    onClick={() => run('zip')}
+                >
+                    <Archive className="h-4 w-4" />
+                    {pendingMethod === 'zip' ? 'ZIP 생성 중...' : 'ZIP 다운로드'}
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="justify-start gap-2"
+                    disabled={disabled}
+                    onClick={() => run('directory')}
+                >
+                    <FolderDown className="h-4 w-4" />
+                    {pendingMethod === 'directory' ? '저장 중...' : '폴더에 저장'}
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="justify-start gap-2"
+                    disabled={disabled}
+                    onClick={() => run('server')}
+                >
+                    <Server className="h-4 w-4" />
+                    {pendingMethod === 'server' ? '복사 중...' : '서버로 복사'}
+                </Button>
+            </div>
+
+            {message && <p className="text-xs text-muted-foreground">{message}</p>}
+        </div>
     )
 }
 

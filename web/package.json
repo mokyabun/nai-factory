@@ -1,6 +1,6 @@
 {
     "name": "@nai-factory/web",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "private": true,
     "type": "module",
     "imports": {
@@ -12,6 +12,7 @@
         "preview": "vite preview",
         "start": "vite preview",
         "test": "vitest run --passWithNoTests",
+        "check:type": "tsc --noEmit",
         "check": "biome check .",
         "check:fix": "biome check --write .",
         "format": "biome format .",

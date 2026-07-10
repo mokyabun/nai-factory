@@ -13,11 +13,13 @@ import {
     image,
     playground,
     project,
+    projectExport,
     queue,
     scene,
     sdStudio,
     setting,
     sse,
+    stash,
     tag,
     vibeTransfer,
 } from './domains'
@@ -35,6 +37,7 @@ function routeApi(app: Hono<AppEnv>, prefix: string) {
     return app
         .route(`${prefix}/groups`, group)
         .route(`${prefix}/projects`, project)
+        .route(`${prefix}/projects/:projectId`, projectExport)
         .route(`${prefix}/projects/:projectId/character-references`, characterReference)
         .route(`${prefix}/projects/:projectId/vibe-transfers`, vibeTransfer)
         .route(`${prefix}/scenes`, scene)
@@ -44,6 +47,7 @@ function routeApi(app: Hono<AppEnv>, prefix: string) {
         .route(`${prefix}/queue`, queue)
         .route(`${prefix}/sd-studio`, sdStudio)
         .route(`${prefix}/settings`, setting)
+        .route(`${prefix}/stash`, stash)
         .route(prefix || '/', sse)
         .route(`${prefix}/tags`, tag)
         .get(`${prefix}/data/*`, async (c) => {

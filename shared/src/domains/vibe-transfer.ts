@@ -6,6 +6,7 @@ export const VibeTransfer = z.object({
     projectId: z.number(),
 
     displayOrder: z.string(),
+    sourceAssetId: z.number().nullable(),
     sourceImagePath: z.string(),
 
     referenceStrength: z.number(),

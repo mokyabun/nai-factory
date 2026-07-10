@@ -13,18 +13,34 @@ import { createGroupNameAtom } from './atom'
 interface CreateGroupDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
+    parentGroupName?: string
     onCreate: (name: string) => void
 }
 
-export function CreateGroupDialog({ open, onOpenChange, onCreate }: CreateGroupDialogProps) {
+export function CreateGroupDialog({
+    open,
+    onOpenChange,
+    parentGroupName,
+    onCreate,
+}: CreateGroupDialogProps) {
     return (
         <Provider>
-            <CreateGroupDialogContent open={open} onOpenChange={onOpenChange} onCreate={onCreate} />
+            <CreateGroupDialogContent
+                open={open}
+                onOpenChange={onOpenChange}
+                parentGroupName={parentGroupName}
+                onCreate={onCreate}
+            />
         </Provider>
     )
 }
 
-function CreateGroupDialogContent({ open, onOpenChange, onCreate }: CreateGroupDialogProps) {
+function CreateGroupDialogContent({
+    open,
+    onOpenChange,
+    parentGroupName,
+    onCreate,
+}: CreateGroupDialogProps) {
     const [name, setName] = useAtom(createGroupNameAtom)
 
     function handleSubmit(e: React.FormEvent) {
@@ -40,6 +56,11 @@ function CreateGroupDialogContent({ open, onOpenChange, onCreate }: CreateGroupD
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>새 그룹</DialogTitle>
+                    {parentGroupName && (
+                        <p className="text-muted-foreground text-xs">
+                            {parentGroupName} 그룹에 추가
+                        </p>
+                    )}
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     <Input

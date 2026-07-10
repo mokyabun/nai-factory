@@ -73,6 +73,33 @@ export const ScenePreviewGetQuery = z.object({
     variationId: z.coerce.number().int().positive().optional(),
 })
 
+export const SceneJsonVariation = z.object({
+    variables: PromptVariation,
+})
+
+export const SceneJsonScene = z.object({
+    name: z.string().min(1),
+    variations: z.array(SceneJsonVariation),
+})
+
+export const SceneJsonFile = z.object({
+    scenes: z.array(SceneJsonScene),
+})
+
+export const SceneJsonData = z.union([SceneJsonFile, z.array(SceneJsonScene), SceneJsonScene])
+export const SceneJsonImportMode = z.enum(['append', 'replace'])
+
+export const SceneJsonExportBody = z.object({
+    projectId: z.number().int().positive(),
+    sceneIds: z.array(z.number().int().positive()).optional(),
+})
+
+export const SceneJsonImportBody = z.object({
+    projectId: z.number().int().positive(),
+    data: SceneJsonData,
+    mode: SceneJsonImportMode.default('append'),
+})
+
 export type PromptVariation = z.infer<typeof PromptVariation>
 export type ScenePreviewPrompt = z.infer<typeof ScenePreviewPrompt>
 export type ScenePreviewRenderError = z.infer<typeof ScenePreviewRenderError>
@@ -85,3 +112,10 @@ export type ScenePostBody = z.infer<typeof ScenePostBody>
 export type ScenePatchBody = z.infer<typeof ScenePatchBody>
 export type SceneOrderPatchBody = z.infer<typeof SceneOrderPatchBody>
 export type ScenePreviewGetQuery = z.infer<typeof ScenePreviewGetQuery>
+export type SceneJsonVariation = z.infer<typeof SceneJsonVariation>
+export type SceneJsonScene = z.infer<typeof SceneJsonScene>
+export type SceneJsonFile = z.infer<typeof SceneJsonFile>
+export type SceneJsonData = z.infer<typeof SceneJsonData>
+export type SceneJsonImportMode = z.infer<typeof SceneJsonImportMode>
+export type SceneJsonExportBody = z.infer<typeof SceneJsonExportBody>
+export type SceneJsonImportBody = z.infer<typeof SceneJsonImportBody>
