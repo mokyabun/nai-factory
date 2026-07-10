@@ -112,8 +112,6 @@ describe('project archive export', () => {
             body: JSON.stringify({
                 include: {
                     images: true,
-                    thumbnails: true,
-                    derivedCaches: true,
                 },
             }),
         })
@@ -135,7 +133,7 @@ describe('project archive export', () => {
 
         expect(manifest).toMatchObject({
             format: 'nai-factory.project',
-            formatVersion: 1,
+            formatVersion: 2,
             project: {
                 name: 'archive project',
                 prompt: 'masterpiece, <<subject>>',
@@ -143,10 +141,9 @@ describe('project archive export', () => {
             },
             include: {
                 images: true,
-                thumbnails: true,
-                derivedCaches: true,
             },
         })
+        expect('settings' in manifest.project).toBe(false)
         expect(manifest.scenes).toHaveLength(1)
         expect(manifest.scenes[0]?.variations).toHaveLength(1)
         expect(manifest.scenes[0]?.images).toHaveLength(1)

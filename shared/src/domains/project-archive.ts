@@ -22,41 +22,27 @@ function isProjectArchiveUploadFile(value: unknown): value is ProjectArchiveUplo
 }
 
 export const PROJECT_ARCHIVE_FORMAT = 'nai-factory.project'
-export const PROJECT_ARCHIVE_FORMAT_VERSION = 1
+export const PROJECT_ARCHIVE_FORMAT_VERSION = 2
 export const PROJECT_ARCHIVE_EXTENSION = 'naif'
 
 export const ProjectArchiveIncludeOptions = z.object({
-    projectPrompt: z.boolean().default(true),
-    projectVariables: z.boolean().default(true),
-    projectParameters: z.boolean().default(true),
-    projectSettings: z.boolean().default(true),
-    characterPrompts: z.boolean().default(true),
+    prompts: z.boolean().default(true),
+    parameters: z.boolean().default(true),
     scenes: z.boolean().default(true),
-    sceneVariations: z.boolean().default(true),
     characterReferences: z.boolean().default(true),
     vibeTransfers: z.boolean().default(true),
     images: z.boolean().default(false),
-    imageMetadata: z.boolean().default(true),
-    thumbnails: z.boolean().default(false),
-    derivedCaches: z.boolean().default(false),
 })
 
 export type ProjectArchiveIncludeOptions = z.infer<typeof ProjectArchiveIncludeOptions>
 
 export const DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS: ProjectArchiveIncludeOptions = {
-    projectPrompt: true,
-    projectVariables: true,
-    projectParameters: true,
-    projectSettings: true,
-    characterPrompts: true,
+    prompts: true,
+    parameters: true,
     scenes: true,
-    sceneVariations: true,
     characterReferences: true,
     vibeTransfers: true,
     images: false,
-    imageMetadata: true,
-    thumbnails: false,
-    derivedCaches: false,
 }
 
 export const ProjectArchiveExportBody = z.object({
@@ -145,23 +131,55 @@ export const ProjectArchiveVibeTransfer = z.object({
     originalId: z.number().optional(),
 })
 
-export const ProjectArchiveV1 = z.object({
+const ProjectArchiveProject = z.object({
+    name: z.string(),
+    prompt: z.string().optional(),
+    negativePrompt: z.string().optional(),
+    variables: PromptVariable.optional(),
+    parameters: Parameters.optional(),
+    characterPrompts: z.array(CharacterPrompt).optional(),
+    createdAt: z.string().optional(),
+    updatedAt: z.string().optional(),
+    originalId: z.number().optional(),
+})
+
+export const ProjectArchiveV2 = z.object({
     format: z.literal(PROJECT_ARCHIVE_FORMAT),
     formatVersion: z.literal(PROJECT_ARCHIVE_FORMAT_VERSION),
     appVersion: z.string().optional(),
     exportedAt: z.string(),
     include: ProjectArchiveIncludeOptions,
-    project: z.object({
-        name: z.string(),
-        prompt: z.string().optional(),
-        negativePrompt: z.string().optional(),
-        variables: PromptVariable.optional(),
-        parameters: Parameters.optional(),
-        characterPrompts: z.array(CharacterPrompt).optional(),
+    project: ProjectArchiveProject,
+    scenes: z.array(ProjectArchiveScene).default([]),
+    characterReferences: z.array(ProjectArchiveCharacterReference).default([]),
+    vibeTransfers: z.array(ProjectArchiveVibeTransfer).default([]),
+    assets: z.array(ProjectArchiveAsset).default([]),
+})
+
+const LegacyProjectArchiveIncludeOptions = z.object({
+    projectPrompt: z.boolean().default(true),
+    projectVariables: z.boolean().default(true),
+    projectParameters: z.boolean().default(true),
+    projectSettings: z.boolean().default(true),
+    characterPrompts: z.boolean().default(true),
+    scenes: z.boolean().default(true),
+    sceneVariations: z.boolean().default(true),
+    characterReferences: z.boolean().default(true),
+    vibeTransfers: z.boolean().default(true),
+    images: z.boolean().default(false),
+    imageMetadata: z.boolean().default(true),
+    thumbnails: z.boolean().default(false),
+    derivedCaches: z.boolean().default(false),
+})
+
+export const ProjectArchiveV1 = z.object({
+    format: z.literal(PROJECT_ARCHIVE_FORMAT),
+    formatVersion: z.literal(1),
+    appVersion: z.string().optional(),
+    exportedAt: z.string(),
+    include: LegacyProjectArchiveIncludeOptions,
+    project: ProjectArchiveProject.extend({
         settings: ProjectSettings.partial().optional(),
-        createdAt: z.string().optional(),
-        updatedAt: z.string().optional(),
-        originalId: z.number().optional(),
     }),
     scenes: z.array(ProjectArchiveScene).default([]),
     characterReferences: z.array(ProjectArchiveCharacterReference).default([]),
@@ -169,7 +187,7 @@ export const ProjectArchiveV1 = z.object({
     assets: z.array(ProjectArchiveAsset).default([]),
 })
 
-export const ProjectArchiveManifest = ProjectArchiveV1
+export const ProjectArchiveManifest = z.union([ProjectArchiveV2, ProjectArchiveV1])
 
 export type ProjectArchiveExportBody = z.infer<typeof ProjectArchiveExportBody>
 export type ProjectArchiveImportBody = z.infer<typeof ProjectArchiveImportBody>

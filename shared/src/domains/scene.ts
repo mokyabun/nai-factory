@@ -79,7 +79,7 @@ export const SceneJsonVariation = z.object({
 
 export const SceneJsonScene = z.object({
     name: z.string().min(1),
-    variations: z.array(SceneJsonVariation).default([]),
+    variations: z.array(SceneJsonVariation),
 })
 
 export const SceneJsonFile = z.object({
@@ -87,6 +87,7 @@ export const SceneJsonFile = z.object({
 })
 
 export const SceneJsonData = z.union([SceneJsonFile, z.array(SceneJsonScene), SceneJsonScene])
+export const SceneJsonImportMode = z.enum(['append', 'replace'])
 
 export const SceneJsonExportBody = z.object({
     projectId: z.number().int().positive(),
@@ -96,6 +97,7 @@ export const SceneJsonExportBody = z.object({
 export const SceneJsonImportBody = z.object({
     projectId: z.number().int().positive(),
     data: SceneJsonData,
+    mode: SceneJsonImportMode.default('append'),
 })
 
 export type PromptVariation = z.infer<typeof PromptVariation>
@@ -114,5 +116,6 @@ export type SceneJsonVariation = z.infer<typeof SceneJsonVariation>
 export type SceneJsonScene = z.infer<typeof SceneJsonScene>
 export type SceneJsonFile = z.infer<typeof SceneJsonFile>
 export type SceneJsonData = z.infer<typeof SceneJsonData>
+export type SceneJsonImportMode = z.infer<typeof SceneJsonImportMode>
 export type SceneJsonExportBody = z.infer<typeof SceneJsonExportBody>
 export type SceneJsonImportBody = z.infer<typeof SceneJsonImportBody>

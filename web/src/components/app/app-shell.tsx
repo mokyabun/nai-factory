@@ -1,9 +1,10 @@
-import { SceneJsonData } from '@nai-factory/shared'
+import { SceneJsonData, type SceneJsonData as SceneJsonDataType } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { useAtom } from 'jotai'
 import { FileJson } from 'lucide-react'
 import { useEffect, useLayoutEffect, useState } from 'react'
+import { SceneJsonImportDialog } from '@/components/app/dialogs/scene-json-import-dialog'
 import { SdStudioImportDialog } from '@/components/app/dialogs/sd-studio-import-dialog'
 import { Header } from '@/components/app/header'
 import { QueueFailureAlerts } from '@/components/app/queue-failure-alerts'
@@ -30,6 +31,8 @@ export function AppShell({ children }: AppShellProps) {
     const [importDialogOpen, setImportDialogOpen] = useAtom(importDialogOpenAtom)
     const [storedProjectId, setStoredProjectId] = useAtom(activeProjectIdAtom)
     const [dropMessage, setDropMessage] = useState('')
+    const [sceneJsonImportOpen, setSceneJsonImportOpen] = useState(false)
+    const [pendingSceneJsonData, setPendingSceneJsonData] = useState<SceneJsonDataType | null>(null)
 
     useRealtimeInvalidation(queryClient)
 
@@ -76,16 +79,9 @@ export function AppShell({ children }: AppShellProps) {
                 return
             }
 
-            setDropMessage('Scene JSON 가져오는 중...')
-            const { error } = await api.scenes['import-json'].post({
-                projectId: storedProjectId,
-                data: sceneJson.data,
-            })
-            if (error) throw new Error('Scene JSON import failed')
-
-            await queryClient.invalidateQueries({ queryKey: qk.scenes(storedProjectId) })
-            setDropMessage('Import 완료')
-            clearPendingFile()
+            setPendingSceneJsonData(sceneJson.data)
+            setDropMessage('')
+            setSceneJsonImportOpen(true)
         }
 
         processDroppedFile().catch(() => {
@@ -104,6 +100,14 @@ export function AppShell({ children }: AppShellProps) {
     function handleImportDialogOpenChange(open: boolean) {
         setImportDialogOpen(open)
         if (!open) clearPendingFile()
+    }
+
+    function handleSceneJsonImportOpenChange(open: boolean) {
+        setSceneJsonImportOpen(open)
+        if (!open) {
+            setPendingSceneJsonData(null)
+            clearPendingFile()
+        }
     }
 
     return (
@@ -141,6 +145,12 @@ export function AppShell({ children }: AppShellProps) {
                 open={importDialogOpen}
                 onOpenChange={handleImportDialogOpenChange}
                 file={pendingFile}
+                projectId={storedProjectId}
+            />
+            <SceneJsonImportDialog
+                open={sceneJsonImportOpen}
+                onOpenChange={handleSceneJsonImportOpenChange}
+                data={pendingSceneJsonData}
                 projectId={storedProjectId}
             />
         </>

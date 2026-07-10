@@ -179,7 +179,7 @@ export async function createProjectArchive(projectId: number, body: ProjectArchi
     const sceneIds = sourceScenes.map((scene) => scene.id)
 
     const sourceVariations =
-        include.scenes && include.sceneVariations && sceneIds.length > 0
+        include.scenes && sceneIds.length > 0
             ? await db
                   .select()
                   .from(sceneVariations)
@@ -221,14 +221,12 @@ export async function createProjectArchive(projectId: number, body: ProjectArchi
             })
             if (imageAsset) archiveFiles.push(imageAsset)
 
-            const thumbnailAsset = include.thumbnails
-                ? await createArchiveAssetFile({
-                      assetId: `image-thumbnail-${image.id}`,
-                      kind: 'image-thumbnail',
-                      ownerId: image.id,
-                      sourcePath: image.thumbnailPath,
-                  })
-                : null
+            const thumbnailAsset = await createArchiveAssetFile({
+                assetId: `image-thumbnail-${image.id}`,
+                kind: 'image-thumbnail',
+                ownerId: image.id,
+                sourcePath: image.thumbnailPath,
+            })
             if (thumbnailAsset) archiveFiles.push(thumbnailAsset)
 
             archiveImages.push({
@@ -236,7 +234,7 @@ export async function createProjectArchive(projectId: number, body: ProjectArchi
                 displayOrder: image.displayOrder,
                 assetId: imageAsset?.asset.id,
                 thumbnailAssetId: thumbnailAsset?.asset.id,
-                metadata: include.imageMetadata ? metadataRecord(image.metadata) : {},
+                metadata: metadataRecord(image.metadata),
                 createdAt: image.createdAt,
                 originalId: image.id,
             })
@@ -277,24 +275,20 @@ export async function createProjectArchive(projectId: number, body: ProjectArchi
         })
         if (sourceAsset) archiveFiles.push(sourceAsset)
 
-        const thumbnailAsset = include.thumbnails
-            ? await createArchiveAssetFile({
-                  assetId: `character-reference-thumbnail-${ref.id}`,
-                  kind: 'character-reference-thumbnail',
-                  ownerId: ref.id,
-                  sourcePath: ref.thumbnailPath,
-              })
-            : null
+        const thumbnailAsset = await createArchiveAssetFile({
+            assetId: `character-reference-thumbnail-${ref.id}`,
+            kind: 'character-reference-thumbnail',
+            ownerId: ref.id,
+            sourcePath: ref.thumbnailPath,
+        })
         if (thumbnailAsset) archiveFiles.push(thumbnailAsset)
 
-        const processedAsset = include.derivedCaches
-            ? await createArchiveAssetFile({
-                  assetId: `character-reference-processed-${ref.id}`,
-                  kind: 'character-reference-processed',
-                  ownerId: ref.id,
-                  sourcePath: ref.processedImagePath,
-              })
-            : null
+        const processedAsset = await createArchiveAssetFile({
+            assetId: `character-reference-processed-${ref.id}`,
+            kind: 'character-reference-processed',
+            ownerId: ref.id,
+            sourcePath: ref.processedImagePath,
+        })
         if (processedAsset) archiveFiles.push(processedAsset)
 
         archiveCharacterReferences.push({
@@ -337,10 +331,8 @@ export async function createProjectArchive(projectId: number, body: ProjectArchi
             sourceAssetId: sourceAsset?.asset.id,
             referenceStrength: vibe.referenceStrength,
             informationExtracted: vibe.informationExtracted,
-            encodedData: include.derivedCaches ? vibe.encodedData : undefined,
-            encodedInformationExtracted: include.derivedCaches
-                ? vibe.encodedInformationExtracted
-                : undefined,
+            encodedData: vibe.encodedData,
+            encodedInformationExtracted: vibe.encodedInformationExtracted,
             createdAt: vibe.createdAt,
             updatedAt: vibe.updatedAt,
             originalId: vibe.id,
@@ -354,12 +346,11 @@ export async function createProjectArchive(projectId: number, body: ProjectArchi
         include,
         project: {
             name: source.name,
-            prompt: include.projectPrompt ? source.prompt : undefined,
-            negativePrompt: include.projectPrompt ? source.negativePrompt : undefined,
-            variables: include.projectVariables ? source.variables : undefined,
-            parameters: include.projectParameters ? source.parameters : undefined,
-            characterPrompts: include.characterPrompts ? source.characterPrompts : undefined,
-            settings: include.projectSettings ? source.settings : undefined,
+            prompt: include.prompts ? source.prompt : undefined,
+            negativePrompt: include.prompts ? source.negativePrompt : undefined,
+            variables: include.prompts ? source.variables : undefined,
+            parameters: include.parameters ? source.parameters : undefined,
+            characterPrompts: include.prompts ? source.characterPrompts : undefined,
             createdAt: source.createdAt,
             updatedAt: source.updatedAt,
             originalId: source.id,
@@ -493,7 +484,7 @@ export async function importProjectArchive(file: ProjectArchiveImportBody['archi
                 characterPrompts: manifest.project.characterPrompts ?? [],
                 settings: {
                     ...DEFAULT_PROJECT_SETTINGS,
-                    ...(manifest.project.settings ?? {}),
+                    ...('settings' in manifest.project ? (manifest.project.settings ?? {}) : {}),
                 },
             })
             .returning()

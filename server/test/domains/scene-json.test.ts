@@ -98,4 +98,65 @@ describe('scene JSON domain', () => {
             { key: 'pose', value: 'sitting' },
         ])
     })
+
+    it('replaces existing project scenes when importing with replace mode', async () => {
+        const target = await seedProject('replace target')
+        await seedScene(target.id, 'old scene A', 'a0', 'standing')
+        await seedScene(target.id, 'old scene B', 'a1', 'walking')
+
+        const importResponse = await app.request('/scenes/import-json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                projectId: target.id,
+                mode: 'replace',
+                data: {
+                    scenes: [
+                        {
+                            name: 'new scene',
+                            variations: [{ variables: [{ key: 'pose', value: 'sitting' }] }],
+                        },
+                    ],
+                },
+            }),
+        })
+
+        expect(importResponse.status).toBe(201)
+        expect(await importResponse.json()).toMatchObject({ imported: 1 })
+
+        const targetScenesResponse = await app.request(`/scenes?projectId=${target.id}`)
+        const targetScenes = (await targetScenesResponse.json()) as Array<{
+            name: string
+            variations: Array<{ variables: Array<{ key: string; value: string }> }>
+        }>
+
+        expect(targetScenes).toHaveLength(1)
+        expect(targetScenes[0]?.name).toBe('new scene')
+        expect(targetScenes[0]?.variations[0]?.variables).toEqual([
+            { key: 'pose', value: 'sitting' },
+        ])
+    })
+
+    it('does not accept SD Studio JSON as Scene JSON', async () => {
+        const target = await seedProject('sd studio guard target')
+
+        const importResponse = await app.request('/scenes/import-json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                projectId: target.id,
+                data: {
+                    name: 'SD Studio project',
+                    scenes: {
+                        scene1: {
+                            name: 'SD scene',
+                            slots: [[{ prompt: 'standing', enabled: true }]],
+                        },
+                    },
+                },
+            }),
+        })
+
+        expect(importResponse.status).toBe(400)
+    })
 })

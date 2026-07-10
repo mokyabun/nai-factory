@@ -280,7 +280,23 @@ async function importSceneJson(body: typeof SceneJsonImportBody._output) {
     const items = normalizeSceneJsonData(body.data)
     const created = []
     let variationCount = 0
-    let previousOrder = await getLastOrder(body.projectId)
+    let replacedScenes = 0
+
+    if (body.mode === 'replace') {
+        const existingScenes = await db
+            .select({ id: scenes.id })
+            .from(scenes)
+            .where(eq(scenes.projectId, body.projectId))
+
+        await Promise.all(existingScenes.map((scene) => removeByScene(body.projectId, scene.id)))
+
+        if (existingScenes.length > 0) {
+            await db.delete(scenes).where(eq(scenes.projectId, body.projectId))
+            replacedScenes = existingScenes.length
+        }
+    }
+
+    let previousOrder = body.mode === 'replace' ? null : await getLastOrder(body.projectId)
 
     for (const item of items) {
         const displayOrder = nextDisplayOrder(previousOrder)
@@ -313,6 +329,8 @@ async function importSceneJson(body: typeof SceneJsonImportBody._output) {
         {
             event: 'scene_json.import.completed',
             projectId: body.projectId,
+            mode: body.mode,
+            replacedScenes,
             importedScenes: created.length,
             importedVariations: variationCount,
         },

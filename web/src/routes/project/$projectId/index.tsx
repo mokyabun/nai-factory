@@ -35,6 +35,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
 import { ExportDialog } from '@/components/app/project/export-dialog'
+import { ProjectFilesSettings } from '@/components/app/project/project-files-dialog'
 import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -573,7 +574,6 @@ function ProjectPageContent() {
                 }}
                 project={projectQuery.data ?? null}
                 scenes={items}
-                selectedSceneIds={selectedSceneIds}
             />
             <ProjectSettingsDialog
                 open={projectDialog?.type === 'settings'}
@@ -582,6 +582,9 @@ function ProjectPageContent() {
                 }}
                 slideshowImageCount={slideshowImageCount}
                 sceneCardSize={sceneCardSize}
+                project={projectQuery.data ?? null}
+                scenes={items}
+                selectedSceneIds={selectedSceneIds}
                 onSlideshowImageCountChange={handleSlideshowImageCountChange}
                 onSceneCardSizeChange={handleSceneCardSizeChange}
             />
@@ -608,6 +611,9 @@ interface ProjectSettingsDialogProps {
     onOpenChange: (open: boolean) => void
     slideshowImageCount: number
     sceneCardSize: ProjectSettings['sceneCardSize']
+    project: Project | null
+    scenes: SceneSummary[]
+    selectedSceneIds: number[]
     onSlideshowImageCountChange: (value: string) => void
     onSceneCardSizeChange: (value: ProjectSettings['sceneCardSize']) => void
 }
@@ -617,51 +623,74 @@ function ProjectSettingsDialog({
     onOpenChange,
     slideshowImageCount,
     sceneCardSize,
+    project,
+    scenes,
+    selectedSceneIds,
     onSlideshowImageCountChange,
     onSceneCardSizeChange,
 }: ProjectSettingsDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col overflow-hidden">
                 <DialogHeader>
                     <DialogTitle>프로젝트 설정</DialogTitle>
                 </DialogHeader>
 
-                <div className="flex flex-col gap-4">
-                    <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
-                        <Label htmlFor="project-slideshow-image-count">회전 이미지 개수</Label>
-                        <Input
-                            id="project-slideshow-image-count"
-                            type="number"
-                            min={1}
-                            max={10}
-                            value={slideshowImageCount}
-                            onChange={(event) => onSlideshowImageCountChange(event.target.value)}
-                            className="h-8 text-xs"
-                        />
-                    </div>
+                <Tabs defaultValue="general" className="min-h-0">
+                    <TabsList>
+                        <TabsTrigger value="general">일반</TabsTrigger>
+                        <TabsTrigger value="files">씬 / 아카이브</TabsTrigger>
+                    </TabsList>
+                    <div className="mt-4 max-h-[65vh] overflow-y-auto pr-1">
+                        <TabsContent value="general" className="flex flex-col gap-4">
+                            <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
+                                <Label htmlFor="project-slideshow-image-count">
+                                    회전 이미지 개수
+                                </Label>
+                                <Input
+                                    id="project-slideshow-image-count"
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    value={slideshowImageCount}
+                                    onChange={(event) =>
+                                        onSlideshowImageCountChange(event.target.value)
+                                    }
+                                    className="h-8 text-xs"
+                                />
+                            </div>
 
-                    <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
-                        <Label htmlFor="project-scene-card-size">씬 카드 크기</Label>
-                        <Select
-                            value={sceneCardSize}
-                            onValueChange={(value) => {
-                                if (value) onSceneCardSizeChange(value)
-                            }}
-                        >
-                            <SelectTrigger id="project-scene-card-size" className="w-full">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {SCENE_CARD_SIZE_OPTIONS.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
+                                <Label htmlFor="project-scene-card-size">씬 카드 크기</Label>
+                                <Select
+                                    value={sceneCardSize}
+                                    onValueChange={(value) => {
+                                        if (value) onSceneCardSizeChange(value)
+                                    }}
+                                >
+                                    <SelectTrigger id="project-scene-card-size" className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {SCENE_CARD_SIZE_OPTIONS.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="files">
+                            <ProjectFilesSettings
+                                project={project}
+                                scenes={scenes}
+                                selectedSceneIds={selectedSceneIds}
+                                onImported={() => onOpenChange(false)}
+                            />
+                        </TabsContent>
                     </div>
-                </div>
+                </Tabs>
             </DialogContent>
         </Dialog>
     )
