@@ -30,8 +30,8 @@
         "shared"
     ],
     "devDependencies": {
-        "@biomejs/biome": "^2.4.15",
+        "@biomejs/biome": "^2.5.15",
         "typescript": "^6.0.3",
-        "wait-on": "^9.0.10"
+        "wait-on": "^9.5.1"
     }
 }
