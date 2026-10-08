@@ -1,7 +1,9 @@
 import { Database } from 'bun:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
+
 import { drizzle } from 'drizzle-orm/bun-sqlite'
+
 import { envConfig } from '../config'
 import { migrate } from './migrate'
 import * as schema from './schema'

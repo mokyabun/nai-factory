@@ -32,6 +32,7 @@ import {
     X,
 } from 'lucide-react'
 import { type PointerEvent, useEffect, useRef, useState } from 'react'
+
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
 import { ExportDialog } from '@/components/app/project/export-dialog'
@@ -61,6 +62,7 @@ import {
 } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+
 import {
     hasScenesAtom,
     loadedProjectIdAtom,
@@ -193,7 +195,8 @@ function ProjectPageContent() {
     ])
 
     useEffect(() => {
-        return () => saveProjectSettings.current.flush()
+        const cleanupSaveProjectSettings = saveProjectSettings.current
+        return () => cleanupSaveProjectSettings.flush()
     }, [])
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
@@ -245,11 +248,11 @@ function ProjectPageContent() {
                     current.map((scene) => (scene.id === context?.tempId ? sceneSummary : scene)),
                 )
             }
-            queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
             setProjectDialog(null)
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
         },
     })
 
@@ -308,9 +311,9 @@ function ProjectPageContent() {
             if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
-            queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
+            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
         },
     })
 
@@ -342,9 +345,9 @@ function ProjectPageContent() {
             if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
-            queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
+            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
         },
     })
 
@@ -464,10 +467,10 @@ function ProjectPageContent() {
             if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: qk.project(projId) })
-            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
-            queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
+            void queryClient.invalidateQueries({ queryKey: qk.project(projId) })
+            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
         },
     })
 

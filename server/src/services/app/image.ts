@@ -1,12 +1,15 @@
 import fs from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+
 import type { ImageSaveType, ImageSettings } from '@nai-factory/shared'
 import { eq, inArray } from 'drizzle-orm'
 import sharp from 'sharp'
+
 import { envConfig } from '@/config'
 import * as dataStorage from '@/data'
 import { db, images, scenes } from '@/db'
 import baseLogger from '@/logger'
+
 import { createAsset, removeAssets } from './assets'
 
 const logger = baseLogger.child({ module: 'image-service' })

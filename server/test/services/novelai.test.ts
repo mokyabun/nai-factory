@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import { rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+
 import type { SimpleNovelAIParameters } from '@nai-factory/shared'
 import { zipSync } from 'fflate'
 
@@ -15,7 +16,7 @@ const postMock = mock((_url: string, _options?: KyPostOptions) => ({
     arrayBuffer: arrayBufferMock,
 }))
 
-mock.module('ky', () => ({
+await mock.module('ky', () => ({
     default: { post: postMock },
 }))
 
@@ -223,6 +224,7 @@ describe('NovelAI cached reference requests', () => {
     })
 
     it('throws a deterministic error in fail mode', async () => {
+        // eslint-disable-next-line typescript/await-thenable -- Bun async resolves/rejects matchers are awaited even though their types return void.
         await expect(
             generateImage('key', baseParams, {
                 settings: { enabled: false, recentRequestLimit: 20 },
@@ -294,6 +296,7 @@ describe('fetchAnlasStatus', () => {
             ),
         ) as unknown as typeof fetch
 
+        // eslint-disable-next-line typescript/await-thenable -- Bun async resolves/rejects matchers are awaited even though their types return void.
         await expect(fetchAnlasStatus('key')).resolves.toEqual({
             unlimited: false,
             anlas: 1500,
@@ -312,6 +315,7 @@ describe('fetchAnlasStatus', () => {
             ),
         ) as unknown as typeof fetch
 
+        // eslint-disable-next-line typescript/await-thenable -- Bun async resolves/rejects matchers are awaited even though their types return void.
         await expect(fetchAnlasStatus('key')).rejects.toThrow(
             'NovelAI account status failed (400): use image API host',
         )

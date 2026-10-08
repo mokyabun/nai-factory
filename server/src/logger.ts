@@ -1,4 +1,5 @@
 import pino from 'pino'
+
 import { envConfig } from './config'
 
 const baseOptions: pino.LoggerOptions = {

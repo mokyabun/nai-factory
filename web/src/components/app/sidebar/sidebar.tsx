@@ -3,6 +3,7 @@ import { Provider, useAtom, useAtomValue } from 'jotai'
 import type { LucideIcon } from 'lucide-react'
 import { AlignLeft, File, FlaskConical, ListTodo, ScrollText, Settings } from 'lucide-react'
 import { type ComponentType, type LazyExoticComponent, lazy, Suspense, useEffect } from 'react'
+
 import {
     Sheet,
     SheetContent,
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/sheet'
 import * as Base from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
+
 import { activeProjectIdAtom } from '../atom'
 import { activeSidebarPanelAtom, type SidebarPanel } from './atom'
 import { SidebarFooter } from './sidebar-footer'
@@ -86,12 +88,12 @@ function SidebarContent({ projectId }: AppSidebarProps) {
     const isSidebarOpen = isMobile ? openMobile : open
 
     useEffect(() => {
-        SidebarProject.preload()
-        SidebarQueue.preload()
+        void SidebarProject.preload()
+        void SidebarQueue.preload()
     }, [])
 
     useEffect(() => {
-        if (projectId) SidebarPrompt.preload()
+        if (projectId) void SidebarPrompt.preload()
     }, [projectId])
 
     useEffect(() => {
@@ -125,7 +127,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
 
     function handleItemClick(item: SidebarItem) {
         if (!item.panel) {
-            if (item.to && pathname !== item.to) navigate({ to: item.to })
+            if (item.to && pathname !== item.to) void navigate({ to: item.to })
             setSidebarOpen(false)
             return
         }
@@ -146,7 +148,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
         }
 
         if (item.to && pathname !== item.to) {
-            navigate({ to: item.to })
+            void navigate({ to: item.to })
             setActivePanel(panel)
             setSidebarOpen(true)
             return
@@ -157,7 +159,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
         } else {
             setActivePanel(panel)
             setSidebarOpen(true)
-            navigate({
+            void navigate({
                 search: (prev) => ({ ...prev, sidebar: panel }),
                 replace: true,
             })
@@ -172,7 +174,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
 
     function navigateToProjectContextPanel(panel: SidebarPanel) {
         if (projectId) {
-            navigate({
+            void navigate({
                 to: '/project/$projectId',
                 params: { projectId: String(projectId) },
                 search: (prev) => ({ ...prev, sidebar: panel }),
@@ -181,7 +183,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
             return
         }
 
-        navigate({
+        void navigate({
             to: '/',
             search: (prev) => ({ ...prev, sidebar: panel }),
             replace: pathname === '/',
@@ -320,10 +322,10 @@ function SidebarContent({ projectId }: AppSidebarProps) {
 }
 
 function preloadSidebarPanel(panel: SidebarPanel) {
-    if (panel === 'project') SidebarProject.preload()
-    if (panel === 'playground') SidebarPlayground.preload()
-    if (panel === 'prompt') SidebarPrompt.preload()
-    if (panel === 'queue') SidebarQueue.preload()
+    if (panel === 'project') void SidebarProject.preload()
+    if (panel === 'playground') void SidebarPlayground.preload()
+    if (panel === 'prompt') void SidebarPrompt.preload()
+    if (panel === 'queue') void SidebarQueue.preload()
 }
 
 function isSidebarPanel(panel: string): panel is SidebarPanel {

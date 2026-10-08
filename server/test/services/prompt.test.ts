@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'bun:test'
+
 import { normalizePromptVariables } from '@nai-factory/shared'
+
 import { compilePrompts, compileVariables, PromptRenderError } from '../../src/services'
 
 describe('prompt variables', () => {

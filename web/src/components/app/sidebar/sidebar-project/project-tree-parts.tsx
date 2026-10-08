@@ -1,5 +1,6 @@
 import { File, Folder, MoreHorizontal } from 'lucide-react'
 import { useRef } from 'react'
+
 import { Button } from '@/components/ui/button'
 import {
     ContextMenuContent,
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import type { GroupWithProjects } from '@/lib/api'
+
 import type { ProjectSummary } from './atom'
 
 interface GroupMenuActions {

@@ -9,8 +9,5 @@
             "@/*": ["./src/*"]
         }
     },
-    "include": [
-        "src/**/*",
-        "test/**/*"
-    ]
+    "include": ["src/**/*", "test/**/*", "scripts/**/*", "drizzle.config.ts"]
 }

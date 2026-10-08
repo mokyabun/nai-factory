@@ -4,6 +4,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Download, Info } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import {
     Sheet,
@@ -43,7 +44,7 @@ function ImageViewerPage() {
 
     const goTo = useCallback(
         (img: Image) => {
-            navigate({
+            void navigate({
                 to: '/scene/$sceneId/images/$imageId',
                 params: { sceneId, imageId: String(img.id) },
                 replace: true,
@@ -70,7 +71,7 @@ function ImageViewerPage() {
             if (e.key === 'ArrowLeft') goPrev()
             else if (e.key === 'ArrowRight') goNext()
             else if (e.key === 'Escape')
-                navigate({ to: '/scene/$sceneId/images', params: { sceneId }, replace: true })
+                void navigate({ to: '/scene/$sceneId/images', params: { sceneId }, replace: true })
         }
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
@@ -166,6 +167,7 @@ function ImageViewerPage() {
                 <div className="flex gap-2 overflow-x-auto px-4 py-3">
                     {images.map((img, i) => (
                         <button
+                            aria-label="이미지 보기"
                             key={img.id}
                             type="button"
                             onClick={() => goTo(img)}

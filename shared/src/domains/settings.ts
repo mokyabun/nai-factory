@@ -1,4 +1,5 @@
 import type * as z from 'zod'
+
 import { GlobalSettings } from '../settings'
 
 export const SettingsPatchBody = GlobalSettings.partial()

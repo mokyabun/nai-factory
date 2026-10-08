@@ -3,12 +3,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom } from 'jotai'
 import { AlignLeft } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
+
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { api } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+
 import { createSidebarPromptDraft, sidebarPromptDraftAtom } from './atom'
 import { CharacterPromptEditor } from './character-prompt-editor'
 import { CharacterReferenceEditor } from './character-reference-editor'
@@ -108,9 +110,11 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
 
     // Flush pending saves on unmount
     useEffect(() => {
+        const cleanupSavePrompt = savePromptRef.current
+        const cleanupSaveVariables = saveVariablesRef.current
         return () => {
-            savePromptRef.current.flush()
-            saveVariablesRef.current.flush()
+            cleanupSavePrompt.flush()
+            cleanupSaveVariables.flush()
         }
     }, [])
 

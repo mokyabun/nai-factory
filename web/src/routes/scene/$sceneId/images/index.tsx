@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Check, Trash2, X } from 'lucide-react'
 import { type PointerEvent, useEffect, useMemo, useRef, useState } from 'react'
+
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { SortableImageItem } from '@/components/app/project/sortable-image-item'
 import { Button } from '@/components/ui/button'
@@ -77,6 +78,7 @@ function ImagesPage() {
 
     useEffect(() => {
         const availableIds = new Set(images.map((img) => img.id))
+        // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
         setSelectedIds((prev) => {
             const next = new Set([...prev].filter((id) => availableIds.has(id)))
             return next.size === prev.size ? prev : next
@@ -138,10 +140,10 @@ function ImagesPage() {
             if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
         },
         onSettled: (_data, _error, _variables, context) => {
-            queryClient.invalidateQueries({ queryKey: qk.images(scenId) })
-            queryClient.invalidateQueries({ queryKey: qk.scene(scenId) })
+            void queryClient.invalidateQueries({ queryKey: qk.images(scenId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scene(scenId) })
             if (context?.projectId !== undefined) {
-                queryClient.invalidateQueries({ queryKey: qk.scenes(context.projectId) })
+                void queryClient.invalidateQueries({ queryKey: qk.scenes(context.projectId) })
             }
         },
     })
@@ -210,9 +212,9 @@ function ImagesPage() {
             }
         },
         onSettled: (_data, _error, _variables, context) => {
-            queryClient.invalidateQueries({ queryKey: qk.scene(scenId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scene(scenId) })
             if (context?.projectId !== undefined) {
-                queryClient.invalidateQueries({ queryKey: qk.scenes(context.projectId) })
+                void queryClient.invalidateQueries({ queryKey: qk.scenes(context.projectId) })
             }
         },
     })
@@ -338,11 +340,11 @@ function ImagesPage() {
     function goBack() {
         const projectId = sceneQuery.data?.projectId
         if (projectId) {
-            navigate({ to: '/project/$projectId', params: { projectId: String(projectId) } })
+            void navigate({ to: '/project/$projectId', params: { projectId: String(projectId) } })
             return
         }
 
-        navigate({ to: '/' })
+        void navigate({ to: '/' })
     }
 
     return (

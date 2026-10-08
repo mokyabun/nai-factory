@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Download, FileJson, Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -56,6 +57,7 @@ export function ProjectFilesSettings({
 
     useEffect(() => {
         if (!project) return
+        // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
         setArchiveInclude(DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS)
         setSceneJsonFile(null)
         setSceneJsonMode('append')
@@ -177,7 +179,7 @@ export function ProjectFilesSettings({
         await queryClient.invalidateQueries({ queryKey: qk.groupsWithProjects() })
         queryClient.setQueryData(qk.project(data.id), data)
         onImported()
-        navigate({ to: '/project/$projectId', params: { projectId: String(data.id) } })
+        void navigate({ to: '/project/$projectId', params: { projectId: String(data.id) } })
     }
 
     async function run(method: PendingMethod) {

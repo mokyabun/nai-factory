@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+
 import { zValidator } from '@hono/zod-validator'
 import {
     CharacterReferenceItemParams,
@@ -10,6 +11,7 @@ import {
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
+
 import { envConfig } from '@/config'
 import { characterReferences, db, projects } from '@/db'
 import logger from '@/logger'

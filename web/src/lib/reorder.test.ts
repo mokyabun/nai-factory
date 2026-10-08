@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { compareDisplayOrder, reorderById } from './reorder'
 
 const items = [{ id: 1 }, { id: 2 }, { id: 3 }]

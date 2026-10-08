@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+
 import logger from '@/logger'
 import { clearDebugRequests, listDebugRequests } from '@/services/debug-log'
 

@@ -1,4 +1,5 @@
 import * as z from 'zod'
+
 import {
     NovelAICharacterPrompt,
     NovelAIModel,
@@ -69,6 +70,7 @@ export function normalizePromptVariables(value: unknown): PromptVariable {
     if (value && typeof value === 'object') {
         return Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => ({
             key,
+            // eslint-disable-next-line typescript/no-base-to-string -- Preserve the existing string coercion of legacy input values.
             value: String(entryValue ?? ''),
         }))
     }

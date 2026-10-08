@@ -10,6 +10,7 @@ import {
 import { asc, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
+
 import { db, projects, scenes, sceneVariations } from '../db'
 import logger from '../logger'
 import { removeByProject, removeCharacterReferencesByProject } from '../services'
@@ -24,7 +25,7 @@ function normalizeProject<T extends typeof projects.$inferSelect>(project: T) {
         ...normalized,
         settings: {
             ...DEFAULT_PROJECT_SETTINGS,
-            ...(normalized.settings ?? {}),
+            ...normalized.settings,
         },
     }
 }

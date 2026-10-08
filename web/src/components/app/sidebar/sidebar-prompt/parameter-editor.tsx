@@ -8,6 +8,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useEffect, useRef } from 'react'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -23,6 +24,7 @@ import { api } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+
 import { sidebarParameterParamsAtom } from './atom'
 
 type ProjectData = Pick<Project, 'id' | 'parameters'>
@@ -40,6 +42,7 @@ export function ParameterEditor({ project }: ParameterEditorProps) {
     const dirtyRef = useRef(false)
 
     const saveParamsRef = useRef(
+        // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
         debounce(async (projectId: number, nextParams: ProjectParams) => {
             const previousProject = await snapshotQuery<Project>(queryClient, qk.project(projectId))
             queryClient.setQueryData<Project | null>(qk.project(projectId), (project) =>
@@ -71,8 +74,9 @@ export function ParameterEditor({ project }: ParameterEditorProps) {
     }, [project.id, project.parameters, setParams])
 
     useEffect(() => {
+        const cleanupSaveParams = saveParamsRef.current
         return () => {
-            saveParamsRef.current.flush()
+            cleanupSaveParams.flush()
         }
     }, [])
 

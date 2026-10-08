@@ -1,7 +1,9 @@
 import type { Query } from '@tanstack/react-query'
 import { QueryClient } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
+
 import { qk } from '@/lib/queries'
+
 import { handleRealtimeEvent, syncActiveRealtimeQueries } from './use-realtime-invalidation'
 
 function mockQuery(queryKey: readonly unknown[], active = true) {

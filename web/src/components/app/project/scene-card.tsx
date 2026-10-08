@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { Provider, useAtom } from 'jotai'
 import { Check, Copy, Image, ListPlus, Loader, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { useEffect } from 'react'
+
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -25,6 +26,7 @@ import { api, imageResourceUrl } from '@/lib/api'
 import { requireApiResult, restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+
 import { sceneCardDeleteOpenAtom, sceneCardThumbIndexAtom } from './atom'
 
 interface SceneCardProps {
@@ -132,9 +134,9 @@ function SceneCardContent({
             restoreSnapshots(queryClient, context?.snapshots)
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
-            queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
         },
     })
 
@@ -205,9 +207,9 @@ function SceneCardContent({
             restoreSnapshots(queryClient, context?.snapshots)
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
-            queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
         },
     })
 
@@ -236,9 +238,9 @@ function SceneCardContent({
             restoreSnapshots(queryClient, context?.snapshots)
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
-            queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
         },
     })
 
@@ -335,7 +337,7 @@ function SceneCardContent({
                                 return
                             }
 
-                            navigate({
+                            void navigate({
                                 to: '/scene/$sceneId/images',
                                 params: { sceneId: String(scene.id) },
                             })
@@ -377,7 +379,7 @@ function SceneCardContent({
                                 <div className="flex shrink-0 gap-1">
                                     {cycleImages.map((_, i) => (
                                         <div
-                                            // biome-ignore lint/suspicious/noArrayIndexKey: dots are positional decorations for the slideshow.
+                                            // dots are positional decorations for the slideshow.
                                             key={i}
                                             className={cn(
                                                 'h-1 w-1 rounded-full transition-colors',

@@ -1,7 +1,9 @@
 import type { DebugSettings } from '@nai-factory/shared'
 import { desc, eq } from 'drizzle-orm'
+
 import { db, debugRequests, sqlite } from '@/db'
 import logger from '@/logger'
+
 import { realtimeEvents } from './app/events'
 
 export type DebugRequestStatus = 'pending' | 'success' | 'error'

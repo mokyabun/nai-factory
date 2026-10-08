@@ -1,4 +1,5 @@
 import * as z from 'zod'
+
 import { PromptVariable } from './app'
 
 const PngImageSaveType = z.object({ type: z.literal('png') })

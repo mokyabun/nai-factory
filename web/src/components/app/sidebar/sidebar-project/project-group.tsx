@@ -3,10 +3,12 @@ import { CSS } from '@dnd-kit/utilities'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { ChevronRight, Folder } from 'lucide-react'
 import { useCallback } from 'react'
+
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
+
 import { collapsedGroupIdsAtom, setGroupCollapsedAtom } from './atom'
 import { ProjectRow } from './project-row'
 import { GroupContextMenuContent, GroupMenu, RenameInput } from './project-tree-parts'

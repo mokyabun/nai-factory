@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BarChart3, Clock3, ListTodo, Loader, Play, Square, Trash2 } from 'lucide-react'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SidebarHeader } from '@/components/ui/sidebar'
@@ -66,8 +67,8 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
     })
 
     const invalidateQueue = () => {
-        queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-        queryClient.invalidateQueries({ queryKey: qk.queue(projectId) })
+        void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+        void queryClient.invalidateQueries({ queryKey: qk.queue(projectId) })
     }
 
     const startQueue = useMutation({

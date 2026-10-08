@@ -1,4 +1,5 @@
 import type { Parameters, PlaygroundSettings } from '@nai-factory/shared'
+
 import { PromptEditor } from '../prompt-editor'
 import { PlaygroundParameters } from './playground-parameters'
 

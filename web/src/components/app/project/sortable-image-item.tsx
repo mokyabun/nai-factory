@@ -2,6 +2,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Image } from '@nai-factory/shared'
 import { Check, Trash2 } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 
 interface SortableImageItemProps {
@@ -48,6 +49,7 @@ export function SortableImageItem({
         >
             <button
                 type="button"
+                aria-label="이미지 보기"
                 className="h-full w-full overflow-hidden rounded-lg border bg-muted"
                 onClick={() => onView(img)}
             >

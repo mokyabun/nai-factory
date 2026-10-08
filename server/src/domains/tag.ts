@@ -2,6 +2,7 @@ import { zValidator } from '@hono/zod-validator'
 import { TagAutocompleteGetQuery } from '@nai-factory/shared'
 import FlexSearch from 'flexsearch'
 import { Hono } from 'hono'
+
 import tagSearchAsset from '../../assets/tag-search-index.json'
 
 interface TagEntry {

@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
 import { extname, join } from 'node:path'
+
 import type {
     CharacterReferenceUploadFile,
     NovelAICharacterReferenceImage,
 } from '@nai-factory/shared'
 import { asc, desc, eq, inArray } from 'drizzle-orm'
 import sharp from 'sharp'
+
 import { envConfig } from '@/config'
 import * as dataStorage from '@/data'
 import { characterReferences, db } from '@/db'
@@ -14,6 +16,7 @@ import logger from '@/logger'
 import { createAsset, getAssetPath, removeAssets } from '@/services/app/assets'
 import { nextDisplayOrder } from '@/services/order'
 import { nowIso } from '@/utils'
+
 import { createUniqueReferenceCacheKey, isReferenceCacheFresh } from './reference-cache'
 
 const log = logger.child({ module: 'character-reference' })

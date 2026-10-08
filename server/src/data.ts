@@ -7,6 +7,7 @@ import {
 } from 'node:crypto'
 import fs from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
+
 import { type EnvConfig, envConfig } from './config'
 
 const ENCRYPTION_MAGIC = Buffer.from('NAIFENC1')

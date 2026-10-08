@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader, Play, Square, Trash2 } from 'lucide-react'
+
 import { api, type QueueStatus, type SceneSummary } from '@/lib/api'
 import {
     requireApiResult,
@@ -101,8 +102,8 @@ export function StatusBar() {
             restoreSnapshots(queryClient, context?.snapshots)
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            queryClient.invalidateQueries({
+            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            void queryClient.invalidateQueries({
                 predicate: (query) =>
                     query.queryKey[0] === 'queue' && query.queryKey[1] === 'items',
             })

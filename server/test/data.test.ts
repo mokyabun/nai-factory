@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+
 import { decodeDataFromStorage, encodeDataForStorage, isEncryptedData } from '../src/data'
 
 const key = Buffer.alloc(32, 1).toString('base64')

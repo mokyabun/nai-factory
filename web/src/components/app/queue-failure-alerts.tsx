@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { AlertCircle, ListTodo, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+
 import { activeSidebarPanelAtom } from '@/components/app/sidebar/atom'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ const MAX_VISIBLE_ALERTS = 3
 
 export function QueueFailureAlerts() {
     const setActivePanel = useSetAtom(activeSidebarPanelAtom)
+    // eslint-disable-next-line react/purity -- Capture the mount timestamp once to filter older failure events.
     const mountedAt = useRef(Date.now())
     const seenIds = useRef(new Set<number>())
     const [notices, setNotices] = useState<FailureNotice[]>([])

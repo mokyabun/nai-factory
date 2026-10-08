@@ -1,4 +1,5 @@
 import type { QueryClient, QueryFilters, QueryKey } from '@tanstack/react-query'
+
 import type { ApiResult } from './api'
 
 export type QuerySnapshot<T = unknown> = {
@@ -35,6 +36,7 @@ export function restoreSnapshot(queryClient: QueryClient, snapshot?: QuerySnapsh
 
 export async function requireApiResult<T>(result: ApiResult<T>) {
     const response = await result
+    // eslint-disable-next-line typescript/no-base-to-string -- Preserve the existing string coercion of legacy input values.
     if (response.error) throw new Error(String(response.error.value ?? 'Request failed'))
     return response
 }

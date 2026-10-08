@@ -15,6 +15,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import type { PromptVariable, SceneVariationDraft } from '@nai-factory/shared'
 import { GripVertical, Plus, Trash2, X } from 'lucide-react'
+
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -104,7 +105,7 @@ function SortableVariation({
                     <div className="flex flex-col gap-2">
                         {variation.variables.map(({ key, value }, keyIdx) => (
                             <div
-                                // biome-ignore lint/suspicious/noArrayIndexKey: variable draft rows can share empty keys until edited.
+                                // variable draft rows can share empty keys until edited.
                                 key={keyIdx}
                                 className="flex flex-col gap-1"
                             >

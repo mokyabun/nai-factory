@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { AlertCircle, ArrowLeft, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+
 import { VariationEditor } from '@/components/app/project/variation-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,6 +46,7 @@ function SceneEditPage() {
     useEffect(() => {
         const data = sceneQuery.data
         if (data && data.id !== loadedId) {
+            // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
             setLoadedId(data.id)
             setName(data.name)
             setVariations(data.variations ?? [])
@@ -88,7 +90,7 @@ function SceneEditPage() {
                     ),
                 )
             }
-            queryClient.invalidateQueries({ queryKey: ['scene', scenId, 'preview-prompt'] })
+            void queryClient.invalidateQueries({ queryKey: ['scene', scenId, 'preview-prompt'] })
             return { snapshots }
         },
         onError: (_error, _variables, context) => {
@@ -100,8 +102,10 @@ function SceneEditPage() {
                     scene ? { ...scene, ...res.data, images: scene.images } : scene,
                 )
             }
-            queryClient.invalidateQueries({ queryKey: qk.scenes(sceneQuery.data?.projectId ?? 0) })
-            queryClient.invalidateQueries({ queryKey: ['scene', scenId, 'preview-prompt'] })
+            void queryClient.invalidateQueries({
+                queryKey: qk.scenes(sceneQuery.data?.projectId ?? 0),
+            })
+            void queryClient.invalidateQueries({ queryKey: ['scene', scenId, 'preview-prompt'] })
         },
     })
 
@@ -120,9 +124,11 @@ function SceneEditPage() {
 
     // Flush debounces on unmount
     useEffect(() => {
+        const cleanupSaveName = saveName.current
+        const cleanupSaveVariations = saveVariations.current
         return () => {
-            saveName.current.flush()
-            saveVariations.current.flush()
+            cleanupSaveName.flush()
+            cleanupSaveVariations.flush()
         }
     }, [])
 
@@ -263,7 +269,7 @@ function PromptPreviewPanel({
                 <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
                     {preview.prompts.map((prompt, index) => (
                         <section
-                            // biome-ignore lint/suspicious/noArrayIndexKey: preview order follows variation order.
+                            // preview order follows variation order.
                             key={index}
                             className="rounded border bg-background/40 p-2"
                         >

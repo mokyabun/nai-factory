@@ -6,6 +6,7 @@ import {
     ViewPlugin,
     type ViewUpdate,
 } from '@codemirror/view'
+
 import { parsePromptEmphasisRanges } from '@/lib/prompt-emphasis'
 
 const highEmphasisMark = Decoration.mark({ class: 'cm-prompt-emphasis-high' })

@@ -1,5 +1,6 @@
 import type { ProjectSettings } from '@nai-factory/shared'
 import { atom } from 'jotai'
+
 import type { SceneSummary } from '@/lib/api'
 import { type OrderPatch, reorderById } from '@/lib/reorder'
 

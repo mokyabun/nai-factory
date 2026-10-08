@@ -1,5 +1,6 @@
 import type { GlobalSettings, Prompt, SimpleNovelAIParameters } from '@nai-factory/shared'
 import { asc, eq } from 'drizzle-orm'
+
 import {
     db,
     images,
@@ -16,6 +17,7 @@ import * as novelAIService from '@/services/novelai/novelai'
 import * as vibeImageService from '@/services/novelai/vibe-image'
 import { displayOrderBetween } from '@/services/order'
 import { withNormalizedVariables } from '@/utils'
+
 import { realtimeEvents } from './events'
 import * as imageService from './image'
 import { compilePrompts, compileVariables } from './prompt'

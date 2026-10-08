@@ -1,4 +1,5 @@
 import * as z from 'zod'
+
 import { CharacterPrompt, Parameters, PromptVariable } from '../app'
 
 export const StashType = z.enum(['prompt', 'scene', 'parameters'])

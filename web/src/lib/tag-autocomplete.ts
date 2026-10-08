@@ -6,6 +6,7 @@ import {
     insertCompletionText,
 } from '@codemirror/autocomplete'
 import type { PromptVariable, Tag } from '@nai-factory/shared'
+
 import { api } from './api'
 
 // Delimiters that separate tags in a NAI prompt

@@ -1,12 +1,11 @@
 import type { Database } from 'bun:sqlite'
 import { readFileSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
+
 import logger from '../logger'
 import InitialPath from './migrations/0000_initial.sql' with { type: 'file' }
 import VibeEncodedAssetPath from './migrations/0001_vibe_encoded_asset.sql' with { type: 'file' }
-import DropVibeEncodedDataPath from './migrations/0002_drop_vibe_encoded_data.sql' with {
-    type: 'file',
-}
+import DropVibeEncodedDataPath from './migrations/0002_drop_vibe_encoded_data.sql' with { type: 'file' }
 
 const log = logger.child({ module: 'migrate' })
 

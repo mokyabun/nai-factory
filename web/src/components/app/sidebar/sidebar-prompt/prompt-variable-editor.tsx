@@ -1,5 +1,6 @@
 import type { PromptVariable } from '@nai-factory/shared'
 import { Plus, X } from 'lucide-react'
+
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,7 +37,7 @@ export function PromptVariableEditor({ variables, onChange }: PromptVariableEdit
         <div className="flex flex-col gap-2">
             {variables.map(({ key, value }, i) => (
                 <div
-                    // biome-ignore lint/suspicious/noArrayIndexKey: draft variable rows can share empty keys until edited.
+                    // draft variable rows can share empty keys until edited.
                     key={i}
                     className="flex flex-col gap-1"
                 >

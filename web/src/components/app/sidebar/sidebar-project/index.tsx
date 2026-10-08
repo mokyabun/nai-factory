@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { Provider, useAtom } from 'jotai'
+
 import * as Base from '@/components/ui/sidebar'
 import type { GroupWithProjects, ProjectGroupId, ProjectGroupItem } from '@/lib/api'
 import { api } from '@/lib/api'
 import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
+
 import {
     type ActiveRenameTarget,
     type ProjectSummary,
@@ -39,7 +41,7 @@ function SidebarProjectContent() {
     })
 
     function invalidateGroups() {
-        queryClient.invalidateQueries({ queryKey: qk.groupsWithProjects() })
+        void queryClient.invalidateQueries({ queryKey: qk.groupsWithProjects() })
     }
 
     const createGroup = useMutation({
@@ -52,6 +54,7 @@ function SidebarProjectContent() {
             )
             const now = new Date().toISOString()
             const tempGroup: GroupWithProjects = {
+                // eslint-disable-next-line react/purity -- Generate a temporary ID inside the mutation callback, outside render.
                 id: -Date.now(),
                 type: 'group',
                 parentGroupId,
@@ -130,6 +133,7 @@ function SidebarProjectContent() {
                 queryClient,
                 qk.groupsWithProjects(),
             )
+            // eslint-disable-next-line react/purity -- Generate a temporary ID inside the mutation callback, outside render.
             const tempId = -Date.now()
             const tempProject: ProjectSummary = { id: tempId, groupId, name }
             queryClient.setQueryData<ProjectGroupItem[]>(qk.groupsWithProjects(), (items) =>
@@ -320,7 +324,7 @@ function SidebarProjectContent() {
     }
 
     function selectProject(project: ProjectSummary) {
-        navigate({
+        void navigate({
             to: '/project/$projectId',
             params: { projectId: String(project.id) },
             search: (prev) => ({ ...prev, sidebar: 'prompt' }),
@@ -339,7 +343,7 @@ function SidebarProjectContent() {
             })
             .catch(() => undefined)
 
-        queryClient.prefetchQuery({
+        void queryClient.prefetchQuery({
             queryKey: qk.project(projectId),
             queryFn: async () => {
                 const { data } = await api.projects({ projectId }).get()
@@ -347,7 +351,7 @@ function SidebarProjectContent() {
             },
         })
 
-        queryClient.prefetchQuery({
+        void queryClient.prefetchQuery({
             queryKey: qk.scenes(projectId),
             queryFn: async () => {
                 const { data } = await api.scenes.get({ query: { projectId } })
@@ -363,7 +367,7 @@ function SidebarProjectContent() {
             currentProjectId &&
             collectGroupProjects(group).some((project) => project.id === currentProjectId)
         ) {
-            navigate({ to: '/' })
+            void navigate({ to: '/' })
         }
     }
 
@@ -371,7 +375,7 @@ function SidebarProjectContent() {
         await deleteProject.mutateAsync(project.id)
 
         if (currentProjectId === project.id) {
-            navigate({ to: '/' })
+            void navigate({ to: '/' })
         }
     }
 

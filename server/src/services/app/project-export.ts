@@ -1,8 +1,10 @@
 import fs from 'node:fs/promises'
 import { basename, extname, join, parse } from 'node:path'
+
 import { DEFAULT_PROJECT_SETTINGS, type ProjectExportBody } from '@nai-factory/shared'
 import { asc, eq, inArray } from 'drizzle-orm'
 import { zipSync } from 'fflate'
+
 import * as dataStorage from '@/data'
 import { db, images, projects, scenes } from '@/db'
 import logger from '@/logger'
@@ -25,7 +27,7 @@ function normalizeProject<T extends typeof projects.$inferSelect>(project: T) {
         ...normalized,
         settings: {
             ...DEFAULT_PROJECT_SETTINGS,
-            ...(normalized.settings ?? {}),
+            ...normalized.settings,
         },
     }
 }

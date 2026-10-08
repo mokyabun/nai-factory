@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { basename, extname, join } from 'node:path'
+
 import {
     DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS,
     DEFAULT_PROJECT_PARAMETERS,
@@ -17,6 +18,7 @@ import {
 } from '@nai-factory/shared'
 import { asc, eq, inArray } from 'drizzle-orm'
 import { unzipSync, zipSync } from 'fflate'
+
 import { envConfig } from '@/config'
 import * as dataStorage from '@/data'
 import {
@@ -78,7 +80,7 @@ function normalizeProject<T extends typeof projects.$inferSelect>(project: T) {
         ...normalized,
         settings: {
             ...DEFAULT_PROJECT_SETTINGS,
-            ...(normalized.settings ?? {}),
+            ...normalized.settings,
         },
     }
 }

@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { GripVertical, Trash2, Upload } from 'lucide-react'
 import { useEffect, useRef } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -28,6 +29,7 @@ import { api, imageUrl } from '@/lib/api'
 import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+
 import {
     characterReferenceItemDraftAtom,
     characterReferenceItemsAtom,
@@ -85,9 +87,11 @@ function SortableCharacterReferenceItemContent({
     const { strength, fidelity, referenceMode, enabled } = draft
 
     const onUpdateRef = useRef(onUpdate)
+    // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
     onUpdateRef.current = onUpdate
 
     const debouncedUpdate = useRef(
+        // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
         debounce((id: number, patch: CharacterReferencePatchBody) => {
             onUpdateRef.current(id, patch)
         }, 400),
@@ -268,7 +272,7 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
                 )
                 setItems((current) => [...current, res.data as CharacterReference])
             }
-            queryClient.invalidateQueries({ queryKey: qk.characterReferences(projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.characterReferences(projectId) })
         },
     })
 

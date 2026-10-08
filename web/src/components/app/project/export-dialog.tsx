@@ -3,6 +3,7 @@ import { DEFAULT_PROJECT_SETTINGS } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { Archive, CircleHelp, FolderDown, Server } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -89,15 +90,18 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
         updatePreviewTemplate.current.cancel()
         const outputTemplate =
             project.settings.outputTemplate ?? DEFAULT_PROJECT_SETTINGS.outputTemplate
+        // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
         setTemplate(outputTemplate)
         setPreviewTemplate(outputTemplate)
         setMessage('')
     }, [project])
 
     useEffect(() => {
+        const cleanupSaveTemplate = saveTemplate.current
+        const cleanupUpdatePreviewTemplate = updatePreviewTemplate.current
         return () => {
-            saveTemplate.current.flush()
-            updatePreviewTemplate.current.flush()
+            cleanupSaveTemplate.flush()
+            cleanupUpdatePreviewTemplate.flush()
         }
     }, [])
 

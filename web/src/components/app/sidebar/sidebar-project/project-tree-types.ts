@@ -1,4 +1,5 @@
 import type { GroupWithProjects, ProjectGroupId, ProjectGroupItem } from '@/lib/api'
+
 import type { ActiveRenameTarget, ProjectSummary } from './atom'
 
 export interface RenameState {

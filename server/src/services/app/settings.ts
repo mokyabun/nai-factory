@@ -1,5 +1,6 @@
 import { DEFAULT_GLOBAL_SETTINGS, type GlobalSettings } from '@nai-factory/shared'
 import { eq } from 'drizzle-orm'
+
 import { db, settings } from '@/db'
 import { withNormalizedGlobalVariables } from '@/utils'
 
@@ -12,19 +13,19 @@ function normalize(setting: GlobalSettings): GlobalSettings {
         ...normalized,
         novelai: {
             ...DEFAULT_GLOBAL_SETTINGS.novelai,
-            ...(normalized.novelai ?? {}),
+            ...normalized.novelai,
         },
         image: {
             ...DEFAULT_GLOBAL_SETTINGS.image,
-            ...(normalized.image ?? {}),
+            ...normalized.image,
         },
         debug: {
             ...DEFAULT_GLOBAL_SETTINGS.debug,
-            ...(normalized.debug ?? {}),
+            ...normalized.debug,
         },
         export: {
             ...DEFAULT_GLOBAL_SETTINGS.export,
-            ...(normalized.export ?? {}),
+            ...normalized.export,
         },
         globalVariables: normalized.globalVariables ?? DEFAULT_GLOBAL_SETTINGS.globalVariables,
     }

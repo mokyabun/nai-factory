@@ -1,6 +1,8 @@
 import { asc, count, eq, inArray, max, min } from 'drizzle-orm'
+
 import { db, playgroundQueueItems, queueItems, scenes, sceneVariations } from '@/db'
 import logger from '@/logger'
+
 import { realtimeEvents } from './events'
 import { PromptRenderError } from './prompt'
 import { runJob, runPlaygroundJob } from './queue-runner'
@@ -121,7 +123,7 @@ class QueueManager {
             'Job enqueued',
         )
 
-        if (this.running && !this.processing) this.processQueue()
+        if (this.running && !this.processing) void this.processQueue()
 
         return items
     }
@@ -142,7 +144,7 @@ class QueueManager {
 
         this.log.debug({ position, jobId: item.id }, 'Playground job enqueued')
 
-        if (this.running && !this.processing) this.processQueue()
+        if (this.running && !this.processing) void this.processQueue()
 
         return item
     }
@@ -156,7 +158,7 @@ class QueueManager {
         this.running = true
         this.log.info({ event: 'queue.started' }, 'Queue started')
 
-        if (!this.processing) this.processQueue()
+        if (!this.processing) void this.processQueue()
     }
 
     stop() {

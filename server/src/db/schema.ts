@@ -33,7 +33,9 @@ export const assets = sqliteTable(
         width: integer('width'),
         height: integer('height'),
         sha256: text('sha256'),
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
     },
     (t) => [uniqueIndex('assets_path_unique').on(t.path), index('assets_kind_idx').on(t.kind)],
 )
@@ -47,7 +49,9 @@ export const groups = sqliteTable(
             onDelete: 'cascade',
         }),
         name: text('name').notNull(),
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
         updatedAt: text('updated_at')
             .notNull()
             .default(sql`(datetime('now'))`)
@@ -90,8 +94,12 @@ export const projects = sqliteTable(
             .$type<ProjectSettings>()
             .default(DEFAULT_PROJECT_SETTINGS),
 
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
     },
     (t) => [index('projects_group_id_name_id_idx').on(t.groupId, t.name, t.id)],
 )
@@ -119,8 +127,12 @@ export const vibeTransfers = sqliteTable(
         cacheSecretKey: text('cache_secret_key'),
         cacheCreatedAt: text('cache_created_at'),
 
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
     },
     (t) => [
         uniqueIndex('vibe_transfers_project_id_display_order_unique').on(
@@ -159,8 +171,12 @@ export const characterReferences = sqliteTable(
         cacheSecretKey: text('cache_secret_key'),
         cacheCreatedAt: text('cache_created_at'),
 
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
     },
     (t) => [
         uniqueIndex('character_references_project_id_display_order_unique').on(
@@ -188,8 +204,12 @@ export const scenes = sqliteTable(
 
         name: text('name').notNull(),
 
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
     },
     (t) => [
         uniqueIndex('scenes_project_id_display_order_unique').on(t.projectId, t.displayOrder),
@@ -211,8 +231,12 @@ export const sceneVariations = sqliteTable(
             .$type<PromptVariable>()
             .default([]),
 
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-        updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
+        updatedAt: text('updated_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
     },
     (t) => [
         uniqueIndex('scene_variations_scene_id_display_order_unique').on(t.sceneId, t.displayOrder),
@@ -238,7 +262,9 @@ export const images = sqliteTable(
         thumbnailPath: text('thumbnail_path'),
         metadata: text('metadata', { mode: 'json' }).notNull().default('{}'),
 
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
     },
     (t) => [
         uniqueIndex('images_scene_id_display_order_unique').on(t.sceneId, t.displayOrder),
@@ -283,7 +309,9 @@ export const playgroundQueueItems = sqliteTable(
         parameters: text('parameters', { mode: 'json' }).notNull().$type<Parameters>(),
 
         sortIndex: integer('sort_index').notNull(),
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
     },
     (t) => [index('playground_queue_items_sort_index_idx').on(t.sortIndex)],
 )
@@ -303,7 +331,9 @@ export const playgroundImages = sqliteTable(
         thumbnailPath: text('thumbnail_path'),
         metadata: text('metadata', { mode: 'json' }).notNull().default('{}'),
 
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
     },
     (t) => [
         index('playground_images_created_at_id_idx').on(t.createdAt, t.id),
@@ -322,7 +352,9 @@ export const playgroundSettings = sqliteTable('playground_settings', {
         .$type<Parameters>()
         .default(DEFAULT_PLAYGROUND_PARAMETERS),
 
-    updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+        .notNull()
+        .default(sql`(datetime('now'))`),
 })
 
 export const settings = sqliteTable('settings', {
@@ -353,7 +385,9 @@ export const settings = sqliteTable('settings', {
         .$type<GlobalSettings['export']>()
         .default(DEFAULT_GLOBAL_SETTINGS.export),
 
-    updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+        .notNull()
+        .default(sql`(datetime('now'))`),
 })
 
 export const stashItems = sqliteTable(
@@ -363,7 +397,9 @@ export const stashItems = sqliteTable(
         type: text('type').notNull().$type<StashType>(),
         name: text('name').notNull(),
         payload: text('payload', { mode: 'json' }).notNull().$type<StashItem['payload']>(),
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
         updatedAt: text('updated_at')
             .notNull()
             .default(sql`(datetime('now'))`)
@@ -379,7 +415,9 @@ export const debugRequests = sqliteTable(
     'debug_requests',
     {
         id: integer('id').primaryKey({ autoIncrement: true }),
-        createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+        createdAt: text('created_at')
+            .notNull()
+            .default(sql`(datetime('now'))`),
         completedAt: text('completed_at'),
         durationMs: integer('duration_ms'),
         status: text('status').notNull().$type<'pending' | 'success' | 'error'>(),

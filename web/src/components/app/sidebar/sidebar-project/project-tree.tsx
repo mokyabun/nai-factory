@@ -10,6 +10,7 @@ import {
 import { useAtom } from 'jotai'
 import { Plus } from 'lucide-react'
 import { useMemo } from 'react'
+
 import {
     ContextMenu,
     ContextMenuContent,
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
 import type { GroupWithProjects, ProjectGroupId } from '@/lib/api'
+
 import { activeGroupDragIdAtom, activeProjectDragIdAtom, type ProjectSummary } from './atom'
 import { ProjectGroup } from './project-group'
 import { GroupDragPreview, ProjectDragPreview, SidebarMessage } from './project-tree-parts'

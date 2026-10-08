@@ -1,4 +1,5 @@
 import ky, { HTTPError } from 'ky'
+
 import type { ApiError, ApiRequestOptions, ApiResult, SearchParams } from './types'
 import { apiPath, BASE_URL, parseText, toSearchParams } from './utils'
 

@@ -1,6 +1,7 @@
 import { CompletionContext } from '@codemirror/autocomplete'
 import { EditorState, type TransactionSpec } from '@codemirror/state'
 import { describe, expect, it, vi } from 'vitest'
+
 import { api } from './api'
 import { createPromptCompletionSource, tagCompletionSource } from './tag-autocomplete'
 

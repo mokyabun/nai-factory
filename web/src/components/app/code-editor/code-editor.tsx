@@ -9,7 +9,9 @@ import {
     tooltips,
 } from '@codemirror/view'
 import { useEffect, useRef } from 'react'
+
 import { cn } from '@/lib/utils'
+
 import { promptEmphasisHighlight } from './prompt-emphasis-extension'
 import { shadcnTheme } from './theme'
 
@@ -39,9 +41,11 @@ export function CodeEditor({
     // Keep mutable callbacks/sources in refs so the editor closure never goes stale,
     // and the React Compiler cannot add them as effect dependencies.
     const onChangeRef = useRef(onChange)
+    // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
     onChangeRef.current = onChange
 
     const completionSourceRef = useRef(completionSource)
+    // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
     completionSourceRef.current = completionSource
 
     // Capture the initial value so the React Compiler does not track the `value`
@@ -49,7 +53,7 @@ export function CodeEditor({
     // on every keystroke and prevent autocompletion from ever triggering).
     const initialValueRef = useRef(value)
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: one-time editor initialization
+    // one-time editor initialization
     useEffect(() => {
         if (!containerRef.current) return
 

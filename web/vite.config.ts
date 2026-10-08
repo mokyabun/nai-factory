@@ -1,6 +1,5 @@
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
-
 import viteReact from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { defineConfig, type PluginOption } from 'vite'

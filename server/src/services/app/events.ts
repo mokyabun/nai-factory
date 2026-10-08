@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+
 import type { RealtimeEvent } from '@nai-factory/shared'
 
 class RealtimeEventService extends EventEmitter {

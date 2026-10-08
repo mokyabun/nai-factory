@@ -1,6 +1,7 @@
 import type { RealtimeEvent } from '@nai-factory/shared'
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
 import { useEffect } from 'react'
+
 import { BASE_URL } from '@/lib/api'
 import { qk } from '@/lib/queries'
 
@@ -21,13 +22,13 @@ function isActiveRealtimeQuery(queryKey: QueryKey) {
 }
 
 function invalidateActiveQueueLists(queryClient: QueryClient) {
-    queryClient.invalidateQueries({
+    void queryClient.invalidateQueries({
         predicate: (query) => query.isActive() && hasRoot(query.queryKey, 'queue', 'items'),
     })
 }
 
 export function syncActiveRealtimeQueries(queryClient: QueryClient) {
-    queryClient.invalidateQueries({
+    void queryClient.invalidateQueries({
         predicate: (query) => query.isActive() && isActiveRealtimeQuery(query.queryKey),
     })
 }
@@ -52,21 +53,21 @@ function isRealtimeEvent(value: unknown): value is RealtimeEvent {
 export function handleRealtimeEvent(queryClient: QueryClient, event: RealtimeEvent) {
     switch (event.type) {
         case 'queue.changed':
-            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             invalidateActiveQueueLists(queryClient)
             break
         case 'scene.images.changed':
-            queryClient.invalidateQueries({ queryKey: qk.images(event.sceneId) })
-            queryClient.invalidateQueries({ queryKey: qk.scene(event.sceneId) })
-            queryClient.invalidateQueries({ queryKey: qk.scenes(event.projectId) })
-            queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.images(event.sceneId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scene(event.sceneId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes(event.projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
             break
         case 'playground.images.changed':
-            queryClient.invalidateQueries({ queryKey: qk.playgroundImages() })
-            queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.playgroundImages() })
+            void queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
             break
         case 'debug.requests.changed':
-            queryClient.invalidateQueries({ queryKey: qk.debugRequests() })
+            void queryClient.invalidateQueries({ queryKey: qk.debugRequests() })
             break
     }
 }

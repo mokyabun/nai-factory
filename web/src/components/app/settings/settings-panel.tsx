@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom, useAtomValue } from 'jotai'
 import { Bug, Eye, EyeOff, FolderInput, Plus, Save, Settings, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -21,6 +22,7 @@ import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimist
 import { variableValidationMessage } from '@/lib/prompt-variables'
 import { qk } from '@/lib/queries'
 import { cn, debounce } from '@/lib/utils'
+
 import {
     addGlobalVar,
     updateGlobalVar as applyGlobalVarUpdate,
@@ -107,7 +109,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
         onSuccess: (res, patch) => {
             lastSavedJson.current = JSON.stringify(patch)
             if (res.data) queryClient.setQueryData(qk.settings(), res.data)
-            queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: qk.settings() }),
     })
@@ -129,7 +131,8 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
     }, [loaded, settingsPatch])
 
     useEffect(() => {
-        return () => debouncedSaveSettings.current.flush()
+        const cleanupDebouncedSaveSettings = debouncedSaveSettings.current
+        return () => cleanupDebouncedSaveSettings.flush()
     }, [])
 
     function updateSettingsDraft(update: Partial<typeof draft>) {
@@ -273,7 +276,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                             <div className="flex flex-col gap-2">
                                 {globalVars.map(({ key, value }, i) => (
                                     <div
-                                        // biome-ignore lint/suspicious/noArrayIndexKey: draft settings rows can share empty keys until edited.
+                                        // draft settings rows can share empty keys until edited.
                                         key={i}
                                         className={cn(
                                             'flex gap-2',

@@ -1,4 +1,5 @@
 import { atom } from 'jotai'
+
 import type { GroupWithProjects, ProjectGroupItem } from '@/lib/api'
 
 const COLLAPSED_GROUP_IDS_STORAGE_KEY = 'nai-factory.sidebar.project.collapsedGroupIds'

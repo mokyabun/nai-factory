@@ -2,7 +2,9 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { ProjectSettings } from '@nai-factory/shared'
 import { GripHorizontal } from 'lucide-react'
+
 import type { SceneSummary } from '@/lib/api'
+
 import { SceneCard } from './scene-card'
 
 interface SortableSceneItemProps {

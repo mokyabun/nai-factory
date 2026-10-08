@@ -1,4 +1,5 @@
 import { Provider, useAtom } from 'jotai'
+
 import { Button } from '@/components/ui/button'
 import {
     Dialog,
@@ -9,6 +10,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+
 import { createProjectNameAtom } from './atom'
 
 interface CreateProjectDialogProps {

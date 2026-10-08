@@ -20,6 +20,7 @@ import type { CharacterPrompt, Project, PromptVariable } from '@nai-factory/shar
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, GripVertical, Plus, Trash2, X } from 'lucide-react'
 import { useMemo, useRef } from 'react'
+
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -135,6 +136,7 @@ export function CharacterPromptEditor({
 
     // Keep a ref to latest characterPrompts for use inside the debounced save
     const characterPromptsRef = useRef(characterPrompts)
+    // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
     characterPromptsRef.current = characterPrompts
     const rollbackProjectRef = useRef<QuerySnapshot<Project> | null>(null)
 
@@ -170,10 +172,11 @@ export function CharacterPromptEditor({
             restoreSnapshot(queryClient, rollbackProjectRef.current ?? undefined)
             rollbackProjectRef.current = null
         } finally {
-            queryClient.invalidateQueries({ queryKey: qk.project(projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.project(projectId) })
         }
     }
 
+    // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
     const saveDebounced = useRef(debounce((newPrompts: CharacterPrompt[]) => save(newPrompts), 600))
 
     async function addCharacter() {
@@ -202,7 +205,7 @@ export function CharacterPromptEditor({
         if (!over || active.id === over.id) return
         const oldIndex = characterPromptsRef.current.findIndex((_, i) => i === active.id)
         const newIndex = characterPromptsRef.current.findIndex((_, i) => i === over.id)
-        save(arrayMove(characterPromptsRef.current, oldIndex, newIndex))
+        void save(arrayMove(characterPromptsRef.current, oldIndex, newIndex))
     }
 
     return (
@@ -224,7 +227,7 @@ export function CharacterPromptEditor({
                         <div className="flex flex-col gap-3">
                             {characterPrompts.map((cp, i) => (
                                 <SortableItem
-                                    // biome-ignore lint/suspicious/noArrayIndexKey: character prompts are ordered value objects without persisted ids.
+                                    // character prompts are ordered value objects without persisted ids.
                                     key={i}
                                     id={i}
                                     cp={cp}

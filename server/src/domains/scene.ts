@@ -15,6 +15,7 @@ import {
 import { asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
+
 import { db, images, projects, scenes, sceneVariations, vibeTransfers } from '@/db'
 import logger from '@/logger'
 import { compilePrompts, compileVariables, PromptRenderError, removeByScene } from '@/services'

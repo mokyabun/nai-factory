@@ -1,4 +1,5 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router'
+
 import { AppShell } from '@/components/app/app-shell'
 
 const SIDEBAR_PANELS = ['project', 'playground', 'prompt', 'queue'] as const

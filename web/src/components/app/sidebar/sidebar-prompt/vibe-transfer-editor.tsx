@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { GripVertical, Trash2, Upload } from 'lucide-react'
 import { useEffect, useRef } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
@@ -20,6 +21,7 @@ import { api, imageUrl } from '@/lib/api'
 import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+
 import {
     createVibeTransferItemDraft,
     reorderItems,
@@ -58,9 +60,11 @@ function SortableVibeItemContent({ vibe, onUpdate, onDelete }: SortableVibeItemP
     const infoExtracted = draft.informationExtracted
 
     const onUpdateRef = useRef(onUpdate)
+    // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
     onUpdateRef.current = onUpdate
 
     const debouncedUpdate = useRef(
+        // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
         debounce((id: number, patch: VibeTransferPatchBody) => {
             onUpdateRef.current(id, patch)
         }, 400),
@@ -203,7 +207,7 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
                 ])
                 setItems((current) => [...current, res.data as VibeTransfer])
             }
-            queryClient.invalidateQueries({ queryKey: qk.vibeTransfers(projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.vibeTransfers(projectId) })
         },
     })
 

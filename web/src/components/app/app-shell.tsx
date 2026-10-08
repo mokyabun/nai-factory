@@ -4,6 +4,7 @@ import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { useAtom } from 'jotai'
 import { FileJson } from 'lucide-react'
 import { useEffect, useLayoutEffect, useState } from 'react'
+
 import { SceneJsonImportDialog } from '@/components/app/dialogs/scene-json-import-dialog'
 import { SdStudioImportDialog } from '@/components/app/dialogs/sd-studio-import-dialog'
 import { Header } from '@/components/app/header'
@@ -16,6 +17,7 @@ import { useJsonDrop } from '@/hooks/use-json-drop'
 import { useRealtimeInvalidation } from '@/hooks/use-realtime-invalidation'
 import { api } from '@/lib/api'
 import { qk } from '@/lib/queries'
+
 import { activeProjectIdAtom, importDialogOpenAtom } from './atom'
 
 interface AppShellProps {
@@ -54,7 +56,7 @@ export function AppShell({ children }: AppShellProps) {
 
                 await queryClient.invalidateQueries({ queryKey: qk.groupsWithProjects() })
                 queryClient.setQueryData(qk.project(data.id), data)
-                navigate({ to: '/project/$projectId', params: { projectId: String(data.id) } })
+                void navigate({ to: '/project/$projectId', params: { projectId: String(data.id) } })
                 setDropMessage('Import 완료')
                 clearPendingFile()
                 return

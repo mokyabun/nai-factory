@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Factory, X } from 'lucide-react'
+
 import * as Base from '@/components/ui/sidebar'
 
 export function SidebarHeader() {

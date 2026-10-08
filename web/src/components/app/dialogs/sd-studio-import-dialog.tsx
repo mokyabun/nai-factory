@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { Provider, useAtom } from 'jotai'
 import { ArrowLeft, FileJson } from 'lucide-react'
 import { useEffect } from 'react'
+
 import { Button } from '@/components/ui/button'
 import {
     Dialog,
@@ -19,6 +20,7 @@ import { api, type SceneSummary } from '@/lib/api'
 import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+
 import {
     parsedSdStudioFileAtom,
     type SdStudioImportOptionsDraft,
@@ -68,7 +70,7 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
         setParseError(null)
         setStep(projectId ? 'choose' : 'project-name')
 
-        file.text().then((text) => {
+        void file.text().then((text) => {
             try {
                 const raw = JSON.parse(text) as Record<string, unknown>
                 const name =
@@ -140,7 +142,7 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
                     ...scenes,
                 ])
             }
-            queryClient.invalidateQueries({ queryKey: qk.scenes(projectId as number) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes(projectId as number) })
             onOpenChange(false)
         },
     })
@@ -174,8 +176,11 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
             return project.id
         },
         onSuccess: (newProjectId) => {
-            queryClient.invalidateQueries({ queryKey: qk.groupsWithProjects() })
-            navigate({ to: '/project/$projectId', params: { projectId: String(newProjectId) } })
+            void queryClient.invalidateQueries({ queryKey: qk.groupsWithProjects() })
+            void navigate({
+                to: '/project/$projectId',
+                params: { projectId: String(newProjectId) },
+            })
             onOpenChange(false)
         },
     })

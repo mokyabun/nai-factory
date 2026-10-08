@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+
 import FlexSearch from 'flexsearch'
 
 interface TagEntry {
@@ -52,7 +53,7 @@ async function main() {
     for (const entry of entries) index.add(entry.id, entry.alias)
 
     const exportedIndex: ExportedIndex = {}
-    await index.export((key, data) => {
+    index.export((key, data) => {
         exportedIndex[key] = data
     })
 

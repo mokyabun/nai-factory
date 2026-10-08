@@ -2,10 +2,12 @@ import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { File } from 'lucide-react'
 import { useCallback } from 'react'
+
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
 import type { ProjectGroupId } from '@/lib/api'
 import { cn } from '@/lib/utils'
+
 import type { ProjectSummary } from './atom'
 import { ProjectContextMenuContent, ProjectMenu, RenameInput } from './project-tree-parts'
 

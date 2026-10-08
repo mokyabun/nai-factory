@@ -7,6 +7,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAtom } from 'jotai'
 import { useEffect, useRef } from 'react'
+
 import { api, type QueueStatus } from '@/lib/api'
 import {
     requireApiResult,
@@ -17,6 +18,7 @@ import {
 } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
+
 import { playgroundSettingsAtom } from './atom'
 import { PlaygroundEditor } from './playground-editor'
 import { PlaygroundHeader } from './playground-header'
@@ -36,6 +38,7 @@ export function SidebarPlayground() {
     })
 
     const saveSettingsRef = useRef(
+        // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
         debounce(async (nextSettings: PlaygroundSettings) => {
             const previousSettings = await snapshotQuery<PlaygroundSettings>(
                 queryClient,
@@ -67,7 +70,8 @@ export function SidebarPlayground() {
     }, [settingsQuery.data, setSettings])
 
     useEffect(() => {
-        return () => saveSettingsRef.current.flush()
+        const cleanupSaveSettings = saveSettingsRef.current
+        return () => cleanupSaveSettings.flush()
     }, [])
 
     const enqueue = useMutation({
@@ -93,8 +97,8 @@ export function SidebarPlayground() {
             restoreSnapshots(queryClient, context?.snapshots)
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            queryClient.invalidateQueries({ queryKey: qk.queue(null) })
+            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.queue(null) })
         },
     })
 

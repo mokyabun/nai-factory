@@ -1,4 +1,5 @@
 import * as z from 'zod'
+
 import { OptionalOrderBody } from './common'
 
 export const Image = z.object({

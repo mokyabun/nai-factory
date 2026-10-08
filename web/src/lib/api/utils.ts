@@ -12,6 +12,7 @@ export function toSearchParams(query?: Record<string, unknown>) {
 
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(query)) {
+        // eslint-disable-next-line typescript/no-base-to-string -- Preserve the existing string coercion of legacy input values.
         if (value !== null && value !== undefined) params.set(key, String(value))
     }
 

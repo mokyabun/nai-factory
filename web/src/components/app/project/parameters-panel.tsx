@@ -8,6 +8,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom } from 'jotai'
 import { useEffect } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,6 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
 import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
+
 import { VibeTransferEditor } from '../sidebar/sidebar-prompt/vibe-transfer-editor'
 import {
     copyProjectParams,
@@ -87,7 +89,7 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
             if (res.data) queryClient.setQueryData(qk.project(project.id), res.data)
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: qk.project(project.id) })
+            void queryClient.invalidateQueries({ queryKey: qk.project(project.id) })
         },
     })
 

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { ImageIcon, Loader, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { api, imageResourceUrl } from '@/lib/api'
 import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
@@ -22,7 +23,7 @@ function PlaygroundPage() {
         },
     })
 
-    const images = imagesQuery.data ?? []
+    const images = useMemo(() => imagesQuery.data ?? [], [imagesQuery.data])
     const latestImage = images[0] ?? null
     const selectedImage = useMemo(
         () => images.find((image) => image.id === selectedImageId) ?? latestImage,
@@ -30,6 +31,7 @@ function PlaygroundPage() {
     )
 
     useEffect(() => {
+        // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
         if (!selectedImageId && latestImage) setSelectedImageId(latestImage.id)
     }, [latestImage, selectedImageId])
 

@@ -19,9 +19,10 @@ the root workspace script. Set `VITE_API_URL` when the API is hosted somewhere o
 
 ```bash
 bun build:web
-bun check:web
-bun lint:web
-bun test:web
+bun --filter '@nai-factory/web' check
+bun --filter '@nai-factory/web' format
+bun --filter '@nai-factory/web' lint
+bun --filter '@nai-factory/web' test
 ```
 
 ## Routing

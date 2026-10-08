@@ -14,15 +14,17 @@
         "check:type": "bun --filter @nai-factory/* check:type",
         "db:generate": "bun --filter '@nai-factory/server' db:generate",
         "db:migrate": "bun --filter '@nai-factory/server' db:migrate",
-        "check": "bun --filter @nai-factory/* check .",
-        "check:fix": "bun --filter @nai-factory/* check:fix",
-        "format": "bun --filter @nai-factory/* format .",
-        "format:fix": "bun --filter @nai-factory/* format:fix",
-        "lint": "bun --filter @nai-factory/* lint .",
-        "lint:fix": "bun --filter @nai-factory/* lint:fix",
+        "check": "bun run --parallel --no-exit-on-error format:check lint typecheck",
+        "check:fix": "bun run lint:fix && bun run format && bun run typecheck",
+        "format": "oxfmt .",
+        "format:fix": "bun run format",
+        "lint": "oxlint .",
+        "lint:fix": "oxlint --fix .",
         "kill:server": "kill -9 $(lsof -t -i :3000)",
         "kill:web": "kill -9 $(lsof -t -i :5173)",
-        "kill": "bun run --parallel kill:server kill:web"
+        "kill": "bun run --parallel kill:server kill:web",
+        "typecheck": "bun run check:type",
+        "format:check": "oxfmt --check ."
     },
     "workspaces": [
         "web",
@@ -30,8 +32,10 @@
         "shared"
     ],
     "devDependencies": {
-        "@biomejs/biome": "^2.5.15",
         "typescript": "^6.0.3",
-        "wait-on": "^9.5.1"
+        "wait-on": "^9.5.1",
+        "oxfmt": "0.64.0",
+        "oxlint": "1.79.0",
+        "oxlint-tsgolint": "7.0.2001"
     }
 }

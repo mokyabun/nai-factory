@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+
 import type {
     DebugSettings,
     EncodeVibeRequest,
@@ -13,6 +14,7 @@ import type {
 import { unzipSync } from 'fflate'
 import type { Options } from 'ky'
 import ky from 'ky'
+
 import * as dataStorage from '@/data'
 import logger from '@/logger'
 import { beginDebugRequest } from '@/services/debug-log'

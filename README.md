@@ -128,5 +128,10 @@ Keep your API key, local database, generated images, and `.env` files out of pub
 bun dev                    # Start the API server and web dev server
 bun build                  # Build for production
 bun test                   # Run tests
-bun check                  # Run Biome checks
+bun check                  # Check formatting, lint, and types
+bun format                 # Format with Oxfmt
+bun lint                   # Lint with Oxlint
 ```
+
+Oxfmt and Oxlint share root configuration across all workspaces. Oxlint includes type-aware
+checks; dialog and inline rename fields allow autofocus to preserve their keyboard workflow.
