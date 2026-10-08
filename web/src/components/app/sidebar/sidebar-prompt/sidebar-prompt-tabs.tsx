@@ -48,7 +48,7 @@ function SidebarPromptTabsContent({ className, ...props }: TabsPrimitive.Panel.P
     return (
         <TabsPrimitive.Panel
             data-slot="tabs-content"
-            className={cn('flex-1 text-xs/relaxed outline-none', className)}
+            className={cn('min-h-0 flex-1 text-xs/relaxed outline-none', className)}
             {...props}
         />
     )

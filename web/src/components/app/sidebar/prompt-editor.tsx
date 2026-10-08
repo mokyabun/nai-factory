@@ -27,7 +27,7 @@ export function PromptEditor({
     return (
         <Tabs
             defaultValue="prompt"
-            className={cn('flex flex-col overflow-hidden border', className)}
+            className={cn('flex shrink-0 flex-col overflow-hidden border', className)}
         >
             <TabsList className="bg-transparent m-1">
                 <TabsTrigger value="prompt" className="flex-1 text-xs">

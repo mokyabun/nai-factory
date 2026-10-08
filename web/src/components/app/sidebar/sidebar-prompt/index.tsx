@@ -30,7 +30,7 @@ type SidebarPromptProps = {
 export function SidebarPrompt({ projectId }: SidebarPromptProps) {
     if (projectId === null) {
         return (
-            <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
+            <div className="flex h-full min-h-0 flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
                 왼쪽 패널에서 프로젝트를 선택하세요
             </div>
         )
@@ -136,7 +136,7 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
     )
 
     return (
-        <>
+        <div className="flex h-full min-h-0 flex-col bg-sidebar">
             <SidebarHeader className="border-b">
                 <div className="flex items-center gap-2 px-1 py-1">
                     <AlignLeft className="h-4 w-4 shrink-0" />
@@ -153,7 +153,7 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
             ) : (
                 <SidebarPromptTabs
                     defaultValue="prompt"
-                    className="flex flex-1 flex-col overflow-hidden"
+                    className="flex min-h-0 flex-1 flex-col overflow-hidden"
                 >
                     <SidebarPromptTabsList>
                         <SidebarPromptTabsTrigger value="prompt">프롬프트</SidebarPromptTabsTrigger>
@@ -167,7 +167,7 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
 
                     <SidebarPromptTabsContent
                         value="prompt"
-                        className="flex flex-col flex-1 overflow-hidden px-2 my-4 gap-4 overflow-y-auto scrollbar-none"
+                        className="flex flex-col gap-4 overflow-y-auto px-2 py-4 scrollbar-none"
                     >
                         <span className="text-lg">프롬프트</span>
                         <PromptEditor
@@ -194,7 +194,7 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
 
                     <SidebarPromptTabsContent
                         value="reference"
-                        className="flex flex-col flex-1 overflow-hidden px-2 my-4 gap-4 overflow-y-auto scrollbar-none"
+                        className="flex flex-col gap-4 overflow-y-auto px-2 py-4 scrollbar-none"
                     >
                         <span className="text-lg">바이브 이미지</span>
                         <VibeTransferEditor projectId={project.id} />
@@ -205,13 +205,13 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
 
                     <SidebarPromptTabsContent
                         value="parameter"
-                        className="flex flex-col flex-1 overflow-hidden px-2 my-4 gap-4 overflow-y-auto scrollbar-none"
+                        className="flex flex-col gap-4 overflow-y-auto px-2 py-4 scrollbar-none"
                     >
                         <span className="text-lg">파라미터</span>
                         <ParameterEditor project={project} />
                     </SidebarPromptTabsContent>
                 </SidebarPromptTabs>
             )}
-        </>
+        </div>
     )
 }
