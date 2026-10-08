@@ -1,16 +1,16 @@
-import type { PromptVariable } from '@nai-factory/shared'
+import type { Project, ProjectPatch, PromptVariable } from '@nai-factory/shared'
 import { isNovelAIV5Model } from '@nai-factory/shared'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom } from 'jotai'
 import { AlignLeft } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 
 import { SidebarHeader } from '@/components/ui/sidebar'
-import { api } from '@/lib/api'
+import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
+import { call, contract } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
 import { qk } from '@/lib/queries'
-import { debounce } from '@/lib/utils'
 
 import {
     createSidebarPromptDraft,
@@ -57,86 +57,69 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
     const { loadedProjectId, prompt, negativePrompt, variables } = draft
 
     const projectQuery = useQuery({
-        queryKey: qk.project(projectId),
-        queryFn: async () => {
-            const { data } = await api.projects({ projectId }).get()
-            return data ?? null
-        },
+        queryKey: qk.projects.get(projectId),
+        queryFn: () => call(contract.projects.get, { params: { id: projectId } }),
     })
 
     const settingsQuery = useQuery({
-        queryKey: qk.settings(),
-        queryFn: async () => {
-            const { data } = await api.settings.get()
-            return data ?? null
-        },
+        queryKey: qk.settings.get(),
+        queryFn: () => call(contract.settings.get),
     })
 
-    const savePromptRef = useRef(
-        debounce(async (projectId: number, prompt: string, negativePrompt: string) => {
-            const previousProject = await snapshotQuery(queryClient, qk.project(projectId))
-            queryClient.setQueryData(qk.project(projectId), (project) =>
-                project ? { ...project, prompt, negativePrompt } : project,
+    // The component is keyed by project, so pending edits always belong to `projectId`.
+    const saveProject = useCallback(
+        async (patch: ProjectPatch) => {
+            const previousProject = await snapshotQuery<Project>(
+                queryClient,
+                qk.projects.get(projectId),
             )
-            const { data } = await api.projects({ projectId }).patch({ prompt, negativePrompt })
-
-            if (data) queryClient.setQueryData(qk.project(projectId), data)
-            else restoreSnapshot(queryClient, previousProject)
-        }, 600),
-    )
-
-    const saveVariablesRef = useRef(
-        debounce(async (projectId: number, vars: PromptVariable) => {
-            if (variableValidationMessage(vars)) return
-            const variables = normalizeVariableDraft(vars)
-            const previousProject = await snapshotQuery(queryClient, qk.project(projectId))
-            queryClient.setQueryData(qk.project(projectId), (project) =>
-                project ? { ...project, variables } : project,
+            queryClient.setQueryData<Project>(qk.projects.get(projectId), (project) =>
+                project
+                    ? {
+                          ...project,
+                          ...patch,
+                          parameters: project.parameters,
+                          settings: project.settings,
+                      }
+                    : project,
             )
-            const { data } = await api.projects({ projectId }).patch({
-                variables,
-            })
-
-            if (data) queryClient.setQueryData(qk.project(projectId), data)
-            else restoreSnapshot(queryClient, previousProject)
-        }, 600),
+            try {
+                const data = await call(contract.projects.update, {
+                    params: { id: projectId },
+                    body: patch,
+                })
+                queryClient.setQueryData(qk.projects.get(projectId), data)
+            } catch {
+                restoreSnapshot(queryClient, previousProject)
+            }
+        },
+        [projectId, queryClient],
     )
+    const pendingSave = useDebouncedPatch(saveProject)
 
-    // Sync local state when switching projects
+    // Load the draft once the project arrives.
     useEffect(() => {
         const data = projectQuery.data
         if (!data) return
-
         if (loadedProjectId === data.id) return
-
         setDraft(createSidebarPromptDraft(data))
-        savePromptRef.current.cancel()
-        saveVariablesRef.current.cancel()
     }, [projectQuery.data, loadedProjectId, setDraft])
-
-    // Flush pending saves on unmount
-    useEffect(() => {
-        const cleanupSavePrompt = savePromptRef.current
-        const cleanupSaveVariables = saveVariablesRef.current
-        return () => {
-            cleanupSavePrompt.flush()
-            cleanupSaveVariables.flush()
-        }
-    }, [])
 
     function handlePromptChange(value: string) {
         setDraft((current) => ({ ...current, prompt: value }))
-        if (loadedProjectId) savePromptRef.current(loadedProjectId, value, negativePrompt)
+        if (loadedProjectId) pendingSave.schedule({ prompt: value })
     }
 
     function handleNegativePromptChange(value: string) {
         setDraft((current) => ({ ...current, negativePrompt: value }))
-        if (loadedProjectId) savePromptRef.current(loadedProjectId, prompt, value)
+        if (loadedProjectId) pendingSave.schedule({ negativePrompt: value })
     }
 
     function handleVariablesChange(value: PromptVariable) {
         setDraft((current) => ({ ...current, variables: value }))
-        if (loadedProjectId) saveVariablesRef.current(loadedProjectId, value)
+        if (loadedProjectId && !variableValidationMessage(value)) {
+            pendingSave.schedule({ variables: normalizeVariableDraft(value) })
+        }
     }
 
     const project = projectQuery.data

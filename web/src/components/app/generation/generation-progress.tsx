@@ -1,18 +1,18 @@
-import type { QueueStatusJob } from '@/lib/api'
+import type { QueueCurrentJob } from '@nai-factory/shared'
+
 import { formatSeconds, type ImageProgress } from '@/lib/generation-progress'
 import { cn } from '@/lib/utils'
 
-export function jobTargetLabel(job: QueueStatusJob) {
-    if (job.type === 'playground') return 'Playground'
-    return job.sceneName
+export function jobTargetLabel(job: QueueCurrentJob) {
+    return job.label
 }
 
 /** "이미지 2/5" for the image currently generating; null for single-image or uncompiled jobs. */
-export function jobImageLabel(job: QueueStatusJob) {
-    if (job.imageCount === null || job.imageCount <= 1) return null
+export function jobImageLabel(job: Pick<QueueCurrentJob, 'total' | 'done'>) {
+    if (job.total === null || job.total <= 1) return null
 
-    const current = Math.min(job.savedImageCount + 1, job.imageCount)
-    return `이미지 ${current}/${job.imageCount}`
+    const current = Math.min(job.done + 1, job.total)
+    return `이미지 ${current}/${job.total}`
 }
 
 /** "12초 / 약 20초", or a preparation/estimation notice when timing is not available yet. */

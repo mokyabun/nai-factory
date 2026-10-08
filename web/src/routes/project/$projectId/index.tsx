@@ -1,96 +1,34 @@
-import {
-    closestCenter,
-    DndContext,
-    type DragEndEvent,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from '@dnd-kit/core'
-import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
-import type {
-    Project,
-    ProjectSettings,
-    ProjectSettingsPatch,
-    StashItem,
-    StashPostBody,
-} from '@nai-factory/shared'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
-import {
-    Archive,
-    Check,
-    Download,
-    FileText,
-    Layers,
-    ListPlus,
-    Plus,
-    Save,
-    Settings,
-    SlidersHorizontal,
-    Trash2,
-    X,
-} from 'lucide-react'
-import { type PointerEvent, useEffect, useRef, useState } from 'react'
+import { Provider, useAtom, useAtomValue } from 'jotai'
+import { useEffect } from 'react'
 
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
 import { ExportDialog } from '@/components/app/project/export-dialog'
-import { ProjectFilesSettings } from '@/components/app/project/project-files-dialog'
-import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { ProjectSettingsDialog } from '@/components/app/project/project-settings-dialog'
+import { SceneGrid } from '@/components/app/project/scene-grid'
+import { SceneToolbar } from '@/components/app/project/scene-toolbar'
+import { StashDialog } from '@/components/app/project/stash-dialog'
+import { useProjectSceneActions } from '@/hooks/use-project-scene-actions'
+import { useProjectSettings } from '@/hooks/use-project-settings'
+import { useProjectStash } from '@/hooks/use-project-stash'
 import { useQueueStatus } from '@/hooks/use-queue'
-import { api, type QueueStatus, type SceneSummary } from '@/lib/api'
-import {
-    requireApiResult,
-    restoreSnapshot,
-    restoreSnapshots,
-    snapshotQueries,
-    snapshotQuery,
-} from '@/lib/optimistic'
+import { useSceneSelection } from '@/hooks/use-scene-selection'
+import { call, contract } from '@/lib/api'
 import { qk } from '@/lib/queries'
-import { debounce } from '@/lib/utils'
 
 import {
     hasScenesAtom,
-    loadedProjectIdAtom,
     projectPageDialogAtom,
-    reorderSceneItems,
-    sceneCardSizeAtom,
     sceneItemsAtom,
     selectedSceneCountAtom,
     selectedSceneIdsAtom,
     selectedSceneIdsSetAtom,
     selectModeAtom,
-    slideshowImageCountAtom,
 } from './atom'
 
 export const Route = createFileRoute('/project/$projectId/')({ component: ProjectPage })
-
-const SCENE_CARD_SIZE_OPTIONS: Array<{ value: ProjectSettings['sceneCardSize']; label: string }> = [
-    { value: 'sm', label: 'SM' },
-    { value: 'md', label: 'MD' },
-    { value: 'lg', label: 'LG' },
-]
-
-interface SelectionDragState {
-    startIndex: number | null
-    action: 'select' | 'deselect'
-    baseSelectedIds: Set<number>
-}
 
 function ProjectPage() {
     return (
@@ -102,69 +40,37 @@ function ProjectPage() {
 
 function ProjectPageContent() {
     const { projectId } = Route.useParams()
-    const queryClient = useQueryClient()
     const projId = Number(projectId)
 
     const projectQuery = useQuery({
-        queryKey: qk.project(projId),
-        queryFn: async () => {
-            const { data } = await api.projects({ projectId: projId }).get()
-            return data ?? null
-        },
+        queryKey: qk.projects.get(projId),
+        queryFn: () => call(contract.projects.get, { params: { id: projId } }),
     })
-
     const scenesQuery = useQuery({
-        queryKey: qk.scenes(projId),
-        queryFn: async () => {
-            const { data } = await api.scenes.get({ query: { projectId: projId } })
-            return data ?? []
-        },
+        queryKey: qk.scenes.list(projId),
+        queryFn: () => call(contract.scenes.list, { query: { projectId: projId } }),
     })
-
     const { status: queueStatus } = useQueueStatus()
-
-    const stashQuery = useQuery({
-        queryKey: qk.stash(),
-        queryFn: async () => {
-            const { data } = await api.stash.get()
-            return data ?? []
-        },
-    })
 
     const [items, setItems] = useAtom(sceneItemsAtom)
     const [selectedIds, setSelectedIds] = useAtom(selectedSceneIdsSetAtom)
     const [projectDialog, setProjectDialog] = useAtom(projectPageDialogAtom)
-    const loadedProjectId = useAtomValue(loadedProjectIdAtom)
-    const setLoadedProjectId = useSetAtom(loadedProjectIdAtom)
-    const [slideshowImageCount, setSlideshowImageCount] = useAtom(slideshowImageCountAtom)
-    const [sceneCardSize, setSceneCardSize] = useAtom(sceneCardSizeAtom)
     const selectedSceneIds = useAtomValue(selectedSceneIdsAtom)
     const selectedCount = useAtomValue(selectedSceneCountAtom)
     const selectMode = useAtomValue(selectModeAtom)
     const hasScenes = useAtomValue(hasScenesAtom)
-    const selectionDragRef = useRef<SelectionDragState | null>(null)
 
-    const saveProjectSettings = useRef(
-        debounce(async (projectId: number, settings: ProjectSettingsPatch) => {
-            const previousProject = await snapshotQuery<Project>(queryClient, qk.project(projectId))
-            queryClient.setQueryData<Project | null>(qk.project(projectId), (project) =>
-                project ? { ...project, settings: { ...project.settings, ...settings } } : project,
-            )
-            try {
-                const { data } = await requireApiResult(
-                    api.projects({ projectId }).patch({ settings }),
-                )
-                if (data) queryClient.setQueryData(qk.project(projectId), data)
-            } catch {
-                restoreSnapshot(queryClient, previousProject)
-            }
-        }, 600),
+    const settings = useProjectSettings(projectQuery.data)
+    const selection = useSceneSelection(items, selectedIds)
+    const { createScene, moveScene, enqueueScenes, deleteScenes } = useProjectSceneActions(
+        projId,
+        scenesQuery.data,
     )
+    const stash = useProjectStash(projId)
 
-    // Sync items from query
+    // Mirror the server list locally so drags render immediately; drop stale selections.
     useEffect(() => {
         if (!scenesQuery.data) return
-
         setItems(scenesQuery.data)
         const availableIds = new Set(scenesQuery.data.map((scene) => scene.id))
         setSelectedIds((prev) => {
@@ -173,575 +79,29 @@ function ProjectPageContent() {
         })
     }, [scenesQuery.data, setItems, setSelectedIds])
 
-    useEffect(() => {
-        const project = projectQuery.data
-        if (project && project.id !== loadedProjectId) {
-            saveProjectSettings.current.cancel()
-            setLoadedProjectId(project.id)
-            setSlideshowImageCount(project.settings.slideshowImageCount)
-            setSceneCardSize(project.settings.sceneCardSize)
-        }
-    }, [
-        projectQuery.data,
-        loadedProjectId,
-        setLoadedProjectId,
-        setSceneCardSize,
-        setSlideshowImageCount,
-    ])
-
-    useEffect(() => {
-        const cleanupSaveProjectSettings = saveProjectSettings.current
-        return () => cleanupSaveProjectSettings.flush()
-    }, [])
-
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
-
-    const createScene = useMutation({
-        mutationFn: (name: string) =>
-            requireApiResult(api.scenes.post({ projectId: projId, name })),
-        onMutate: async (name) => {
-            const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) =>
-                    query.queryKey[0] === 'scenes' && query.queryKey[1] === projId,
-            })
-            const now = new Date().toISOString()
-            const tempScene: SceneSummary = {
-                id: -Date.now(),
-                projectId: projId,
-                displayOrder: `optimistic-${now}`,
-                name,
-                variations: [],
-                createdAt: now,
-                updatedAt: now,
-                imageCount: 0,
-                queueCount: 0,
-                latestImages: [],
-            }
-            queryClient.setQueryData<SceneSummary[]>(qk.scenes(projId), (scenes) => [
-                ...(scenes ?? []),
-                tempScene,
-            ])
-            setItems((current) => [...current, tempScene])
-            return { snapshots, tempId: tempScene.id }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-            if (context?.snapshots[0]?.data) setItems(context.snapshots[0].data as SceneSummary[])
-        },
-        onSuccess: (res, _name, context) => {
-            if (res.data) {
-                const sceneSummary: SceneSummary = {
-                    ...res.data,
-                    imageCount: 0,
-                    queueCount: 0,
-                    latestImages: [],
-                }
-                queryClient.setQueryData<SceneSummary[]>(qk.scenes(projId), (scenes) =>
-                    scenes?.map((scene) => (scene.id === context?.tempId ? sceneSummary : scene)),
-                )
-                setItems((current) =>
-                    current.map((scene) => (scene.id === context?.tempId ? sceneSummary : scene)),
-                )
-            }
-            void queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
-            setProjectDialog(null)
-        },
-        onSettled: () => {
-            void queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
-        },
-    })
-
-    const reorderScene = useMutation({
-        mutationFn: ({
-            id,
-            prevId,
-            nextId,
-        }: {
-            id: number
-            prevId: number | null
-            nextId: number | null
-        }) => requireApiResult(api.scenes({ id }).order.patch({ prevId, nextId })),
-        onMutate: async () => {
-            const snapshots = await snapshotQueries<SceneSummary[]>(queryClient, {
-                queryKey: qk.scenes(projId),
-            })
-            queryClient.setQueryData(qk.scenes(projId), items)
-            return { snapshots, previousItems: scenesQuery.data ?? [] }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-            if (context?.previousItems) setItems(context.previousItems)
-        },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.scenes(projId) }),
-    })
-
-    const bulkEnqueue = useMutation({
-        mutationFn: ({ sceneIds, position }: { sceneIds: number[]; position: 'front' | 'back' }) =>
-            requireApiResult(api.queue['enqueue-bulk'].post({ sceneIds, position })),
-        onMutate: async ({ sceneIds }) => {
-            const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) =>
-                    query.queryKey[0] === 'queue' ||
-                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === projId),
-            })
-            const sceneIdSet = new Set(sceneIds)
-            queryClient.setQueryData<SceneSummary[]>(qk.scenes(projId), (scenes) =>
-                scenes?.map((scene) =>
-                    sceneIdSet.has(scene.id)
-                        ? { ...scene, queueCount: (scene.queueCount ?? 0) + 1 }
-                        : scene,
-                ),
-            )
-            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) =>
-                status
-                    ? { ...status, pendingCount: status.pendingCount + sceneIds.length }
-                    : status,
-            )
-            const previousSelectedIds = selectedIds
-            clearSelection()
-            return { snapshots, previousSelectedIds }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-            if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
-        },
-        onSettled: () => {
-            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            void queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
-            void queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
-        },
-    })
-
-    const deleteSelectedScenes = useMutation({
-        mutationFn: async (sceneIds: number[]) => {
-            for (const id of sceneIds) {
-                await requireApiResult(api.scenes({ id }).delete())
-            }
-        },
-        onMutate: async (sceneIds) => {
-            const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) =>
-                    query.queryKey[0] === 'queue' ||
-                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === projId),
-            })
-            const sceneIdSet = new Set(sceneIds)
-            queryClient.setQueryData<SceneSummary[]>(qk.scenes(projId), (scenes) =>
-                scenes?.filter((scene) => !sceneIdSet.has(scene.id)),
-            )
-            setItems((current) => current.filter((scene) => !sceneIdSet.has(scene.id)))
-            const previousSelectedIds = selectedIds
-            clearSelection()
-            setProjectDialog(null)
-            return { snapshots, previousItems: items, previousSelectedIds }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-            if (context?.previousItems) setItems(context.previousItems)
-            if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
-        },
-        onSettled: () => {
-            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            void queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
-            void queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
-        },
-    })
-
-    const saveStash = useMutation({
-        mutationFn: (body: StashPostBody) => requireApiResult(api.stash.post(body)),
-        onMutate: async (body) => {
-            const snapshots = await snapshotQueries(queryClient, { queryKey: qk.stash() })
-            const now = new Date().toISOString()
-            const tempId = -Date.now()
-            const tempItem = { ...body, id: tempId, createdAt: now, updatedAt: now } as StashItem
-            queryClient.setQueryData<StashItem[]>(qk.stash(), (items) => [
-                tempItem,
-                ...(items ?? []),
-            ])
-            return { snapshots, tempId }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-        },
-        onSuccess: (res, _body, context) => {
-            if (res.data) {
-                queryClient.setQueryData<StashItem[]>(qk.stash(), (items) =>
-                    items?.map((item) =>
-                        item.id === context?.tempId ? (res.data as StashItem) : item,
-                    ),
-                )
-            }
-        },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.stash() }),
-    })
-
-    const deleteStash = useMutation({
-        mutationFn: (id: number) => requireApiResult(api.stash({ id }).delete()),
-        onMutate: async (id) => {
-            const snapshots = await snapshotQueries(queryClient, { queryKey: qk.stash() })
-            queryClient.setQueryData<StashItem[]>(qk.stash(), (items) =>
-                items?.filter((item) => item.id !== id),
-            )
-            return { snapshots }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-        },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.stash() }),
-    })
-
-    const applyStash = useMutation({
-        mutationFn: ({ id, mode }: { id: number; mode?: 'append' | 'replace' }) =>
-            requireApiResult(
-                api.stash({ id }).apply.post({
-                    projectId: projId,
-                    mode,
-                }),
-            ),
-        onMutate: async ({ id, mode }) => {
-            const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) =>
-                    (query.queryKey[0] === 'project' && query.queryKey[1] === projId) ||
-                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === projId) ||
-                    query.queryKey[0] === 'queue',
-            })
-            const stashItem = stashQuery.data?.find((item) => item.id === id)
-            if (stashItem?.type === 'prompt') {
-                queryClient.setQueryData<Project | null>(qk.project(projId), (project) =>
-                    project
-                        ? {
-                              ...project,
-                              prompt: stashItem.payload.prompt,
-                              negativePrompt: stashItem.payload.negativePrompt,
-                              variables: stashItem.payload.variables,
-                              characterPrompts: stashItem.payload.characterPrompts,
-                          }
-                        : project,
-                )
-            } else if (stashItem?.type === 'parameters') {
-                queryClient.setQueryData<Project | null>(qk.project(projId), (project) =>
-                    project ? { ...project, parameters: stashItem.payload } : project,
-                )
-            } else if (stashItem?.type === 'scene') {
-                const now = new Date().toISOString()
-                const optimisticScenes = stashItem.payload.scenes.map((scene, index) => ({
-                    id: -(Date.now() + index),
-                    projectId: projId,
-                    displayOrder: `optimistic-${now}-${index}`,
-                    name: scene.name,
-                    variations: scene.variations.map((variation, variationIndex) => ({
-                        id: -(Date.now() + index * 100 + variationIndex),
-                        sceneId: -(Date.now() + index),
-                        displayOrder: String(variationIndex),
-                        variables: variation.variables,
-                        createdAt: now,
-                        updatedAt: now,
-                    })),
-                    createdAt: now,
-                    updatedAt: now,
-                    imageCount: 0,
-                    queueCount: 0,
-                    latestImages: [],
-                }))
-                queryClient.setQueryData<SceneSummary[]>(qk.scenes(projId), (scenes) =>
-                    mode === 'replace'
-                        ? optimisticScenes
-                        : [...(scenes ?? []), ...optimisticScenes],
-                )
-                setItems((current) =>
-                    mode === 'replace' ? optimisticScenes : [...current, ...optimisticScenes],
-                )
-            }
-            const previousSelectedIds = selectedIds
-            clearSelection()
-            setProjectDialog(null)
-            return { snapshots, previousItems: items, previousSelectedIds }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-            if (context?.previousItems) setItems(context.previousItems)
-            if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
-        },
-        onSettled: () => {
-            void queryClient.invalidateQueries({ queryKey: qk.project(projId) })
-            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            void queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
-            void queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
-        },
-    })
-
-    function handleDragEnd(event: DragEndEvent) {
-        const { active, over } = event
-        if (!over || active.id === over.id) return
-
-        const activeId = Number(active.id)
-        const overId = Number(over.id)
-
-        if (!Number.isFinite(activeId) || !Number.isFinite(overId)) return
-
-        const reordered = reorderSceneItems(items, activeId, overId)
-        if (!reordered) return
-
-        setItems(reordered.items)
-        reorderScene.mutate(reordered.orderPatch)
+    const closeDialog = (open: boolean) => {
+        if (!open) setProjectDialog(null)
     }
-
-    function applySelectionDragRange(state: SelectionDragState, targetIndex: number) {
-        if (items.length === 0) return
-
-        if (state.startIndex === null) state.startIndex = targetIndex
-
-        const clampedTargetIndex = Math.min(Math.max(targetIndex, 0), items.length - 1)
-        const from = Math.min(state.startIndex, clampedTargetIndex)
-        const to = Math.max(state.startIndex, clampedTargetIndex)
-        const rangeIds = items.slice(from, to + 1).map((scene) => scene.id)
-
-        setSelectedIds(() => {
-            const next = new Set(state.baseSelectedIds)
-            for (const id of rangeIds) {
-                if (state.action === 'select') next.add(id)
-                else next.delete(id)
-            }
-            return next
-        })
-    }
-
-    function handleSelectDragStart(index: number, selected: boolean) {
-        const state: SelectionDragState = {
-            startIndex: index,
-            action: selected ? 'deselect' : 'select',
-            baseSelectedIds: new Set(selectedIds),
-        }
-
-        selectionDragRef.current = state
-        applySelectionDragRange(state, index)
-    }
-
-    function handleSelectDragEnter(index: number) {
-        const state = selectionDragRef.current
-        if (!state) return
-
-        applySelectionDragRange(state, index)
-    }
-
-    function handleGridPointerDown(event: PointerEvent<HTMLDivElement>) {
-        if (event.button !== 0 || event.target !== event.currentTarget) return
-
-        event.preventDefault()
-        selectionDragRef.current = {
-            startIndex: null,
-            action: 'select',
-            baseSelectedIds: new Set(selectedIds),
-        }
-    }
-
-    function toggleSelect(id: number) {
-        setSelectedIds((prev) => {
-            const next = new Set(prev)
-            if (next.has(id)) next.delete(id)
-            else next.add(id)
-            return next
-        })
-    }
-
-    function selectAllScenes() {
-        setSelectedIds(new Set(items.map((scene) => scene.id)))
-    }
-
-    function clearSelection() {
-        setSelectedIds(new Set<number>())
-    }
-
-    function handleSlideshowImageCountChange(value: string) {
-        const nextCount = Math.min(10, Math.max(1, Number(value) || 1))
-        setSlideshowImageCount(nextCount)
-        if (loadedProjectId) {
-            saveProjectSettings.current(loadedProjectId, {
-                slideshowImageCount: nextCount,
-                sceneCardSize,
-            })
-        }
-    }
-
-    function handleSceneCardSizeChange(value: ProjectSettings['sceneCardSize']) {
-        setSceneCardSize(value)
-        if (loadedProjectId) {
-            saveProjectSettings.current(loadedProjectId, {
-                slideshowImageCount,
-                sceneCardSize: value,
-            })
-        }
-    }
-
-    useEffect(() => {
-        function handlePointerEnd() {
-            selectionDragRef.current = null
-        }
-
-        window.addEventListener('pointerup', handlePointerEnd)
-        window.addEventListener('pointercancel', handlePointerEnd)
-        return () => {
-            window.removeEventListener('pointerup', handlePointerEnd)
-            window.removeEventListener('pointercancel', handlePointerEnd)
-        }
-    }, [])
-
-    useEffect(() => {
-        function handleKeyDown(event: KeyboardEvent) {
-            if (isEditableTarget(event.target)) return
-
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
-                if (items.length === 0) return
-                event.preventDefault()
-                setSelectedIds(new Set(items.map((scene) => scene.id)))
-                return
-            }
-
-            if (event.key === 'Escape') {
-                setSelectedIds(new Set<number>())
-            }
-        }
-
-        window.addEventListener('keydown', handleKeyDown)
-        return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [items, setSelectedIds])
-    const currentSceneId = queueStatus.currentSceneId
+    const current = queueStatus.current
 
     return (
         <div className="flex h-full flex-col gap-4">
-            {/* Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    {hasScenes && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5"
-                            onClick={() => selectAllScenes()}
-                            disabled={selectedCount === items.length}
-                        >
-                            <Check className="h-4 w-4" />
-                            전체 선택
-                        </Button>
-                    )}
-                    {selectMode && (
-                        <span className="text-xs font-medium text-muted-foreground">
-                            {selectedCount}개 선택
-                        </span>
-                    )}
-                    {selectMode && (
-                        <Button
-                            size="sm"
-                            className="gap-1.5"
-                            onClick={() =>
-                                bulkEnqueue.mutate({
-                                    sceneIds: selectedSceneIds,
-                                    position: 'front',
-                                })
-                            }
-                            disabled={bulkEnqueue.isPending}
-                        >
-                            <ListPlus className="h-4 w-4" />
-                            앞으로 추가
-                        </Button>
-                    )}
-                    {selectMode && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1.5"
-                            onClick={() =>
-                                bulkEnqueue.mutate({ sceneIds: selectedSceneIds, position: 'back' })
-                            }
-                            disabled={bulkEnqueue.isPending}
-                        >
-                            <ListPlus className="h-4 w-4" />
-                            뒤로 추가
-                        </Button>
-                    )}
-                    {selectMode && (
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            className="gap-1.5"
-                            onClick={() => setProjectDialog({ type: 'delete-selected' })}
-                            disabled={deleteSelectedScenes.isPending}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                            선택 삭제
-                        </Button>
-                    )}
-                    {selectMode && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1.5"
-                            onClick={() => clearSelection()}
-                        >
-                            <X className="h-4 w-4" />
-                            해제
-                        </Button>
-                    )}
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                    <Tooltip>
-                        <TooltipTrigger
-                            render={
-                                <Button
-                                    variant="outline"
-                                    size="icon-sm"
-                                    aria-label="Stash"
-                                    onClick={() => setProjectDialog({ type: 'stash' })}
-                                    disabled={!projectQuery.data}
-                                />
-                            }
-                        >
-                            <Archive className="h-4 w-4" />
-                        </TooltipTrigger>
-                        <TooltipContent>Stash</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger
-                            render={
-                                <Button
-                                    variant="outline"
-                                    size="icon-sm"
-                                    aria-label="프로젝트 설정"
-                                    onClick={() => setProjectDialog({ type: 'settings' })}
-                                    disabled={!projectQuery.data}
-                                />
-                            }
-                        >
-                            <Settings className="h-4 w-4" />
-                        </TooltipTrigger>
-                        <TooltipContent>프로젝트 설정</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger
-                            render={
-                                <Button
-                                    variant="outline"
-                                    size="icon-sm"
-                                    aria-label="Export"
-                                    onClick={() => setProjectDialog({ type: 'export' })}
-                                    disabled={!projectQuery.data}
-                                />
-                            }
-                        >
-                            <Download className="h-4 w-4" />
-                        </TooltipTrigger>
-                        <TooltipContent>Export</TooltipContent>
-                    </Tooltip>
-                    <Button
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={() => setProjectDialog({ type: 'create-scene' })}
-                    >
-                        <Plus className="h-4 w-4" />새 씬
-                    </Button>
-                </div>
-            </div>
+            <SceneToolbar
+                sceneCount={items.length}
+                hasScenes={hasScenes}
+                selectMode={selectMode}
+                selectedCount={selectedCount}
+                projectLoaded={!!projectQuery.data}
+                enqueuePending={enqueueScenes.isPending}
+                deletePending={deleteScenes.isPending}
+                onSelectAll={selection.selectAll}
+                onClearSelection={selection.clear}
+                onEnqueue={(position) =>
+                    enqueueScenes.mutate({ sceneIds: selectedSceneIds, position })
+                }
+                onOpenDialog={setProjectDialog}
+            />
 
-            {/* Scene grid */}
             {scenesQuery.isPending ? (
                 <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
                     불러오는 중...
@@ -751,431 +111,65 @@ function ProjectPageContent() {
                     <p className="text-sm">씬이 없습니다. 새 씬을 추가하세요.</p>
                 </div>
             ) : (
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                >
-                    <SortableContext items={items.map((s) => s.id)} strategy={rectSortingStrategy}>
-                        <div
-                            className="flex min-h-0 flex-1 flex-wrap content-start gap-4 pb-4"
-                            onPointerDown={handleGridPointerDown}
-                        >
-                            {items.map((scene, index) => (
-                                <SortableSceneItem
-                                    key={scene.id}
-                                    scene={scene}
-                                    index={index}
-                                    selected={selectedIds.has(scene.id)}
-                                    selectMode={selectMode}
-                                    isProcessing={scene.id === currentSceneId}
-                                    slideshowCount={slideshowImageCount}
-                                    cardSize={sceneCardSize}
-                                    onToggleSelect={toggleSelect}
-                                    onSelectDragStart={handleSelectDragStart}
-                                    onSelectDragEnter={handleSelectDragEnter}
-                                />
-                            ))}
-                        </div>
-                    </SortableContext>
-                </DndContext>
+                <SceneGrid
+                    items={items}
+                    selectedIds={selectedIds}
+                    selectMode={selectMode}
+                    processingSceneId={current?.kind === 'scene' ? current.sceneId : null}
+                    slideshowCount={settings.slideshowImageCount}
+                    cardSize={settings.sceneCardSize}
+                    onReorder={(reordered, patch) => {
+                        setItems(reordered)
+                        moveScene.mutate(patch)
+                    }}
+                    onToggleSelect={selection.toggle}
+                    onSelectDragStart={selection.selectDragStart}
+                    onSelectDragEnter={selection.selectDragEnter}
+                    onGridPointerDown={selection.gridPointerDown}
+                />
             )}
 
-            {/* Dialogs / panels */}
             <CreateSceneDialog
                 open={projectDialog?.type === 'create-scene'}
-                onOpenChange={(open) => {
-                    if (!open) setProjectDialog(null)
-                }}
+                onOpenChange={closeDialog}
                 onCreate={(name) => createScene.mutate(name)}
             />
             <ConfirmDeleteDialog
                 open={projectDialog?.type === 'delete-selected'}
-                onOpenChange={(open) => {
-                    if (!open) setProjectDialog(null)
-                }}
+                onOpenChange={closeDialog}
                 title="선택 씬 삭제"
                 description={`선택한 씬 ${selectedCount}개와 모든 생성된 이미지를 삭제합니다. 되돌릴 수 없습니다.`}
-                onConfirm={() => deleteSelectedScenes.mutateAsync(selectedSceneIds)}
+                onConfirm={() => deleteScenes.mutateAsync(selectedSceneIds)}
             />
             <ExportDialog
                 open={projectDialog?.type === 'export'}
-                onOpenChange={(open) => {
-                    if (!open) setProjectDialog(null)
-                }}
+                onOpenChange={closeDialog}
                 project={projectQuery.data ?? null}
                 scenes={items}
             />
             <ProjectSettingsDialog
                 open={projectDialog?.type === 'settings'}
-                onOpenChange={(open) => {
-                    if (!open) setProjectDialog(null)
-                }}
-                slideshowImageCount={slideshowImageCount}
-                sceneCardSize={sceneCardSize}
+                onOpenChange={closeDialog}
+                slideshowImageCount={settings.slideshowImageCount}
+                sceneCardSize={settings.sceneCardSize}
                 project={projectQuery.data ?? null}
                 scenes={items}
                 selectedSceneIds={selectedSceneIds}
-                onSlideshowImageCountChange={handleSlideshowImageCountChange}
-                onSceneCardSizeChange={handleSceneCardSizeChange}
+                onSlideshowImageCountChange={settings.setSlideshowImageCount}
+                onSceneCardSizeChange={settings.setSceneCardSize}
             />
             <StashDialog
                 open={projectDialog?.type === 'stash'}
-                onOpenChange={(open) => {
-                    if (!open) setProjectDialog(null)
-                }}
+                onOpenChange={closeDialog}
                 project={projectQuery.data}
                 scenes={items}
                 selectedSceneIds={selectedSceneIds}
-                stashItems={stashQuery.data ?? []}
-                isPending={saveStash.isPending || deleteStash.isPending || applyStash.isPending}
-                onSave={(body) => saveStash.mutateAsync(body)}
-                onDelete={(item) => deleteStash.mutateAsync(item.id)}
-                onApply={(item, mode) => applyStash.mutateAsync({ id: item.id, mode })}
+                stashItems={stash.items}
+                isPending={stash.isPending}
+                onSave={(body) => stash.save.mutateAsync(body)}
+                onDelete={(item) => stash.remove.mutateAsync(item.id)}
+                onApply={(item, mode) => stash.apply.mutateAsync({ id: item.id, mode })}
             />
         </div>
-    )
-}
-
-interface ProjectSettingsDialogProps {
-    open: boolean
-    onOpenChange: (open: boolean) => void
-    slideshowImageCount: number
-    sceneCardSize: ProjectSettings['sceneCardSize']
-    project: Project | null
-    scenes: SceneSummary[]
-    selectedSceneIds: number[]
-    onSlideshowImageCountChange: (value: string) => void
-    onSceneCardSizeChange: (value: ProjectSettings['sceneCardSize']) => void
-}
-
-function ProjectSettingsDialog({
-    open,
-    onOpenChange,
-    slideshowImageCount,
-    sceneCardSize,
-    project,
-    scenes,
-    selectedSceneIds,
-    onSlideshowImageCountChange,
-    onSceneCardSizeChange,
-}: ProjectSettingsDialogProps) {
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col overflow-hidden">
-                <DialogHeader>
-                    <DialogTitle>프로젝트 설정</DialogTitle>
-                </DialogHeader>
-
-                <Tabs defaultValue="general" className="min-h-0">
-                    <TabsList>
-                        <TabsTrigger value="general">일반</TabsTrigger>
-                        <TabsTrigger value="files">씬 / 아카이브</TabsTrigger>
-                    </TabsList>
-                    <div className="mt-4 max-h-[65vh] overflow-y-auto pr-1">
-                        <TabsContent value="general" className="flex flex-col gap-4">
-                            <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
-                                <Label htmlFor="project-slideshow-image-count">
-                                    회전 이미지 개수
-                                </Label>
-                                <Input
-                                    id="project-slideshow-image-count"
-                                    type="number"
-                                    min={1}
-                                    max={10}
-                                    value={slideshowImageCount}
-                                    onChange={(event) =>
-                                        onSlideshowImageCountChange(event.target.value)
-                                    }
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-[1fr_6rem] items-center gap-3">
-                                <Label htmlFor="project-scene-card-size">씬 카드 크기</Label>
-                                <Select
-                                    value={sceneCardSize}
-                                    onValueChange={(value) => {
-                                        if (value) onSceneCardSizeChange(value)
-                                    }}
-                                >
-                                    <SelectTrigger id="project-scene-card-size" className="w-full">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {SCENE_CARD_SIZE_OPTIONS.map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </TabsContent>
-                        <TabsContent value="files">
-                            <ProjectFilesSettings
-                                project={project}
-                                scenes={scenes}
-                                selectedSceneIds={selectedSceneIds}
-                                onImported={() => onOpenChange(false)}
-                            />
-                        </TabsContent>
-                    </div>
-                </Tabs>
-            </DialogContent>
-        </Dialog>
-    )
-}
-
-interface StashDialogProps {
-    open: boolean
-    onOpenChange: (open: boolean) => void
-    project: Project | null | undefined
-    scenes: SceneSummary[]
-    selectedSceneIds: number[]
-    stashItems: StashItem[]
-    isPending: boolean
-    onSave: (body: StashPostBody) => Promise<unknown>
-    onDelete: (item: StashItem) => Promise<unknown>
-    onApply: (item: StashItem, mode?: 'append' | 'replace') => Promise<unknown>
-}
-
-type StashTab = StashItem['type']
-
-const STASH_TAB_LABELS: Record<StashTab, string> = {
-    prompt: '프롬프트',
-    scene: '씬',
-    parameters: '파라미터',
-}
-
-function StashDialog({
-    open,
-    onOpenChange,
-    project,
-    scenes,
-    selectedSceneIds,
-    stashItems,
-    isPending,
-    onSave,
-    onDelete,
-    onApply,
-}: StashDialogProps) {
-    const [activeTab, setActiveTab] = useState<StashTab>('scene')
-    const [name, setName] = useState('')
-    const [replaceItem, setReplaceItem] = useState<StashItem | null>(null)
-    const selectedSceneSet = new Set(selectedSceneIds)
-    const stashedItems = stashItems.filter((item) => item.type === activeTab)
-    const stashedScenes =
-        selectedSceneIds.length > 0
-            ? scenes.filter((scene) => selectedSceneSet.has(scene.id))
-            : scenes
-    const canSave =
-        !!project && name.trim().length > 0 && (activeTab !== 'scene' || stashedScenes.length > 0)
-
-    async function handleSave() {
-        if (!project) return
-        const stashName = name.trim()
-        if (!stashName) return
-
-        if (activeTab === 'prompt') {
-            await onSave({
-                type: 'prompt',
-                name: stashName,
-                payload: {
-                    prompt: project.prompt,
-                    negativePrompt: project.negativePrompt,
-                    variables: project.variables,
-                    characterPrompts: project.characterPrompts,
-                },
-            })
-        } else if (activeTab === 'parameters') {
-            await onSave({
-                type: 'parameters',
-                name: stashName,
-                payload: project.parameters,
-            })
-        } else {
-            await onSave({
-                type: 'scene',
-                name: stashName,
-                payload: {
-                    scenes: stashedScenes.map((scene) => ({
-                        name: scene.name,
-                        variations: scene.variations.map((variation) => ({
-                            variables: variation.variables,
-                        })),
-                    })),
-                },
-            })
-        }
-
-        setName('')
-    }
-
-    return (
-        <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>Stash</DialogTitle>
-                    </DialogHeader>
-
-                    <Tabs
-                        value={activeTab}
-                        onValueChange={(value) => setActiveTab(value as StashTab)}
-                    >
-                        <TabsList className="w-full">
-                            <TabsTrigger value="scene">
-                                <Layers className="h-4 w-4" />씬
-                            </TabsTrigger>
-                            <TabsTrigger value="prompt">
-                                <FileText className="h-4 w-4" />
-                                프롬프트
-                            </TabsTrigger>
-                            <TabsTrigger value="parameters">
-                                <SlidersHorizontal className="h-4 w-4" />
-                                파라미터
-                            </TabsTrigger>
-                        </TabsList>
-
-                        {(['scene', 'prompt', 'parameters'] as const).map((type) => (
-                            <TabsContent key={type} value={type} className="mt-2">
-                                <div className="flex flex-col gap-4">
-                                    <div className="flex gap-2">
-                                        <Input
-                                            value={name}
-                                            onChange={(event) => setName(event.target.value)}
-                                            placeholder={`${STASH_TAB_LABELS[type]} Stash 이름`}
-                                        />
-                                        <Button
-                                            size="sm"
-                                            className="shrink-0 gap-1.5"
-                                            onClick={handleSave}
-                                            disabled={isPending || !canSave}
-                                        >
-                                            <Save className="h-4 w-4" />
-                                            저장
-                                        </Button>
-                                    </div>
-
-                                    {type === 'scene' && (
-                                        <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs text-muted-foreground">
-                                            <span>
-                                                {selectedSceneIds.length > 0
-                                                    ? `선택된 씬 ${stashedScenes.length}개 저장`
-                                                    : `전체 씬 ${stashedScenes.length}개 저장`}
-                                            </span>
-                                            {selectedSceneIds.length > 0 && (
-                                                <Badge variant="outline">선택 저장</Badge>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {stashedItems.length === 0 ? (
-                                        <div className="rounded-md border border-dashed px-3 py-8 text-center text-xs text-muted-foreground">
-                                            저장된 Stash가 없습니다
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col gap-2">
-                                            {stashedItems.map((item) => (
-                                                <StashItemRow
-                                                    key={item.id}
-                                                    item={item}
-                                                    isPending={isPending}
-                                                    onDelete={onDelete}
-                                                    onApply={onApply}
-                                                    onReplace={() => setReplaceItem(item)}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </TabsContent>
-                        ))}
-                    </Tabs>
-                </DialogContent>
-            </Dialog>
-            <ConfirmDeleteDialog
-                open={replaceItem !== null}
-                onOpenChange={(nextOpen) => {
-                    if (!nextOpen) setReplaceItem(null)
-                }}
-                title="씬 Stash 덮어쓰기"
-                description="현재 프로젝트의 모든 씬과 생성된 이미지를 삭제하고 Stash의 씬으로 교체합니다. 되돌릴 수 없습니다."
-                onConfirm={async () => {
-                    if (!replaceItem) return
-                    await onApply(replaceItem, 'replace')
-                    setReplaceItem(null)
-                }}
-            />
-        </>
-    )
-}
-
-interface StashItemRowProps {
-    item: StashItem
-    isPending: boolean
-    onDelete: (item: StashItem) => Promise<unknown>
-    onApply: (item: StashItem, mode?: 'append' | 'replace') => Promise<unknown>
-    onReplace: () => void
-}
-
-function StashItemRow({ item, isPending, onDelete, onApply, onReplace }: StashItemRowProps) {
-    const meta =
-        item.type === 'scene'
-            ? `씬 ${item.payload.scenes.length}개`
-            : item.type === 'prompt'
-              ? '프로젝트 프롬프트'
-              : `${item.payload.width}x${item.payload.height}`
-
-    return (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
-            <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{item.name}</div>
-                <div className="text-xs text-muted-foreground">{meta}</div>
-            </div>
-            {item.type === 'scene' ? (
-                <>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onApply(item, 'append')}
-                        disabled={isPending}
-                    >
-                        추가
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={onReplace} disabled={isPending}>
-                        덮어쓰기
-                    </Button>
-                </>
-            ) : (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onApply(item)}
-                    disabled={isPending}
-                >
-                    적용
-                </Button>
-            )}
-            <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`${item.name} Stash 삭제`}
-                onClick={() => onDelete(item)}
-                disabled={isPending}
-            >
-                <Trash2 className="h-4 w-4" />
-            </Button>
-        </div>
-    )
-}
-
-function isEditableTarget(target: EventTarget | null) {
-    if (!(target instanceof HTMLElement)) return false
-    return (
-        target.isContentEditable ||
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement
     )
 }

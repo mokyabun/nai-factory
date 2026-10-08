@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/core'
 import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import type { Image } from '@nai-factory/shared'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Check, Trash2, X } from 'lucide-react'
 import { type PointerEvent, useEffect, useMemo, useRef, useState } from 'react'
@@ -16,10 +16,10 @@ import { type PointerEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { SortableImageItem } from '@/components/app/project/sortable-image-item'
 import { Button } from '@/components/ui/button'
-import { api, imageResourceUrl, type SceneDetail, type SceneSummary } from '@/lib/api'
-import { requireApiResult, restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
+import { useSceneImageActions } from '@/hooks/use-scene-image-actions'
+import { assetUrl, call, contract } from '@/lib/api'
 import { qk } from '@/lib/queries'
-import { compareDisplayOrder, reorderById } from '@/lib/reorder'
+import { comparePosition, reorderById } from '@/lib/reorder'
 
 export const Route = createFileRoute('/scene/$sceneId/images/')({ component: ImagesPage })
 
@@ -29,34 +29,19 @@ interface SelectionDragState {
     baseSelectedIds: Set<number>
 }
 
-interface ReorderImageVariables {
-    requestId: number
-    id: number
-    prevId: number | null
-    nextId: number | null
-    items: Image[]
-}
-
 function ImagesPage() {
     const { sceneId } = Route.useParams()
     const navigate = useNavigate()
-    const queryClient = useQueryClient()
     const scenId = Number(sceneId)
 
     const sceneQuery = useQuery({
-        queryKey: qk.scene(scenId),
-        queryFn: async () => {
-            const { data } = await api.scenes({ id: scenId }).get()
-            return data ?? null
-        },
+        queryKey: qk.scenes.get(scenId),
+        queryFn: () => call(contract.scenes.get, { params: { id: scenId } }),
     })
 
     const imagesQuery = useQuery({
-        queryKey: qk.images(scenId),
-        queryFn: async () => {
-            const { data } = await api.images.get({ query: { sceneId: scenId } })
-            return data ?? []
-        },
+        queryKey: qk.images.list(scenId),
+        queryFn: () => call(contract.images.list, { query: { sceneId: scenId } }),
     })
 
     const [deleteTarget, setDeleteTarget] = useState<Image | null>(null)
@@ -65,7 +50,7 @@ function ImagesPage() {
     const selectionDragRef = useRef<SelectionDragState | null>(null)
     const reorderRequestIdRef = useRef(0)
     const images = useMemo(
-        () => [...(imagesQuery.data ?? [])].sort(compareDisplayOrder),
+        () => [...(imagesQuery.data ?? [])].sort(comparePosition),
         [imagesQuery.data],
     )
     const selectedImageIds = useMemo(
@@ -85,138 +70,22 @@ function ImagesPage() {
         })
     }, [images])
 
-    const deleteImages = useMutation({
-        mutationFn: async (imageIds: number[]) => {
-            for (const id of imageIds) {
-                await requireApiResult(api.images({ id }).delete())
-            }
-        },
-        onMutate: async (imageIds) => {
-            const projectId = sceneQuery.data?.projectId
-            const imageIdSet = new Set(imageIds)
-            const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) =>
-                    query.queryKey[0] === 'images' ||
-                    (query.queryKey[0] === 'scene' && query.queryKey[1] === scenId) ||
-                    (projectId !== undefined &&
-                        query.queryKey[0] === 'scenes' &&
-                        query.queryKey[1] === projectId),
-            })
-            queryClient.setQueryData<Image[]>(
-                qk.images(scenId),
-                (items) => items?.filter((item) => !imageIdSet.has(item.id)) ?? items,
-            )
-            queryClient.setQueryData<SceneDetail | null>(qk.scene(scenId), (scene) =>
-                scene
-                    ? { ...scene, images: scene.images.filter((item) => !imageIdSet.has(item.id)) }
-                    : scene,
-            )
-            if (projectId !== undefined) {
-                queryClient.setQueryData<SceneSummary[]>(qk.scenes(projectId), (scenes) =>
-                    scenes?.map((scene) =>
-                        scene.id === scenId
-                            ? {
-                                  ...scene,
-                                  imageCount: Math.max(0, scene.imageCount - imageIdSet.size),
-                                  latestImages: scene.latestImages.filter(
-                                      (item) => !imageIdSet.has(item.id),
-                                  ),
-                              }
-                            : scene,
-                    ),
-                )
-            }
+    const { deleteImages, reorderImage } = useSceneImageActions({
+        sceneId: scenId,
+        projectId: sceneQuery.data?.projectId,
+        latestReorderId: reorderRequestIdRef,
+        onDeleted: (imageIds) => {
+            const previous = selectedIds
             setSelectedIds((current) => {
                 const next = new Set(current)
-                for (const id of imageIdSet) next.delete(id)
+                for (const id of imageIds) next.delete(id)
                 return next
             })
             setDeleteTarget(null)
             setDeleteSelectedOpen(false)
-            return { snapshots, projectId, previousSelectedIds: selectedIds }
+            return previous
         },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-            if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
-        },
-        onSettled: (_data, _error, _variables, context) => {
-            void queryClient.invalidateQueries({ queryKey: qk.images(scenId) })
-            void queryClient.invalidateQueries({ queryKey: qk.scene(scenId) })
-            if (context?.projectId !== undefined) {
-                void queryClient.invalidateQueries({ queryKey: qk.scenes(context.projectId) })
-            }
-        },
-    })
-
-    const reorderImage = useMutation({
-        mutationFn: async ({ id, prevId, nextId }: ReorderImageVariables) => {
-            const { data } = await requireApiResult(
-                api.images({ id }).order.patch({ prevId, nextId }),
-            )
-            return data ?? []
-        },
-        onMutate: async ({ items }) => {
-            const projectId = sceneQuery.data?.projectId
-            const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) =>
-                    query.queryKey[0] === 'images' ||
-                    (query.queryKey[0] === 'scene' && query.queryKey[1] === scenId) ||
-                    (projectId !== undefined &&
-                        query.queryKey[0] === 'scenes' &&
-                        query.queryKey[1] === projectId),
-            })
-            const now = new Date().toISOString()
-            const orderedItems = items.map((item, index) => ({
-                ...item,
-                displayOrder: `optimistic-${now}-${String(index).padStart(6, '0')}`,
-            }))
-            queryClient.setQueryData<Image[]>(qk.images(scenId), orderedItems)
-            queryClient.setQueryData<SceneDetail | null>(qk.scene(scenId), (scene) =>
-                scene ? { ...scene, images: orderedItems } : scene,
-            )
-            if (projectId !== undefined) {
-                queryClient.setQueryData<SceneSummary[]>(qk.scenes(projectId), (scenes) =>
-                    scenes?.map((scene) =>
-                        scene.id === scenId
-                            ? {
-                                  ...scene,
-                                  latestImages: orderedItems.slice(0, 10).map(toSceneImage),
-                              }
-                            : scene,
-                    ),
-                )
-            }
-            return { snapshots, projectId }
-        },
-        onError: (_error, variables, context) => {
-            if (variables.requestId !== reorderRequestIdRef.current) return
-            restoreSnapshots(queryClient, context?.snapshots)
-        },
-        onSuccess: (items, variables, context) => {
-            if (variables.requestId !== reorderRequestIdRef.current) return
-            queryClient.setQueryData<Image[]>(qk.images(scenId), items)
-            queryClient.setQueryData<SceneDetail | null>(qk.scene(scenId), (scene) =>
-                scene ? { ...scene, images: items } : scene,
-            )
-            if (context?.projectId !== undefined) {
-                queryClient.setQueryData<SceneSummary[]>(qk.scenes(context.projectId), (scenes) =>
-                    scenes?.map((scene) =>
-                        scene.id === scenId
-                            ? {
-                                  ...scene,
-                                  latestImages: items.slice(0, 10).map(toSceneImage),
-                              }
-                            : scene,
-                    ),
-                )
-            }
-        },
-        onSettled: (_data, _error, _variables, context) => {
-            void queryClient.invalidateQueries({ queryKey: qk.scene(scenId) })
-            if (context?.projectId !== undefined) {
-                void queryClient.invalidateQueries({ queryKey: qk.scenes(context.projectId) })
-            }
-        },
+        onDeleteFailed: setSelectedIds,
     })
 
     function handleDragEnd(event: DragEndEvent) {
@@ -432,7 +301,7 @@ function ImagesPage() {
                                         key={img.id}
                                         img={img}
                                         index={index}
-                                        imageUrl={imageResourceUrl(img, 'thumbnail')}
+                                        imageUrl={assetUrl(img.thumbAssetId)}
                                         selected={selectedIds.has(img.id)}
                                         onView={(img) =>
                                             selectMode
@@ -480,17 +349,6 @@ function ImagesPage() {
             />
         </>
     )
-}
-
-function toSceneImage(img: Image) {
-    return {
-        id: img.id,
-        assetId: img.assetId,
-        thumbnailAssetId: img.thumbnailAssetId,
-        filePath: img.filePath,
-        thumbnailPath: img.thumbnailPath,
-        createdAt: img.createdAt,
-    }
 }
 
 function isEditableTarget(target: EventTarget | null) {

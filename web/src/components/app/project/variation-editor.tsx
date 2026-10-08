@@ -13,22 +13,23 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { PromptVariable, SceneVariationDraft } from '@nai-factory/shared'
+import type { PromptVariable, VariationDraft } from '@nai-factory/shared'
 import { GripVertical, Plus, Trash2, X } from 'lucide-react'
 
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { tempId } from '@/lib/optimistic-scenes'
 import { variableValidationMessage } from '@/lib/prompt-variables'
 
 interface VariationEditorProps {
-    variations: SceneVariationDraft[]
-    onChange: (variations: SceneVariationDraft[]) => void
+    variations: VariationDraft[]
+    onChange: (variations: VariationDraft[]) => void
 }
 
 type SortableVariationProps = {
     id: string | number
-    variation: SceneVariationDraft
+    variation: VariationDraft
     varIdx: number
     onAddKey: (varIdx: number) => void
     onRemoveVariation: (varIdx: number) => void
@@ -37,7 +38,7 @@ type SortableVariationProps = {
     onUpdateValue: (varIdx: number, keyIdx: number, value: string) => void
 }
 
-function itemId(variation: SceneVariationDraft, index: number) {
+function itemId(variation: VariationDraft, index: number) {
     return variation.id ?? `new-${index}`
 }
 
@@ -150,7 +151,7 @@ export function VariationEditor({ variations, onChange }: VariationEditorProps) 
     const ids = variations.map(itemId)
 
     function addVariation() {
-        onChange([...variations, { variables: [] }])
+        onChange([...variations, { id: tempId(), variables: [] }])
     }
 
     function removeVariation(i: number) {

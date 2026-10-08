@@ -1,5 +1,16 @@
+import type { Job, QueueState } from '@nai-factory/shared'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Clock3, ListTodo, Loader, Play, Square, Trash2 } from 'lucide-react'
+import {
+    BarChart3,
+    Clock3,
+    ListTodo,
+    Loader,
+    Play,
+    RotateCcw,
+    Square,
+    Trash2,
+    X,
+} from 'lucide-react'
 
 import {
     ImageProgressBar,
@@ -10,8 +21,8 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SidebarHeader } from '@/components/ui/sidebar'
-import { useGenerationStatus, useQueueActions } from '@/hooks/use-queue'
-import { api, type QueueState, type QueueStatus } from '@/lib/api'
+import { useGenerationStatus, useJobHistory, useQueueActions } from '@/hooks/use-queue'
+import { call, contract } from '@/lib/api'
 import { formatSeconds } from '@/lib/generation-progress'
 import { qk } from '@/lib/queries'
 
@@ -26,6 +37,26 @@ const stateLabels: Record<QueueState, string> = {
     idle: '대기',
 }
 
+const errorKindLabels: Record<NonNullable<Job['errorKind']>, string> = {
+    config: '설정',
+    auth: '인증',
+    rate_limit: '요청 제한',
+    network: '네트워크',
+    prompt: '프롬프트',
+    runtime: '오류',
+}
+
+function jobDurationMs(job: Job) {
+    if (!job.startedAt || !job.finishedAt) return null
+    return Math.max(0, Date.parse(job.finishedAt) - Date.parse(job.startedAt))
+}
+
+function progressLabel(job: Pick<Job, 'doneImages' | 'totalImages'>) {
+    return job.totalImages !== null && job.totalImages > 1
+        ? ` · ${job.doneImages}/${job.totalImages}`
+        : ''
+}
+
 function formatDuration(milliseconds: number | null) {
     if (milliseconds === null) return '-'
     const seconds = Math.round(milliseconds / 1000)
@@ -35,19 +66,15 @@ function formatDuration(milliseconds: number | null) {
 
 export function SidebarQueue({ projectId }: SidebarQueueProps) {
     const { status, job, progress, jobElapsedMs, remainingSeconds } = useGenerationStatus()
-    const { start, stop, clearAll } = useQueueActions()
+    const { start, stop, clearAll, remove, retry } = useQueueActions()
 
     const itemsQuery = useQuery({
-        queryKey: qk.queue(projectId),
-        queryFn: async () => {
-            const { data } = await api.queue.get({
-                query: projectId ? { projectId } : undefined,
-            })
-            return data ?? []
-        },
+        queryKey: qk.jobs.list(projectId),
+        queryFn: () => call(contract.jobs.list, { query: projectId ? { projectId } : {} }),
     })
+    const history = useJobHistory().data ?? []
 
-    const items = itemsQuery.data ?? []
+    const items = (itemsQuery.data ?? []).filter((item) => item.status === 'queued')
 
     return (
         <div className="flex h-full min-h-0 flex-col bg-sidebar">
@@ -62,7 +89,7 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                             className="gap-1.5"
                             onClick={() => stop.mutate()}
                             disabled={stop.isPending}
-                            title="현재 작업을 마친 뒤 정지합니다"
+                            title="현재 이미지를 마친 뒤 정지합니다"
                         >
                             <Square className="h-3.5 w-3.5" />
                             정지
@@ -90,8 +117,8 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                         value={remainingSeconds !== null ? formatSeconds(remainingSeconds) : '-'}
                     />
                     <Metric
-                        label={`이미지당 평균 (${status.durationSampleSize})`}
-                        value={formatDuration(status.avgDurationMs)}
+                        label={`이미지당 평균 (${status.sampleSize})`}
+                        value={formatDuration(status.avgImageMs)}
                     />
                     <Metric
                         label="완료 / 실패"
@@ -99,12 +126,12 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                     />
                 </div>
 
-                <DurationChart entries={status.recent} />
+                <DurationChart entries={history} />
 
                 <section className="rounded border bg-background/40 p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 text-xs font-medium">
-                            {status.processing ? (
+                            {status.state === 'running' || status.state === 'pausing' ? (
                                 <Loader className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
                             ) : (
                                 <Clock3 className="h-3.5 w-3.5" />
@@ -127,12 +154,28 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                     </div>
                     {job ? (
                         <div className="flex flex-col gap-1.5 text-xs">
-                            <div className="truncate font-medium">{jobTargetLabel(job)}</div>
+                            <div className="flex items-center gap-2">
+                                <div className="min-w-0 flex-1 truncate font-medium">
+                                    {jobTargetLabel(job)}
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 shrink-0 gap-1 px-1.5"
+                                    onClick={() => remove.mutate(job.jobId)}
+                                    disabled={remove.isPending}
+                                    title="생성 중인 작업을 취소합니다"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                    취소
+                                </Button>
+                            </div>
                             <div className="truncate text-muted-foreground">
-                                #{job.id} ·{' '}
-                                {job.type === 'playground'
+                                #{job.jobId} ·{' '}
+                                {job.kind === 'playground'
                                     ? (job.prompt ?? 'prompt')
-                                    : `variation ${job.sceneVariationId}`}
+                                    : `variation ${job.variationId}`}
                             </div>
                             <ImageProgressBar
                                 progress={progress}
@@ -152,7 +195,7 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                             </div>
                             {status.state === 'pausing' && (
                                 <div className="text-muted-foreground">
-                                    이 작업이 끝나면 정지합니다
+                                    이 이미지가 끝나면 정지합니다
                                 </div>
                             )}
                         </div>
@@ -193,17 +236,24 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <div className="truncate font-medium">
-                                        {item.type === 'playground'
-                                            ? 'Playground'
-                                            : (item.sceneName ?? `Scene ${item.sceneId}`)}
+                                        {item.label || `Scene ${item.sceneId}`}
                                     </div>
                                     <div className="truncate text-[11px] text-muted-foreground">
                                         job #{item.id} ·{' '}
-                                        {item.type === 'playground'
+                                        {item.kind === 'playground'
                                             ? item.prompt
-                                            : `variation ${item.sceneVariationId}`}
+                                            : `variation ${item.variationId}`}
+                                        {progressLabel(item)}
                                     </div>
                                 </div>
+                                <button
+                                    type="button"
+                                    className="relative shrink-0 text-muted-foreground transition-colors after:absolute after:-inset-2 hover:text-foreground"
+                                    onClick={() => remove.mutate(item.id)}
+                                    aria-label="대기열에서 삭제"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
                             </div>
                         ))
                     )}
@@ -211,12 +261,12 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
 
                 <section className="flex flex-col gap-2">
                     <h3 className="text-xs font-medium">최근 결과</h3>
-                    {status.recent.length === 0 ? (
+                    {history.length === 0 ? (
                         <div className="rounded border bg-background/40 p-3 text-xs text-muted-foreground">
                             기록 없음
                         </div>
                     ) : (
-                        status.recent.slice(0, 12).map((entry) => (
+                        history.slice(0, 12).map((entry) => (
                             <div
                                 key={entry.id}
                                 className="flex items-center gap-2 rounded border bg-background/40 p-2 text-xs"
@@ -226,23 +276,43 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                                         entry.status === 'completed' ? 'secondary' : 'destructive'
                                     }
                                 >
-                                    {entry.status === 'completed' ? '완료' : '실패'}
+                                    {entry.status === 'completed'
+                                        ? '완료'
+                                        : entry.status === 'cancelled'
+                                          ? '취소'
+                                          : '실패'}
                                 </Badge>
                                 <div className="min-w-0 flex-1 truncate">
                                     <div className="truncate">
-                                        {entry.type === 'playground'
+                                        {entry.kind === 'playground'
                                             ? (entry.prompt ?? 'Playground')
-                                            : entry.sceneName}
+                                            : entry.label}
+                                        {progressLabel(entry)}
                                     </div>
-                                    {entry.status === 'failed' && entry.failureCategory && (
+                                    {entry.status === 'failed' && entry.errorKind && (
                                         <div className="truncate text-[10px] text-muted-foreground">
-                                            {entry.failureCategory}: {entry.error}
+                                            {errorKindLabels[entry.errorKind]}: {entry.error}
                                         </div>
                                     )}
                                 </div>
-                                <span className="shrink-0 text-[11px] text-muted-foreground">
-                                    {formatDuration(entry.durationMs)}
-                                </span>
+                                {entry.status === 'failed' || entry.status === 'cancelled' ? (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 shrink-0 gap-1 px-1.5"
+                                        onClick={() => retry.mutate(entry.id)}
+                                        disabled={retry.isPending}
+                                        title="남은 이미지를 이어서 생성합니다"
+                                    >
+                                        <RotateCcw className="h-3.5 w-3.5" />
+                                        다시 시도
+                                    </Button>
+                                ) : (
+                                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                                        {formatDuration(jobDurationMs(entry))}
+                                    </span>
+                                )}
                             </div>
                         ))
                     )}
@@ -252,8 +322,12 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
     )
 }
 
-function DurationChart({ entries }: { entries: QueueStatus['recent'] }) {
-    const samples = [...entries].slice(0, 18).reverse()
+function DurationChart({ entries }: { entries: Job[] }) {
+    const samples = entries
+        .filter((entry) => entry.status !== 'cancelled')
+        .slice(0, 18)
+        .reverse()
+        .map((entry) => ({ ...entry, durationMs: jobDurationMs(entry) ?? 0 }))
     const maxDuration = Math.max(1, ...samples.map((entry) => entry.durationMs))
 
     return (

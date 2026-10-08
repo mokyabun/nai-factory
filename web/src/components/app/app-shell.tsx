@@ -15,9 +15,10 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { useActiveProjectId } from '@/hooks/use-active-project-id'
 import { useJsonDrop } from '@/hooks/use-json-drop'
 import { useRealtimeInvalidation } from '@/hooks/use-realtime-invalidation'
-import { api } from '@/lib/api'
+import { call, contract } from '@/lib/api'
 import { qk } from '@/lib/queries'
 
+import { AccessTokenDialog } from './access-token-dialog'
 import { activeProjectIdAtom, importDialogOpenAtom } from './atom'
 
 interface AppShellProps {
@@ -51,11 +52,12 @@ export function AppShell({ children }: AppShellProps) {
         async function processDroppedFile() {
             if (lowerName.endsWith('.naif')) {
                 setDropMessage('.naif 가져오는 중...')
-                const { data, error } = await api.projects.import.post({ archive: file })
-                if (error || !data) throw new Error('Project archive import failed')
+                const data = await call(contract.projects.importArchive, {
+                    body: { archive: file },
+                })
 
-                await queryClient.invalidateQueries({ queryKey: qk.groupsWithProjects() })
-                queryClient.setQueryData(qk.project(data.id), data)
+                await queryClient.invalidateQueries({ queryKey: qk.groups.all() })
+                queryClient.setQueryData(qk.projects.get(data.id), data)
                 void navigate({ to: '/project/$projectId', params: { projectId: String(data.id) } })
                 setDropMessage('Import 완료')
                 clearPendingFile()
@@ -143,6 +145,7 @@ export function AppShell({ children }: AppShellProps) {
                 <QueueFailureAlerts />
             </div>
 
+            <AccessTokenDialog />
             <SdStudioImportDialog
                 open={importDialogOpen}
                 onOpenChange={handleImportDialogOpenChange}

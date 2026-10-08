@@ -1,3 +1,4 @@
+import type { Job } from '@nai-factory/shared'
 import { useSetAtom } from 'jotai'
 import { AlertCircle, ListTodo, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -5,13 +6,9 @@ import { useEffect, useRef, useState } from 'react'
 import { activeSidebarPanelAtom } from '@/components/app/sidebar/atom'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { useQueueStatus } from '@/hooks/use-queue'
-import type { QueueHistoryEntry } from '@/lib/api'
+import { useJobHistory } from '@/hooks/use-queue'
 
-type FailureNotice = Pick<
-    QueueHistoryEntry,
-    'id' | 'sceneName' | 'type' | 'prompt' | 'error' | 'completedAt'
->
+type FailureNotice = Pick<Job, 'id' | 'label' | 'kind' | 'prompt' | 'error'>
 
 const MAX_VISIBLE_ALERTS = 3
 
@@ -22,34 +19,32 @@ export function QueueFailureAlerts() {
     const seenIds = useRef(new Set<number>())
     const [notices, setNotices] = useState<FailureNotice[]>([])
 
-    const { status } = useQueueStatus()
+    const { data: history } = useJobHistory()
 
     useEffect(() => {
-        const recent = status.recent
-        const freshFailures = recent.filter((entry) => {
-            if (entry.status !== 'failed') return false
-            if (seenIds.current.has(entry.id)) return false
+        const freshFailures = (history ?? []).filter((job) => {
+            if (job.status !== 'failed' || !job.finishedAt) return false
+            if (seenIds.current.has(job.id)) return false
 
-            seenIds.current.add(entry.id)
-            return new Date(entry.completedAt).getTime() >= mountedAt.current
+            seenIds.current.add(job.id)
+            return new Date(job.finishedAt).getTime() >= mountedAt.current
         })
 
         if (freshFailures.length === 0) return
 
         setNotices((current) =>
             [
-                ...freshFailures.map((entry) => ({
-                    id: entry.id,
-                    sceneName: entry.sceneName,
-                    type: entry.type,
-                    prompt: entry.prompt,
-                    error: entry.error,
-                    completedAt: entry.completedAt,
+                ...freshFailures.map((job) => ({
+                    id: job.id,
+                    label: job.label,
+                    kind: job.kind,
+                    prompt: job.prompt,
+                    error: job.error,
                 })),
                 ...current,
             ].slice(0, MAX_VISIBLE_ALERTS),
         )
-    }, [status.recent])
+    }, [history])
 
     useEffect(() => {
         if (notices.length === 0) return
@@ -89,9 +84,9 @@ export function QueueFailureAlerts() {
                         <div className="flex min-w-0 flex-col gap-2">
                             <div className="min-w-0">
                                 <div className="truncate font-medium text-foreground">
-                                    {notice.type === 'playground'
+                                    {notice.kind === 'playground'
                                         ? (notice.prompt ?? 'Playground')
-                                        : notice.sceneName}
+                                        : notice.label}
                                 </div>
                                 <div className="line-clamp-2 break-words">
                                     {notice.error ?? 'Unknown error'}

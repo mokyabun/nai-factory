@@ -1,4 +1,10 @@
-import type { ScenePatchBody, ScenePreviewResult, SceneVariationDraft } from '@nai-factory/shared'
+import type {
+    Scene,
+    ScenePatch,
+    ScenePreviewResult,
+    SceneSummary,
+    VariationDraft,
+} from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { AlertCircle, ArrowLeft, Plus } from 'lucide-react'
@@ -7,11 +13,12 @@ import { useEffect, useRef, useState } from 'react'
 import { VariationEditor } from '@/components/app/project/variation-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { api, type SceneDetail, type SceneSummary } from '@/lib/api'
-import { requireApiResult, restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
+import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
+import { call, contract } from '@/lib/api'
+import { restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
+import { tempId } from '@/lib/optimistic-scenes'
 import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
-import { qk } from '@/lib/queries'
-import { debounce } from '@/lib/utils'
+import { matchesKey, qk } from '@/lib/queries'
 
 export const Route = createFileRoute('/scene/$sceneId/')({ component: SceneEditPage })
 
@@ -22,24 +29,19 @@ function SceneEditPage() {
     const scenId = Number(sceneId)
 
     const sceneQuery = useQuery({
-        queryKey: qk.scene(scenId),
-        queryFn: async () => {
-            const { data } = await api.scenes({ id: scenId }).get()
-            return data ?? null
-        },
+        queryKey: qk.scenes.get(scenId),
+        queryFn: () => call(contract.scenes.get, { params: { id: scenId } }),
     })
 
+    const previewKey = [...qk.scenes.get(scenId), 'preview'] as const
     const previewQuery = useQuery({
-        queryKey: ['scene', scenId, 'preview-prompt'],
-        queryFn: async () => {
-            const { data } = await api.scenes({ id: scenId })['preview-prompt'].get()
-            return data ?? null
-        },
+        queryKey: previewKey,
+        queryFn: () => call(contract.scenes.preview, { params: { id: scenId }, query: {} }),
         enabled: !!sceneQuery.data,
     })
 
     const [name, setName] = useState('')
-    const [variations, setVariations] = useState<SceneVariationDraft[]>([])
+    const [variations, setVariations] = useState<VariationDraft[]>([])
     const [loadedId, setLoadedId] = useState<number | null>(null)
 
     // Sync local state only when switching to a different scene
@@ -49,97 +51,68 @@ function SceneEditPage() {
             // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
             setLoadedId(data.id)
             setName(data.name)
-            setVariations(data.variations ?? [])
+            setVariations(data.variations)
         }
     }, [sceneQuery.data, loadedId])
 
     const patchScene = useMutation({
-        mutationFn: (patch: ScenePatchBody) =>
-            requireApiResult(api.scenes({ id: scenId }).patch(patch)),
+        mutationFn: (patch: ScenePatch) =>
+            call(contract.scenes.update, { params: { id: scenId }, body: patch }),
         onMutate: async (patch) => {
             const projectId = sceneQuery.data?.projectId
             const snapshots = await snapshotQueries(queryClient, {
                 predicate: (query) =>
-                    (query.queryKey[0] === 'scene' && query.queryKey[1] === scenId) ||
+                    matchesKey(query.queryKey, qk.scenes.get(scenId)) ||
                     (projectId !== undefined &&
-                        query.queryKey[0] === 'scenes' &&
-                        query.queryKey[1] === projectId),
+                        matchesKey(query.queryKey, qk.scenes.list(projectId))),
             })
-            queryClient.setQueryData<SceneDetail | null>(qk.scene(scenId), (scene) =>
-                scene
-                    ? {
-                          ...scene,
-                          ...patch,
-                          variations: patch.variations
-                              ? patch.variations.map((variation, index) => ({
-                                    id: variation.id ?? -(index + 1),
-                                    sceneId: scenId,
-                                    displayOrder: variation.displayOrder ?? String(index),
-                                    variables: variation.variables,
-                                    createdAt: scene.createdAt,
-                                    updatedAt: new Date().toISOString(),
-                                }))
-                              : scene.variations,
-                      }
-                    : scene,
-            )
             if (projectId !== undefined && patch.name) {
-                queryClient.setQueryData<SceneSummary[]>(qk.scenes(projectId), (scenes) =>
+                queryClient.setQueryData<SceneSummary[]>(qk.scenes.list(projectId), (scenes) =>
                     scenes?.map((scene) =>
                         scene.id === scenId ? { ...scene, name: patch.name as string } : scene,
                     ),
                 )
             }
-            void queryClient.invalidateQueries({ queryKey: ['scene', scenId, 'preview-prompt'] })
             return { snapshots }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshots(queryClient, context?.snapshots)
         },
-        onSuccess: (res) => {
-            if (res.data) {
-                queryClient.setQueryData<SceneDetail | null>(qk.scene(scenId), (scene) =>
-                    scene ? { ...scene, ...res.data, images: scene.images } : scene,
-                )
-            }
-            void queryClient.invalidateQueries({
-                queryKey: qk.scenes(sceneQuery.data?.projectId ?? 0),
+        onSuccess: (scene: Scene, patch) => {
+            queryClient.setQueryData(qk.scenes.get(scenId), scene)
+            // New variations were sent with temporary negative ids. Remember the server's ids so
+            // later saves update them; local ids stay unchanged to keep editor rows mounted.
+            patch.variations?.forEach((draft, index) => {
+                const saved = scene.variations[index]
+                if (draft.id !== undefined && draft.id < 0 && saved) {
+                    savedIds.current.set(draft.id, saved.id)
+                }
             })
-            void queryClient.invalidateQueries({ queryKey: ['scene', scenId, 'preview-prompt'] })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes.list(scene.projectId) })
+            void queryClient.invalidateQueries({ queryKey: previewKey })
         },
     })
 
-    const saveName = useRef(debounce((value: string) => patchScene.mutate({ name: value }), 600))
-    const saveVariations = useRef(
-        debounce((value: SceneVariationDraft[]) => {
-            if (variationValidationMessage(value)) return
-            patchScene.mutate({
-                variations: value.map((variation) => ({
-                    ...variation,
-                    variables: normalizeVariableDraft(variation.variables),
-                })),
-            })
-        }, 600),
-    )
-
-    // Flush debounces on unmount
-    useEffect(() => {
-        const cleanupSaveName = saveName.current
-        const cleanupSaveVariations = saveVariations.current
-        return () => {
-            cleanupSaveName.flush()
-            cleanupSaveVariations.flush()
-        }
-    }, [])
+    const pendingSave = useDebouncedPatch<ScenePatch>((patch) => patchScene.mutate(patch))
+    const savedIds = useRef(new Map<number, number>())
 
     function handleNameChange(value: string) {
         setName(value)
-        saveName.current(value)
+        if (value.trim()) pendingSave.schedule({ name: value })
     }
 
-    function handleVariationsChange(value: SceneVariationDraft[]) {
+    function handleVariationsChange(value: VariationDraft[]) {
         setVariations(value)
-        saveVariations.current(value)
+        if (variationValidationMessage(value)) return
+        pendingSave.schedule({
+            variations: value.map((variation) => ({
+                id:
+                    variation.id === undefined
+                        ? undefined
+                        : (savedIds.current.get(variation.id) ?? variation.id),
+                variables: normalizeVariableDraft(variation.variables),
+            })),
+        })
     }
 
     if (sceneQuery.isPending) {
@@ -197,7 +170,9 @@ function SceneEditPage() {
                             variant="outline"
                             size="sm"
                             className="gap-1.5"
-                            onClick={() => handleVariationsChange([{ variables: [] }])}
+                            onClick={() =>
+                                handleVariationsChange([{ id: tempId(), variables: [] }])
+                            }
                         >
                             <Plus className="h-3.5 w-3.5" />
                             변수 세트 추가
@@ -222,7 +197,7 @@ function SceneEditPage() {
     )
 }
 
-function variationValidationMessage(variations: SceneVariationDraft[]) {
+function variationValidationMessage(variations: VariationDraft[]) {
     for (const [index, variation] of variations.entries()) {
         const message = variableValidationMessage(variation.variables)
         if (message) return `Variation ${index + 1}: ${message}`

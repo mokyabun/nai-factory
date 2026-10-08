@@ -1,26 +1,15 @@
-import {
-    DEFAULT_PLAYGROUND_SETTINGS,
-    type EnqueuePosition,
-    type Parameters,
-    type PlaygroundSettings,
-} from '@nai-factory/shared'
+import type { EnqueuePosition, Parameters, PlaygroundState, QueueStatus } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAtom } from 'jotai'
 import { useEffect, useRef } from 'react'
 
 import { useQueueStatus } from '@/hooks/use-queue'
-import { api, type QueueStatus } from '@/lib/api'
-import {
-    requireApiResult,
-    restoreSnapshot,
-    restoreSnapshots,
-    snapshotQueries,
-    snapshotQuery,
-} from '@/lib/optimistic'
+import { call, contract } from '@/lib/api'
+import { restoreSnapshot, restoreSnapshots, snapshotQueries, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
 
-import { playgroundSettingsAtom } from './atom'
+import { DEFAULT_PLAYGROUND_STATE, playgroundSettingsAtom } from './atom'
 import { PlaygroundEditor } from './playground-editor'
 import { PlaygroundHeader } from './playground-header'
 
@@ -32,30 +21,29 @@ type EnqueueRequest = {
 export function SidebarPlayground() {
     const queryClient = useQueryClient()
     const [settings, setSettings] = useAtom(playgroundSettingsAtom)
-    const latestSettingsRef = useRef<PlaygroundSettings>(DEFAULT_PLAYGROUND_SETTINGS)
+    const latestSettingsRef = useRef<PlaygroundState>(DEFAULT_PLAYGROUND_STATE)
     const dirtyRef = useRef(false)
 
     const settingsQuery = useQuery({
-        queryKey: qk.playgroundSettings(),
-        queryFn: async () => {
-            const { data } = await api.playground.settings.get()
-            return data ?? DEFAULT_PLAYGROUND_SETTINGS
-        },
+        queryKey: qk.playground.state(),
+        queryFn: () => call(contract.playground.state),
     })
 
     const saveSettingsRef = useRef(
         // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
-        debounce(async (nextSettings: PlaygroundSettings) => {
-            const previousSettings = await snapshotQuery<PlaygroundSettings>(
+        debounce(async (nextSettings: PlaygroundState) => {
+            const previousSettings = await snapshotQuery<PlaygroundState>(
                 queryClient,
-                qk.playgroundSettings(),
+                qk.playground.state(),
             )
-            queryClient.setQueryData(qk.playgroundSettings(), nextSettings)
-            const { data } = await api.playground.settings.patch({
-                prompt: nextSettings.prompt,
-                negativePrompt: nextSettings.negativePrompt,
-                parameters: nextSettings.parameters,
-            })
+            queryClient.setQueryData(qk.playground.state(), nextSettings)
+            const data = await call(contract.playground.updateState, {
+                body: {
+                    prompt: nextSettings.prompt,
+                    negativePrompt: nextSettings.negativePrompt,
+                    parameters: nextSettings.parameters,
+                },
+            }).catch(() => null)
 
             if (JSON.stringify(latestSettingsRef.current) !== JSON.stringify(nextSettings)) return
             if (!data) {
@@ -64,7 +52,7 @@ export function SidebarPlayground() {
             }
 
             dirtyRef.current = false
-            queryClient.setQueryData(qk.playgroundSettings(), data)
+            queryClient.setQueryData(qk.playground.state(), data)
         }, 600),
     )
 
@@ -85,21 +73,22 @@ export function SidebarPlayground() {
     const enqueue = useMutation({
         mutationFn: async ({ position, startNow }: EnqueueRequest) => {
             try {
-                await requireApiResult(
-                    api.playground.enqueue.post({
+                // The current editor values go along, so unsaved edits are part of the snapshot.
+                await call(contract.jobs.enqueuePlayground, {
+                    body: {
                         prompt: settings.prompt,
                         negativePrompt: settings.negativePrompt,
                         parameters: settings.parameters,
                         position,
-                    }),
-                )
+                    },
+                })
             } catch (error) {
                 throw new Error('대기열에 추가하지 못했습니다', { cause: error })
             }
             if (!startNow) return
 
             try {
-                await requireApiResult(api.queue.start.post())
+                await call(contract.jobs.start)
             } catch (error) {
                 throw new Error('대기열에는 추가했지만 생성을 시작하지 못했습니다', {
                     cause: error,
@@ -108,15 +97,14 @@ export function SidebarPlayground() {
         },
         onMutate: async ({ startNow }) => {
             const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) => query.queryKey[0] === 'queue',
+                predicate: (query) => query.queryKey[0] === 'jobs',
             })
-            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) =>
+            queryClient.setQueryData<QueueStatus>(qk.jobs.status(), (status) =>
                 status
                     ? {
                           ...status,
                           pendingCount: status.pendingCount + 1,
                           ...(startNow && {
-                              running: true,
                               pauseReason: null,
                               state: 'running' as const,
                           }),
@@ -129,12 +117,11 @@ export function SidebarPlayground() {
             restoreSnapshots(queryClient, context?.snapshots)
         },
         onSettled: () => {
-            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            void queryClient.invalidateQueries({ queryKey: qk.queue(null) })
+            void queryClient.invalidateQueries({ queryKey: qk.jobs.all() })
         },
     })
 
-    function updateSettings(updater: (prev: PlaygroundSettings) => PlaygroundSettings) {
+    function updateSettings(updater: (prev: PlaygroundState) => PlaygroundState) {
         setSettings((prev) => {
             const nextSettings = updater(prev)
             latestSettingsRef.current = nextSettings
@@ -144,7 +131,7 @@ export function SidebarPlayground() {
         })
     }
 
-    function setField<K extends keyof PlaygroundSettings>(key: K, value: PlaygroundSettings[K]) {
+    function setField<K extends keyof PlaygroundState>(key: K, value: PlaygroundState[K]) {
         updateSettings((prev) => ({ ...prev, [key]: value }))
     }
 

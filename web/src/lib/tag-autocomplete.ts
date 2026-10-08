@@ -7,7 +7,7 @@ import {
 } from '@codemirror/autocomplete'
 import type { PromptVariable, Tag } from '@nai-factory/shared'
 
-import { api } from './api'
+import { call, contract } from './api'
 
 // Delimiters that separate tags in a NAI prompt
 const DELIMITERS = new Set([',', '{', '}', '[', ']', '|', '\n'])
@@ -30,10 +30,8 @@ async function fetchTags(q: string, limit: number): Promise<Tag[]> {
     const cached = tagCache.get(cacheKey)
     if (cached) return cached
 
-    const pending = api.tags.autocomplete
-        .get({ query: { q, limit } })
-        .then(({ data, error }) => {
-            const tags = error ? [] : (data ?? [])
+    const pending = call(contract.tags.autocomplete, { query: { q, limit } })
+        .then((tags) => {
             setTagCache(cacheKey, tags)
             return tags
         })

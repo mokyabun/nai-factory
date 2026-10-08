@@ -3,14 +3,13 @@ import type {
     ImageSaveType,
     NovelAIMode,
     PromptVariable,
-    SettingsPatchBody,
+    SettingsPatch,
 } from '@nai-factory/shared'
 import { atom } from 'jotai'
 
 export type ImageFormat = ImageSaveType['type']
 
 export type SettingsDraft = {
-    apiKey: string
     novelAIMode: NovelAIMode
     globalVars: PromptVariable
     sourceFormat: ImageFormat
@@ -20,12 +19,10 @@ export type SettingsDraft = {
     thumbSize: number
     debugEnabled: boolean
     debugRequestLimit: number
-    serverExportPath: string
     loaded: boolean
 }
 
 const defaultSettingsDraft: SettingsDraft = {
-    apiKey: '',
     novelAIMode: 'live',
     globalVars: [],
     sourceFormat: 'png',
@@ -35,12 +32,10 @@ const defaultSettingsDraft: SettingsDraft = {
     thumbSize: 256,
     debugEnabled: false,
     debugRequestLimit: 20,
-    serverExportPath: '',
     loaded: false,
 }
 
 export const settingsDraftAtom = atom<SettingsDraft>(defaultSettingsDraft)
-export const showApiKeyAtom = atom(false)
 
 export const settingsPatchAtom = atom((get) => createSettingsPatch(get(settingsDraftAtom)))
 
@@ -86,27 +81,24 @@ export function removeGlobalVar(draft: SettingsDraft, index: number): SettingsDr
 }
 
 export function createSettingsDraft(settings: GlobalSettings): SettingsDraft {
-    const sourceType = settings.image?.sourceType
-    const thumbnailType = settings.image?.thumbnailType
+    const { sourceType, thumbnailType } = settings.image
 
     return {
-        apiKey: settings.novelai?.apiKey ?? '',
-        novelAIMode: settings.novelai?.mode ?? 'live',
-        globalVars: settings.globalVariables ?? [],
-        sourceFormat: sourceType?.type ?? 'png',
-        sourceQuality: sourceType?.type === 'png' ? 90 : (sourceType?.quality ?? 90),
-        thumbFormat: thumbnailType?.type ?? 'webp',
-        thumbQuality: thumbnailType?.type === 'png' ? 80 : (thumbnailType?.quality ?? 80),
-        thumbSize: settings.image?.thumbnailSize ?? 256,
-        debugEnabled: settings.debug?.enabled ?? false,
-        debugRequestLimit: settings.debug?.recentRequestLimit ?? 20,
-        serverExportPath: settings.export?.serverPath ?? '',
+        novelAIMode: settings.novelai.mode,
+        globalVars: settings.globalVariables,
+        sourceFormat: sourceType.type,
+        sourceQuality: sourceType.type === 'png' ? 90 : sourceType.quality,
+        thumbFormat: thumbnailType.type,
+        thumbQuality: thumbnailType.type === 'png' ? 80 : thumbnailType.quality,
+        thumbSize: settings.image.thumbnailSize,
+        debugEnabled: settings.debug.enabled,
+        debugRequestLimit: settings.debug.recentRequestLimit,
         loaded: true,
     }
 }
 
+/** The complete settings value of a draft, one entry per settings section. */
 export function createSettingsPatch({
-    apiKey,
     novelAIMode,
     globalVars,
     sourceFormat,
@@ -116,21 +108,32 @@ export function createSettingsPatch({
     thumbSize,
     debugEnabled,
     debugRequestLimit,
-    serverExportPath,
-}: SettingsDraft): SettingsPatchBody {
+}: SettingsDraft) {
     const sourceType: ImageSaveType =
         sourceFormat === 'png' ? { type: 'png' } : { type: sourceFormat, quality: sourceQuality }
     const thumbnailType: ImageSaveType =
         thumbFormat === 'png' ? { type: 'png' } : { type: thumbFormat, quality: thumbQuality }
 
     return {
-        novelai: { apiKey, mode: novelAIMode },
+        novelai: { mode: novelAIMode },
         globalVariables: globalVars.map((variable) => ({
             key: variable.key.trim(),
             value: variable.value,
         })),
         image: { sourceType, thumbnailType, thumbnailSize: thumbSize },
         debug: { enabled: debugEnabled, recentRequestLimit: debugRequestLimit },
-        export: { serverPath: serverExportPath },
+    } satisfies Required<SettingsPatch>
+}
+
+export type FullSettingsPatch = ReturnType<typeof createSettingsPatch>
+
+/** Only the sections that differ from `previous`, so other tabs' edits are not overwritten. */
+export function changedSettings(previous: FullSettingsPatch | null, next: FullSettingsPatch) {
+    const patch: SettingsPatch = {}
+    for (const key of Object.keys(next) as (keyof FullSettingsPatch)[]) {
+        if (JSON.stringify(previous?.[key]) !== JSON.stringify(next[key])) {
+            Object.assign(patch, { [key]: next[key] })
+        }
     }
+    return patch
 }

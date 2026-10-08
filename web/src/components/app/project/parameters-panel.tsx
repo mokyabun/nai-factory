@@ -31,8 +31,8 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { api } from '@/lib/api'
-import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { call, contract } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 
 import { VibeTransferEditor } from '../sidebar/sidebar-prompt/vibe-transfer-editor'
@@ -72,13 +72,16 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
 
     const saveParams = useMutation({
         mutationFn: () =>
-            requireApiResult(api.projects({ projectId: project.id }).patch({ parameters: params })),
+            call(contract.projects.update, {
+                params: { id: project.id },
+                body: { parameters: params },
+            }),
         onMutate: async () => {
             const previousProject = await snapshotQuery<Project>(
                 queryClient,
-                qk.project(project.id),
+                qk.projects.get(project.id),
             )
-            queryClient.setQueryData<Project | null>(qk.project(project.id), (projectData) =>
+            queryClient.setQueryData<Project | null>(qk.projects.get(project.id), (projectData) =>
                 projectData ? { ...projectData, parameters: params } : projectData,
             )
             onOpenChange(false)
@@ -87,11 +90,11 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousProject)
         },
-        onSuccess: (res) => {
-            if (res.data) queryClient.setQueryData(qk.project(project.id), res.data)
+        onSuccess: (data) => {
+            queryClient.setQueryData(qk.projects.get(project.id), data)
         },
         onSettled: () => {
-            void queryClient.invalidateQueries({ queryKey: qk.project(project.id) })
+            void queryClient.invalidateQueries({ queryKey: qk.projects.get(project.id) })
         },
     })
 

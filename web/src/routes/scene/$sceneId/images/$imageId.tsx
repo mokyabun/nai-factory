@@ -8,9 +8,9 @@ import { ImageMetadataSheet } from '@/components/app/images/image-metadata-sheet
 import { ImageReuseMenu } from '@/components/app/images/image-reuse-menu'
 import { ImageSurface } from '@/components/app/images/image-surface'
 import { Button } from '@/components/ui/button'
-import { api, imageResourceUrl } from '@/lib/api'
+import { assetUrl, call, contract } from '@/lib/api'
 import { qk } from '@/lib/queries'
-import { compareDisplayOrder } from '@/lib/reorder'
+import { comparePosition } from '@/lib/reorder'
 
 export const Route = createFileRoute('/scene/$sceneId/images/$imageId')({
     component: ImageViewerPage,
@@ -23,15 +23,12 @@ function ImageViewerPage() {
     const [metadataOpen, setMetadataOpen] = useState(false)
 
     const imagesQuery = useQuery({
-        queryKey: qk.images(scenId),
-        queryFn: async () => {
-            const { data } = await api.images.get({ query: { sceneId: scenId } })
-            return data ?? []
-        },
+        queryKey: qk.images.list(scenId),
+        queryFn: () => call(contract.images.list, { query: { sceneId: scenId } }),
     })
 
     const images = useMemo(
-        () => [...(imagesQuery.data ?? [])].sort(compareDisplayOrder),
+        () => [...(imagesQuery.data ?? [])].sort(comparePosition),
         [imagesQuery.data],
     )
     const currentIndex = images.findIndex((i) => i.id === Number(imageId))
@@ -124,7 +121,7 @@ function ImageViewerPage() {
                     )}
                     {current && (
                         <a
-                            href={imageResourceUrl(current, 'source')}
+                            href={assetUrl(current.assetId)}
                             download
                             className="inline-flex h-9 w-9 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white"
                         >
@@ -180,7 +177,7 @@ function ImageViewerPage() {
                             }`}
                         >
                             <img
-                                src={imageResourceUrl(img, 'thumbnail')}
+                                src={assetUrl(img.thumbAssetId)}
                                 alt=""
                                 className="h-full w-full object-cover"
                                 loading="lazy"

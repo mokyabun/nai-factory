@@ -1,7 +1,7 @@
+import type { QueueStatus } from '@nai-factory/shared'
 import { AlertCircle, Loader, Pause, Play, Square, Trash2 } from 'lucide-react'
 
 import { useGenerationStatus, useQueueActions } from '@/hooks/use-queue'
-import type { QueueStatus } from '@/lib/api'
 import { formatSeconds } from '@/lib/generation-progress'
 
 import {
@@ -24,7 +24,7 @@ function StateLabel({ status }: { status: QueueStatus }) {
             return (
                 <>
                     <Loader className="h-3.5 w-3.5 animate-spin opacity-80 motion-reduce:animate-none" />
-                    <span className="font-medium">현재 작업 후 정지</span>
+                    <span className="font-medium">현재 이미지 후 정지</span>
                 </>
             )
         case 'paused':

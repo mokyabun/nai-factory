@@ -23,7 +23,7 @@ export type SidebarPromptDraft = {
 
 export type CharacterReferenceItemDraft = Pick<
     CharacterReference,
-    'strength' | 'fidelity' | 'referenceMode' | 'enabled'
+    'strength' | 'fidelity' | 'mode' | 'enabled'
 >
 
 export type VibeTransferItemDraft = Pick<VibeTransfer, 'referenceStrength' | 'informationExtracted'>
@@ -63,7 +63,7 @@ export function createCharacterReferenceItemDraft(
     return {
         strength: reference.strength,
         fidelity: reference.fidelity,
-        referenceMode: reference.referenceMode,
+        mode: reference.mode,
         enabled: reference.enabled,
     }
 }

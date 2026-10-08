@@ -1,41 +1,29 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Job, QueueStatus, SceneSummary } from '@nai-factory/shared'
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
-import { api, type QueueStatus, type SceneSummary } from '@/lib/api'
+import { call, contract } from '@/lib/api'
 import { imageProgress, remainingSeconds, toServerNow } from '@/lib/generation-progress'
-import {
-    requireApiResult,
-    restoreSnapshot,
-    restoreSnapshots,
-    snapshotQueries,
-    snapshotQuery,
-} from '@/lib/optimistic'
+import { restoreSnapshot, restoreSnapshots, snapshotQueries, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 
 export const emptyQueueStatus: QueueStatus = {
     state: 'idle',
     pauseReason: null,
-    running: false,
-    processing: false,
     pendingCount: 0,
     estimatedSeconds: null,
-    currentSceneId: null,
-    currentJob: null,
-    avgDurationMs: null,
-    durationSampleSize: 0,
+    current: null,
+    avgImageMs: null,
+    sampleSize: 0,
     completedCount: 0,
     failedCount: 0,
-    recent: [],
     serverTime: new Date(0).toISOString(),
 }
 
 export function useQueueStatus() {
     const query = useQuery({
-        queryKey: qk.queueStatus(),
-        queryFn: async () => {
-            const { data } = await api.queue.status.get()
-            return data ?? emptyQueueStatus
-        },
+        queryKey: qk.jobs.status(),
+        queryFn: () => call(contract.jobs.status),
     })
 
     return {
@@ -43,6 +31,14 @@ export function useQueueStatus() {
         receivedAt: query.dataUpdatedAt,
         isPending: query.isPending,
     }
+}
+
+/** Finished jobs, newest first (kept in the database, so they survive restarts). */
+export function useJobHistory() {
+    return useQuery({
+        queryKey: qk.jobs.history(),
+        queryFn: () => call(contract.jobs.history, { query: { limit: 50 } }),
+    })
 }
 
 /** Server-clock time that ticks every second while `active`, for elapsed-time displays. */
@@ -61,14 +57,14 @@ export function useServerNow(status: QueueStatus, receivedAt: number, active: bo
 /** Queue status plus client-side derived timing for the job currently generating. */
 export function useGenerationStatus() {
     const { status, receivedAt } = useQueueStatus()
-    const job = status.currentJob
+    const job = status.current
     const counting = status.state === 'running' || status.state === 'pausing'
     const serverNow = useServerNow(status, receivedAt, job !== null || counting)
 
     return {
         status,
         job,
-        progress: job ? imageProgress(job.imageStartedAt, status.avgDurationMs, serverNow) : null,
+        progress: job ? imageProgress(job.imageStartedAt, status.avgImageMs, serverNow) : null,
         jobElapsedMs: job ? Math.max(0, serverNow - Date.parse(job.startedAt)) : null,
         // A paused queue's estimate does not shrink while nothing runs.
         remainingSeconds: counting
@@ -77,28 +73,27 @@ export function useGenerationStatus() {
     }
 }
 
-function invalidateQueue(queryClient: ReturnType<typeof useQueryClient>) {
-    void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-    void queryClient.invalidateQueries({
-        predicate: (query) => query.queryKey[0] === 'queue' && query.queryKey[1] === 'items',
-    })
+export function invalidateQueue(queryClient: QueryClient) {
+    void queryClient.invalidateQueries({ queryKey: qk.jobs.all() })
+}
+
+function isJobList(queryKey: readonly unknown[]) {
+    return queryKey[0] === 'jobs' && queryKey[1] === 'list'
 }
 
 export function useQueueActions() {
     const queryClient = useQueryClient()
 
     const start = useMutation({
-        mutationFn: () => requireApiResult(api.queue.start.post()),
+        mutationFn: () => call(contract.jobs.start),
         onMutate: async () => {
-            const previousStatus = await snapshotQuery<QueueStatus>(queryClient, qk.queueStatus())
-            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => {
+            const previousStatus = await snapshotQuery<QueueStatus>(queryClient, qk.jobs.status())
+            queryClient.setQueryData<QueueStatus>(qk.jobs.status(), (status) => {
                 const current = status ?? emptyQueueStatus
-                const willRun = current.processing || current.pendingCount > 0
                 return {
                     ...current,
-                    running: true,
                     pauseReason: null,
-                    state: willRun ? 'running' : current.state,
+                    state: current.pendingCount > 0 ? 'running' : current.state,
                 }
             })
             return { previousStatus }
@@ -110,16 +105,15 @@ export function useQueueActions() {
     })
 
     const stop = useMutation({
-        mutationFn: () => requireApiResult(api.queue.stop.post()),
+        mutationFn: () => call(contract.jobs.stop),
         onMutate: async () => {
-            const previousStatus = await snapshotQuery<QueueStatus>(queryClient, qk.queueStatus())
-            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => {
+            const previousStatus = await snapshotQuery<QueueStatus>(queryClient, qk.jobs.status())
+            queryClient.setQueryData<QueueStatus>(qk.jobs.status(), (status) => {
                 const current = status ?? emptyQueueStatus
                 return {
                     ...current,
-                    running: false,
                     pauseReason: 'user',
-                    state: current.processing ? 'pausing' : current.state,
+                    state: current.state === 'running' ? 'pausing' : current.state,
                 }
             })
             return { previousStatus }
@@ -131,35 +125,45 @@ export function useQueueActions() {
     })
 
     const clearAll = useMutation({
-        mutationFn: () => requireApiResult(api.queue.delete()),
+        mutationFn: () => call(contract.jobs.clear, { query: {} }),
         onMutate: async () => {
             const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) =>
-                    query.queryKey[0] === 'queue' || query.queryKey[0] === 'scenes',
+                predicate: (query) => isJobList(query.queryKey) || query.queryKey[0] === 'scenes',
             })
-            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => ({
-                ...(status ?? emptyQueueStatus),
-                pendingCount: 0,
-                estimatedSeconds: null,
-            }))
-            queryClient.setQueriesData(
-                {
-                    predicate: (query) =>
-                        query.queryKey[0] === 'queue' && query.queryKey[1] === 'items',
-                },
-                [],
+            queryClient.setQueriesData<Job[]>(
+                { predicate: (query) => isJobList(query.queryKey) },
+                (jobs) => jobs?.filter((job) => job.status === 'running'),
             )
-            queryClient.setQueriesData<SceneSummary[]>(
-                { predicate: (query) => query.queryKey[0] === 'scenes' },
-                (scenes) => scenes?.map((scene) => ({ ...scene, queueCount: 0 })),
+            queryClient.setQueriesData<SceneSummary[]>({ queryKey: qk.scenes.all() }, (scenes) =>
+                Array.isArray(scenes)
+                    ? scenes.map((scene) => ({ ...scene, queueCount: 0 }))
+                    : scenes,
             )
             return { snapshots }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshots(queryClient, context?.snapshots)
         },
+        onSettled: () => {
+            invalidateQueue(queryClient)
+            void queryClient.invalidateQueries({ queryKey: qk.scenes.all() })
+        },
+    })
+
+    /** Removes a waiting job, or cancels the one that is running. */
+    const remove = useMutation({
+        mutationFn: (jobId: number) => call(contract.jobs.delete, { params: { id: jobId } }),
+        onSettled: () => {
+            invalidateQueue(queryClient)
+            void queryClient.invalidateQueries({ queryKey: qk.scenes.all() })
+        },
+    })
+
+    /** Requeues a failed job; it continues after the images it already saved. */
+    const retry = useMutation({
+        mutationFn: (jobId: number) => call(contract.jobs.retry, { params: { id: jobId } }),
         onSettled: () => invalidateQueue(queryClient),
     })
 
-    return { start, stop, clearAll }
+    return { start, stop, clearAll, remove, retry }
 }

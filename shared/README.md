@@ -1,15 +1,7 @@
-# shared
+# @nai-factory/shared
 
-To install dependencies:
+Zod schemas and the API contract shared by the server and the web client.
 
-```bash
-bun install
-```
-
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.3.14. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+- `src/schemas/` — entity (response) schemas. Only these may use `.default()`, to normalize stored JSON.
+- `src/inputs/` — request schemas. PATCH schemas list every field as `.optional()` without defaults.
+- `src/contract/` — endpoint definitions (`contract.scenes.update`, …) used by the server route adapter and the web `call()` helper.

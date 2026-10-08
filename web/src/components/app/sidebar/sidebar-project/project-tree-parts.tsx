@@ -1,3 +1,4 @@
+import type { GroupNode } from '@nai-factory/shared'
 import { File, Folder, MoreHorizontal } from 'lucide-react'
 import { useRef } from 'react'
 
@@ -15,7 +16,6 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import type { GroupWithProjects } from '@/lib/api'
 
 import type { ProjectSummary } from './atom'
 
@@ -41,7 +41,7 @@ export function ProjectDragPreview({ project }: { project: ProjectSummary }) {
     )
 }
 
-export function GroupDragPreview({ group }: { group: GroupWithProjects }) {
+export function GroupDragPreview({ group }: { group: GroupNode }) {
     return (
         <div className="flex h-8 min-w-36 items-center gap-2 border bg-popover px-2 text-sm text-popover-foreground shadow">
             <Folder className="size-4 shrink-0" />

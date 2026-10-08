@@ -9,6 +9,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet'
+import { formatDateTime, parseIso } from '@/lib/time'
 
 interface ImageMetadataSheetProps {
     /** Shown under the title, e.g. "Image #12"; null when the image is missing. */
@@ -184,7 +185,7 @@ function formatSize(parameters: Record<string, unknown>) {
 
 function formatDate(value: string) {
     if (!value) return ''
-    const date = new Date(value)
+    const date = parseIso(value)
     if (Number.isNaN(date.getTime())) return value
-    return date.toLocaleString()
+    return formatDateTime(date)
 }

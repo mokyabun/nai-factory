@@ -23,8 +23,20 @@ env:
     IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
+    smoke:
+        name: Docker smoke test
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+
+            - name: Run smoke test
+              run: bash scripts/docker-smoke-test.sh
+
     docker:
         name: Build and publish Docker image
+        needs: smoke
         runs-on: ubuntu-latest
 
         steps:
@@ -62,8 +74,6 @@ jobs:
               uses: docker/build-push-action@v6
               with:
                   context: .
-                  build-args: |
-                      VITE_API_URL=/api
                   push: ${{ github.event_name != 'pull_request' }}
                   platforms: linux/amd64,linux/arm64
                   tags: ${{ steps.meta.outputs.tags }}

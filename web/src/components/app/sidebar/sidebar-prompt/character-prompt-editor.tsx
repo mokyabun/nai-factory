@@ -24,8 +24,8 @@ import { useMemo, useRef } from 'react'
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { api } from '@/lib/api'
-import { type QuerySnapshot, requireApiResult, restoreSnapshot } from '@/lib/optimistic'
+import { call, contract } from '@/lib/api'
+import { type QuerySnapshot, restoreSnapshot } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { createPromptCompletionSource } from '@/lib/tag-autocomplete'
 import { debounce } from '@/lib/utils'
@@ -148,13 +148,13 @@ export function CharacterPromptEditor({
     function applyOptimisticPrompts(newPrompts: CharacterPrompt[]) {
         if (!rollbackProjectRef.current) {
             rollbackProjectRef.current = {
-                queryKey: qk.project(projectId),
-                data: queryClient.getQueryData<Project>(qk.project(projectId)),
+                queryKey: qk.projects.get(projectId),
+                data: queryClient.getQueryData<Project>(qk.projects.get(projectId)),
             }
         }
 
         characterPromptsRef.current = newPrompts
-        queryClient.setQueryData<Project | null>(qk.project(projectId), (project) =>
+        queryClient.setQueryData<Project | null>(qk.projects.get(projectId), (project) =>
             project ? { ...project, characterPrompts: newPrompts } : project,
         )
     }
@@ -163,16 +163,17 @@ export function CharacterPromptEditor({
         applyOptimisticPrompts(newPrompts)
 
         try {
-            const { data } = await requireApiResult(
-                api.projects({ projectId }).patch({ characterPrompts: newPrompts }),
-            )
-            if (data) queryClient.setQueryData(qk.project(projectId), data)
+            const data = await call(contract.projects.update, {
+                params: { id: projectId },
+                body: { characterPrompts: newPrompts },
+            })
+            queryClient.setQueryData(qk.projects.get(projectId), data)
             rollbackProjectRef.current = null
         } catch {
             restoreSnapshot(queryClient, rollbackProjectRef.current ?? undefined)
             rollbackProjectRef.current = null
         } finally {
-            void queryClient.invalidateQueries({ queryKey: qk.project(projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.projects.get(projectId) })
         }
     }
 

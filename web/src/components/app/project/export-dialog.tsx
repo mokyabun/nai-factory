@@ -1,6 +1,6 @@
-import type { Project, ProjectExportBody } from '@nai-factory/shared'
+import type { Project, ProjectExportBody, SceneSummary } from '@nai-factory/shared'
 import { DEFAULT_PROJECT_SETTINGS } from '@nai-factory/shared'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, CircleHelp, FolderDown, Server } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -9,10 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { api, imageUrl, type SceneSummary } from '@/lib/api'
+import { assetUrl, call, contract, errorMessage } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
-import { debounce } from '@/lib/utils'
+import { cn, debounce } from '@/lib/utils'
 
 type DirectoryPicker = () => Promise<{
     getFileHandle: (
@@ -59,11 +59,21 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
     const [imageCount, setImageCount] = useState(1)
     const [pendingMethod, setPendingMethod] = useState<ExportMethod | null>(null)
     const [message, setMessage] = useState('')
+    const [serverFolder, setServerFolder] = useState('')
+    const settingsQuery = useQuery({
+        queryKey: qk.settings.get(),
+        queryFn: () => call(contract.settings.get),
+    })
+    const serverExportEnabled = settingsQuery.data?.export.serverExportEnabled ?? false
+    const sourceExtension = settingsQuery.data?.image.sourceType.type ?? 'png'
 
     const saveTemplate = useRef(
         debounce(async (projectId: number, outputTemplate: string) => {
-            const previousProject = await snapshotQuery<Project>(queryClient, qk.project(projectId))
-            queryClient.setQueryData<Project | null>(qk.project(projectId), (project) =>
+            const previousProject = await snapshotQuery<Project>(
+                queryClient,
+                qk.projects.get(projectId),
+            )
+            queryClient.setQueryData<Project | null>(qk.projects.get(projectId), (project) =>
                 project
                     ? {
                           ...project,
@@ -71,11 +81,15 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
                       }
                     : project,
             )
-            const { data } = await api.projects({ projectId }).patch({
-                settings: { outputTemplate },
-            })
-            if (data) queryClient.setQueryData(qk.project(projectId), data)
-            else restoreSnapshot(queryClient, previousProject)
+            try {
+                const data = await call(contract.projects.update, {
+                    params: { id: projectId },
+                    body: { settings: { outputTemplate } },
+                })
+                queryClient.setQueryData(qk.projects.get(projectId), data)
+            } catch {
+                restoreSnapshot(queryClient, previousProject)
+            }
         }, 350),
     )
     const updatePreviewTemplate = useRef(
@@ -120,10 +134,10 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
 
     async function exportZip() {
         if (!project || !template.trim()) return
-        const { data, error } = await api
-            .projects({ projectId: project.id })
-            .export.zip.post(exportBody())
-        if (error || !data) throw new Error('ZIP export failed')
+        const data = await call(contract.projects.exportZip, {
+            params: { id: project.id },
+            body: exportBody(),
+        })
 
         const url = URL.createObjectURL(data)
         const link = document.createElement('a')
@@ -141,13 +155,13 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
         if (!picker) throw new Error('File System Access API is not available')
 
         const directory = await picker()
-        const { data, error } = await api
-            .projects({ projectId: project.id })
-            .export.files.post(exportBody())
-        if (error || !data) throw new Error('Export file list failed')
+        const data = await call(contract.projects.exportFiles, {
+            params: { id: project.id },
+            body: exportBody(),
+        })
 
         for (const asset of data.assets) {
-            const response = await fetch(imageUrl(asset.filePath))
+            const response = await fetch(assetUrl(asset.assetId))
             if (!response.ok) throw new Error(`Failed to fetch ${asset.filename}`)
 
             const handle = await directory.getFileHandle(asset.filename, { create: true })
@@ -159,10 +173,11 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
 
     async function exportServer() {
         if (!project || !template.trim()) return
-        const { error } = await api
-            .projects({ projectId: project.id })
-            .export.server.post(exportBody())
-        if (error) throw new Error('Server export failed')
+        const result = await call(contract.projects.exportServer, {
+            params: { id: project.id },
+            body: { ...exportBody(), folder: serverFolder.trim() },
+        })
+        return result.exported
     }
 
     async function run(method: ExportMethod) {
@@ -172,18 +187,22 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
         try {
             if (method === 'zip') await exportZip()
             else if (method === 'directory') await exportDirectory()
-            else await exportServer()
+            else {
+                const exported = await exportServer()
+                setMessage(`서버의 ${serverFolder.trim()} 폴더에 ${exported}개를 저장했습니다`)
+                return
+            }
 
             setMessage('Export 완료')
         } catch (error) {
-            setMessage(error instanceof Error ? error.message : '작업 실패')
+            setMessage(errorMessage(error, '작업 실패'))
         } finally {
             setPendingMethod(null)
         }
     }
 
     const disabled = !project || !template.trim() || pendingMethod !== null
-    const preview = renderPreviewFilename(project, scenes, previewTemplate)
+    const preview = renderPreviewFilename(project, scenes, previewTemplate, sourceExtension)
 
     return (
         <div className="flex flex-col gap-4">
@@ -239,7 +258,29 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
                 />
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-3">
+            {serverExportEnabled && (
+                <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="server-export-folder">서버 폴더 이름</Label>
+                    <Input
+                        id="server-export-folder"
+                        value={serverFolder}
+                        onChange={(event) => setServerFolder(event.target.value)}
+                        placeholder="예: my-project"
+                        className="font-mono"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                        서버 export 폴더 아래에 만들어집니다. 영문, 숫자, 공백, -, _, . 만 사용할 수
+                        있습니다.
+                    </p>
+                </div>
+            )}
+
+            <div
+                className={cn(
+                    'grid gap-2',
+                    serverExportEnabled ? 'sm:grid-cols-3' : 'sm:grid-cols-2',
+                )}
+            >
                 <Button
                     type="button"
                     className="justify-start gap-2"
@@ -259,16 +300,18 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
                     <FolderDown className="h-4 w-4" />
                     {pendingMethod === 'directory' ? '저장 중...' : '폴더에 저장'}
                 </Button>
-                <Button
-                    type="button"
-                    variant="outline"
-                    className="justify-start gap-2"
-                    disabled={disabled}
-                    onClick={() => run('server')}
-                >
-                    <Server className="h-4 w-4" />
-                    {pendingMethod === 'server' ? '복사 중...' : '서버로 복사'}
-                </Button>
+                {serverExportEnabled && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="justify-start gap-2"
+                        disabled={disabled || !serverFolder.trim()}
+                        onClick={() => run('server')}
+                    >
+                        <Server className="h-4 w-4" />
+                        {pendingMethod === 'server' ? '복사 중...' : '서버로 복사'}
+                    </Button>
+                )}
             </div>
 
             {message && <p className="text-xs text-muted-foreground">{message}</p>}
@@ -276,10 +319,13 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
     )
 }
 
-function renderPreviewFilename(project: Project | null, scenes: SceneSummary[], template: string) {
+function renderPreviewFilename(
+    project: Project | null,
+    scenes: SceneSummary[],
+    template: string,
+    extension: string,
+) {
     const scene = scenes[0] ?? null
-    const image = scene?.latestImages?.[0] ?? null
-    const extension = image ? fileExtension(image.filePath) : 'png'
 
     return renderOutputTemplate(template.trim() || DEFAULT_PROJECT_SETTINGS.outputTemplate, {
         character: project?.name ?? 'character',
@@ -287,11 +333,6 @@ function renderPreviewFilename(project: Project | null, scenes: SceneSummary[], 
         number: 1,
         extension,
     })
-}
-
-function fileExtension(filePath: string) {
-    const extension = filePath.split('.').pop()?.trim()
-    return extension || 'png'
 }
 
 function renderOutputTemplate(

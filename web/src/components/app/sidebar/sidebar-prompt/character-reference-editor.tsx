@@ -6,234 +6,21 @@ import {
     useSensor,
     useSensors,
 } from '@dnd-kit/core'
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import type { CharacterReference, CharacterReferencePatchBody } from '@nai-factory/shared'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import type { CharacterReference, CharacterReferencePatch } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { GripVertical, Trash2, Upload } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { Upload } from 'lucide-react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select'
-import { Slider } from '@/components/ui/slider'
-import { Switch } from '@/components/ui/switch'
-import { api, imageUrl } from '@/lib/api'
-import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { call, contract } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
-import { debounce } from '@/lib/utils'
+import type { OrderPatch } from '@/lib/reorder'
 
-import {
-    characterReferenceItemDraftAtom,
-    characterReferenceItemsAtom,
-    createCharacterReferenceItemDraft,
-    reorderItems,
-} from './atom'
-
-const REFERENCE_MODES = [
-    { value: 'character&style', label: '캐릭터+스타일' },
-    { value: 'character', label: '캐릭터' },
-    { value: 'style', label: '스타일' },
-] as const
-
-type ReferenceMode = (typeof REFERENCE_MODES)[number]['value']
-
-interface SortableCharacterReferenceItemProps {
-    reference: CharacterReference
-    onUpdate: (id: number, patch: CharacterReferencePatchBody) => void
-    onDelete: (id: number) => void
-}
-
-function SortableCharacterReferenceItem({
-    reference,
-    onUpdate,
-    onDelete,
-}: SortableCharacterReferenceItemProps) {
-    return (
-        <Provider>
-            <SortableCharacterReferenceItemContent
-                reference={reference}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-            />
-        </Provider>
-    )
-}
-
-function SortableCharacterReferenceItemContent({
-    reference,
-    onUpdate,
-    onDelete,
-}: SortableCharacterReferenceItemProps) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-        id: reference.id,
-    })
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.4 : 1,
-    }
-
-    const [draftValue, setDraft] = useAtom(characterReferenceItemDraftAtom)
-    const draft = draftValue ?? createCharacterReferenceItemDraft(reference)
-    const { strength, fidelity, referenceMode, enabled } = draft
-
-    const onUpdateRef = useRef(onUpdate)
-    // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
-    onUpdateRef.current = onUpdate
-
-    const debouncedUpdate = useRef(
-        // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
-        debounce((id: number, patch: CharacterReferencePatchBody) => {
-            onUpdateRef.current(id, patch)
-        }, 400),
-    )
-
-    useEffect(() => {
-        setDraft(createCharacterReferenceItemDraft(reference))
-    }, [reference, setDraft])
-
-    function sliderValue(value: number | readonly number[], fallback: number) {
-        return typeof value === 'number' ? value : (value[0] ?? fallback)
-    }
-
-    function handleStrengthChange(value: number) {
-        setDraft((current) => ({
-            ...(current ?? createCharacterReferenceItemDraft(reference)),
-            strength: value,
-        }))
-        debouncedUpdate.current(reference.id, { strength: value })
-    }
-
-    function handleFidelityChange(value: number) {
-        setDraft((current) => ({
-            ...(current ?? createCharacterReferenceItemDraft(reference)),
-            fidelity: value,
-        }))
-        debouncedUpdate.current(reference.id, { fidelity: value })
-    }
-
-    function handleReferenceModeChange(value: string | null) {
-        if (!value) return
-
-        const mode = value as ReferenceMode
-        setDraft((current) => ({
-            ...(current ?? createCharacterReferenceItemDraft(reference)),
-            referenceMode: mode,
-        }))
-        onUpdate(reference.id, { referenceMode: mode })
-    }
-
-    function handleEnabledChange(value: boolean) {
-        setDraft((current) => ({
-            ...(current ?? createCharacterReferenceItemDraft(reference)),
-            enabled: value,
-        }))
-        onUpdate(reference.id, { enabled: value })
-    }
-
-    const previewPath =
-        reference.thumbnailPath ?? reference.processedImagePath ?? reference.sourceImagePath
-
-    return (
-        <div ref={setNodeRef} style={style} className="flex flex-col gap-3 rounded-md border p-2">
-            <div className="flex items-start gap-2">
-                <div className="flex flex-col items-center gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        className="shrink-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => onDelete(reference.id)}
-                    >
-                        <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                    <button
-                        type="button"
-                        {...attributes}
-                        {...listeners}
-                        className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
-                    >
-                        <GripVertical className="h-4 w-4" />
-                    </button>
-                </div>
-
-                <div className="h-24 w-20 shrink-0 overflow-hidden rounded border bg-muted">
-                    <img
-                        src={imageUrl(previewPath)}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        draggable={false}
-                    />
-                </div>
-
-                <div className="flex min-w-0 flex-1 flex-col gap-3">
-                    <div className="flex items-center justify-between gap-2">
-                        <Label className="text-xs">사용</Label>
-                        <Switch checked={enabled} onCheckedChange={handleEnabledChange} />
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">모드</Label>
-                        <Select value={referenceMode} onValueChange={handleReferenceModeChange}>
-                            <SelectTrigger className="w-full">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {REFERENCE_MODES.map((mode) => (
-                                    <SelectItem key={mode.value} value={mode.value}>
-                                        {mode.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-xs">강도</Label>
-                        <span className="text-xs text-muted-foreground">{strength.toFixed(2)}</span>
-                    </div>
-                    <Slider
-                        value={[strength]}
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        onValueChange={(value) =>
-                            handleStrengthChange(sliderValue(value, strength))
-                        }
-                    />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-xs">충실도</Label>
-                        <span className="text-xs text-muted-foreground">{fidelity.toFixed(2)}</span>
-                    </div>
-                    <Slider
-                        value={[fidelity]}
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        onValueChange={(value) =>
-                            handleFidelityChange(sliderValue(value, fidelity))
-                        }
-                    />
-                </div>
-            </div>
-        </div>
-    )
-}
+import { characterReferenceItemsAtom, reorderItems } from './atom'
+import { SortableCharacterReferenceItem } from './character-reference-item'
 
 interface CharacterReferenceEditorProps {
     projectId: number
@@ -246,11 +33,8 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
     const setItems = useSetAtom(characterReferenceItemsAtom)
 
     const query = useQuery({
-        queryKey: qk.characterReferences(projectId),
-        queryFn: async () => {
-            const { data } = await api.projects({ projectId })['character-references'].get()
-            return data ?? []
-        },
+        queryKey: qk.projects.characterReferences(projectId),
+        queryFn: () => call(contract.projects.characterReferences, { params: { id: projectId } }),
     })
 
     useEffect(() => {
@@ -261,33 +45,32 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
 
     const uploadMutation = useMutation({
         mutationFn: (file: File) =>
-            requireApiResult(
-                api.projects({ projectId })['character-references'].upload.post({ image: file }),
-            ),
-        onSuccess: (res) => {
-            if (res.data) {
-                queryClient.setQueryData<CharacterReference[]>(
-                    qk.characterReferences(projectId),
-                    (current) => [...(current ?? []), res.data as CharacterReference],
-                )
-                setItems((current) => [...current, res.data as CharacterReference])
-            }
-            void queryClient.invalidateQueries({ queryKey: qk.characterReferences(projectId) })
+            call(contract.projects.uploadCharacterReference, {
+                params: { id: projectId },
+                body: { image: file },
+            }),
+        onSuccess: (created) => {
+            queryClient.setQueryData<CharacterReference[]>(
+                qk.projects.characterReferences(projectId),
+                (current) => [...(current ?? []), created],
+            )
+            setItems((current) => [...current, created])
+            void queryClient.invalidateQueries({
+                queryKey: qk.projects.characterReferences(projectId),
+            })
         },
     })
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, patch }: { id: number; patch: CharacterReferencePatchBody }) =>
-            requireApiResult(
-                api.projects({ projectId })['character-references']({ id }).patch(patch),
-            ),
+        mutationFn: ({ id, patch }: { id: number; patch: CharacterReferencePatch }) =>
+            call(contract.characterReferences.update, { params: { id }, body: patch }),
         onMutate: async ({ id, patch }) => {
             const previousItems = await snapshotQuery<CharacterReference[]>(
                 queryClient,
-                qk.characterReferences(projectId),
+                qk.projects.characterReferences(projectId),
             )
             queryClient.setQueryData<CharacterReference[]>(
-                qk.characterReferences(projectId),
+                qk.projects.characterReferences(projectId),
                 (current) =>
                     current?.map((item) => (item.id === id ? { ...item, ...patch } : item)),
             )
@@ -300,33 +83,24 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
             restoreSnapshot(queryClient, context?.previousItems)
             if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
-        onSuccess: (res) => {
-            if (!res.data) return
+        onSuccess: (updated) => {
             queryClient.setQueryData<CharacterReference[]>(
-                qk.characterReferences(projectId),
-                (current) =>
-                    current?.map((item) =>
-                        item.id === res.data?.id ? (res.data as CharacterReference) : item,
-                    ),
+                qk.projects.characterReferences(projectId),
+                (current) => current?.map((item) => (item.id === updated.id ? updated : item)),
             )
-            setItems((current) =>
-                current.map((item) =>
-                    item.id === res.data?.id ? (res.data as CharacterReference) : item,
-                ),
-            )
+            setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)))
         },
     })
 
     const deleteMutation = useMutation({
-        mutationFn: (id: number) =>
-            requireApiResult(api.projects({ projectId })['character-references']({ id }).delete()),
+        mutationFn: (id: number) => call(contract.characterReferences.delete, { params: { id } }),
         onMutate: async (id) => {
             const previousItems = await snapshotQuery<CharacterReference[]>(
                 queryClient,
-                qk.characterReferences(projectId),
+                qk.projects.characterReferences(projectId),
             )
             queryClient.setQueryData<CharacterReference[]>(
-                qk.characterReferences(projectId),
+                qk.projects.characterReferences(projectId),
                 (current) => current?.filter((item) => item.id !== id),
             )
             setItems((current) => current.filter((item) => item.id !== id))
@@ -337,32 +111,21 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
             if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
         onSettled: () =>
-            queryClient.invalidateQueries({ queryKey: qk.characterReferences(projectId) }),
+            queryClient.invalidateQueries({ queryKey: qk.projects.characterReferences(projectId) }),
     })
 
     const reorderMutation = useMutation({
-        mutationFn: ({
-            id,
-            prevId,
-            nextId,
-        }: {
-            id: number
-            prevId: number | null
-            nextId: number | null
-        }) =>
-            requireApiResult(
-                api.projects({ projectId })['character-references'].reorder.patch({
-                    id,
-                    prevId,
-                    nextId,
-                }),
-            ),
+        mutationFn: ({ id, beforeId, afterId }: OrderPatch) =>
+            call(contract.characterReferences.move, {
+                params: { id },
+                body: { beforeId, afterId },
+            }),
         onMutate: async () => {
             const previousItems = await snapshotQuery<CharacterReference[]>(
                 queryClient,
-                qk.characterReferences(projectId),
+                qk.projects.characterReferences(projectId),
             )
-            queryClient.setQueryData(qk.characterReferences(projectId), items)
+            queryClient.setQueryData(qk.projects.characterReferences(projectId), items)
             return { previousItems, previousLocalItems: query.data ?? [] }
         },
         onError: (_error, _variables, context) => {
@@ -370,12 +133,14 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
             if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
         onSettled: () =>
-            queryClient.invalidateQueries({ queryKey: qk.characterReferences(projectId) }),
+            queryClient.invalidateQueries({ queryKey: qk.projects.characterReferences(projectId) }),
     })
 
-    function handleUpdate(id: number, patch: CharacterReferencePatchBody) {
-        updateMutation.mutate({ id, patch })
-    }
+    const updateItem = updateMutation.mutate
+    const handleUpdate = useCallback(
+        (id: number, patch: CharacterReferencePatch) => updateItem({ id, patch }),
+        [updateItem],
+    )
 
     function handleDelete(id: number) {
         deleteMutation.mutate(id)

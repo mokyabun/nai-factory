@@ -1,14 +1,11 @@
-import type { Parameters, PlaygroundSettings } from '@nai-factory/shared'
+import type { Parameters, PlaygroundState } from '@nai-factory/shared'
 
 import { PromptEditor } from '../prompt-editor'
 import { PlaygroundParameters } from './playground-parameters'
 
 interface PlaygroundEditorProps {
-    settings: PlaygroundSettings
-    onFieldChange: <K extends keyof PlaygroundSettings>(
-        key: K,
-        value: PlaygroundSettings[K],
-    ) => void
+    settings: PlaygroundState
+    onFieldChange: <K extends keyof PlaygroundState>(key: K, value: PlaygroundState[K]) => void
     onParameterChange: <K extends keyof Parameters>(key: K, value: Parameters[K]) => void
 }
 

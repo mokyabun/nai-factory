@@ -1,4 +1,4 @@
-import type { SceneJsonData, SceneJsonImportMode } from '@nai-factory/shared'
+import type { SceneImportMode, SceneJsonData, SceneSummary } from '@nai-factory/shared'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { FileJson } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -12,8 +12,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
-import { api, type SceneSummary } from '@/lib/api'
-import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { call, contract } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { optimisticSceneSummaries } from '@/lib/optimistic-scenes'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
@@ -25,7 +26,7 @@ interface SceneJsonImportDialogProps {
 }
 
 const MODE_OPTIONS: Array<{
-    value: SceneJsonImportMode
+    value: SceneImportMode
     label: string
     description: string
 }> = [
@@ -48,7 +49,7 @@ export function SceneJsonImportDialog({
     projectId,
 }: SceneJsonImportDialogProps) {
     const queryClient = useQueryClient()
-    const [mode, setMode] = useState<SceneJsonImportMode>('append')
+    const [mode, setMode] = useState<SceneImportMode>('append')
 
     useEffect(() => {
         // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
@@ -58,43 +59,16 @@ export function SceneJsonImportDialog({
     const importSceneJson = useMutation({
         mutationFn: async () => {
             if (!data || projectId === null) throw new Error('가져올 수 없습니다.')
-
-            const { data: result } = await requireApiResult(
-                api.scenes['import-json'].post({
-                    projectId,
-                    data,
-                    mode,
-                }),
-            )
-            return result
+            return call(contract.scenes.importJson, { body: { projectId, data, mode } })
         },
         onMutate: async () => {
             if (!data || projectId === null) return null
             const previousScenes = await snapshotQuery<SceneSummary[]>(
                 queryClient,
-                qk.scenes(projectId),
+                qk.scenes.list(projectId),
             )
-            const now = new Date().toISOString()
-            const optimisticScenes = sceneJsonItems(data).map((scene, index) => ({
-                id: -(Date.now() + index),
-                projectId,
-                displayOrder: `optimistic-${now}-${index}`,
-                name: scene.name,
-                variations: scene.variations.map((variation, variationIndex) => ({
-                    id: -(Date.now() + index * 100 + variationIndex),
-                    sceneId: -(Date.now() + index),
-                    displayOrder: String(variationIndex),
-                    variables: variation.variables,
-                    createdAt: now,
-                    updatedAt: now,
-                })),
-                createdAt: now,
-                updatedAt: now,
-                imageCount: 0,
-                queueCount: 0,
-                latestImages: [],
-            }))
-            queryClient.setQueryData<SceneSummary[]>(qk.scenes(projectId), (scenes) =>
+            const optimisticScenes = optimisticSceneSummaries(projectId, sceneJsonItems(data))
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes.list(projectId), (scenes) =>
                 mode === 'replace' ? optimisticScenes : [...(scenes ?? []), ...optimisticScenes],
             )
             return { previousScenes }
@@ -102,22 +76,9 @@ export function SceneJsonImportDialog({
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousScenes)
         },
-        onSuccess: async (result, _variables, context) => {
+        onSuccess: async () => {
             if (projectId !== null) {
-                if (result?.scenes) {
-                    const scenes = result.scenes.map((scene) => ({
-                        ...scene,
-                        imageCount: 0,
-                        queueCount: 0,
-                        latestImages: [],
-                    }))
-                    const previousScenes = context?.previousScenes.data ?? []
-                    queryClient.setQueryData<SceneSummary[]>(
-                        qk.scenes(projectId),
-                        mode === 'replace' ? scenes : [...previousScenes, ...scenes],
-                    )
-                }
-                await queryClient.invalidateQueries({ queryKey: qk.scenes(projectId) })
+                await queryClient.invalidateQueries({ queryKey: qk.scenes.list(projectId) })
             }
             onOpenChange(false)
         },

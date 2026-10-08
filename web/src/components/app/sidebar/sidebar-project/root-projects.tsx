@@ -1,10 +1,10 @@
 import { useDroppable } from '@dnd-kit/core'
 
 import * as Base from '@/components/ui/sidebar'
-import type { ProjectGroupId } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 import { ProjectRow } from './project-row'
+import type { ProjectGroupId } from './project-tree-types'
 import type { RootProjectsProps } from './project-tree-types'
 import { isSameRenameTarget } from './project-tree-utils'
 

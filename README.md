@@ -98,45 +98,101 @@ Open the app:
 http://localhost:3000
 ```
 
-Stop the container:
+Stop the container (`docker compose down -v` also removes the saved data):
 
 ```sh
 docker compose down
 ```
 
-Remove saved Docker data as well:
+## Security
 
-```sh
-docker compose down -v
-```
+NAI Factory has no user accounts. It protects your NovelAI key with these defaults:
 
-## Settings
+- **Local only by default.** The server listens on `127.0.0.1`; the compose file publishes the
+  port on `127.0.0.1:3000` only.
+- **The API key is write-only.** The server verifies the key with NovelAI and stores it; the API
+  only ever returns a masked hint such as `****abcd`.
+- **Browser protection.** Requests from other websites are refused (Origin and
+  `Sec-Fetch-Site` checks), and unknown host names are refused to block DNS rebinding. IP
+  addresses, `localhost` and names in `NAI_FACTORY_ALLOWED_HOSTS` are accepted.
+- **Files are served by id** (`/api/assets/:id`), never by path.
 
-After starting the app, open Settings and enter your NovelAI API key. Settings are saved automatically.
+**Opening it to your LAN.** Publish the port on all interfaces (`3000:3000` in compose, or
+`HOST=0.0.0.0` without Docker). Anyone who can reach the server can then generate images with
+your key (they cannot read it). Set `NAI_FACTORY_ACCESS_TOKEN` to require a token; the browser
+asks for it once and keeps it in an HttpOnly cookie.
 
-In development mode, local data is stored under `server/data`. With Docker, data is stored in the `nai_factory_data` volume.
+**Server export.** Copying images to a folder on the server machine is off unless
+`NAI_FACTORY_EXPORT_DIR` is set. Exports go to a sub-folder of that directory whose name you
+enter in the export dialog.
 
-Optional data-at-rest encryption can be enabled with server environment variables:
+## Configuration
+
+| Variable                                  | Default                    | Description                                                         |
+| ----------------------------------------- | -------------------------- | ------------------------------------------------------------------- |
+| `HOST`                                    | `127.0.0.1`                | Listen address (`0.0.0.0` in the Docker image)                      |
+| `PORT`                                    | `3000`                     | Listen port                                                         |
+| `NAI_FACTORY_DATA_DIR`                    | `./data`                   | Data folder (database and files)                                    |
+| `DATABASE_URL`                            | `<data dir>/database.db`   | SQLite file                                                         |
+| `DATABASE_CACHE_SIZE`                     | `10000`                    | SQLite `cache_size` pragma                                          |
+| `NAI_FACTORY_ACCESS_TOKEN`                | —                          | Require this token for every API call                               |
+| `NAI_FACTORY_ALLOWED_HOSTS`               | —                          | Comma-separated extra host names                                    |
+| `NAI_FACTORY_EXPORT_DIR`                  | —                          | Enables server export below this folder                             |
+| `NAI_FACTORY_MAX_UPLOAD_MB`               | `512`                      | Largest request body                                                |
+| `NAI_FACTORY_ARCHIVE_MAX_UNCOMPRESSED_MB` | `4096`                     | Largest uncompressed `.naif` archive                                |
+| `NAI_FACTORY_DATA_ENCRYPTION_ENABLED`     | `false`                    | Encrypt new files with AES-256-GCM                                  |
+| `NAI_FACTORY_DATA_ENCRYPTION_KEY`         | —                          | 32-byte key as base64 or 64 hex characters                          |
+| `NAI_FACTORY_NOVELAI_MODE`                | `live`                     | Initial NovelAI mode for a new data folder (`live`, `mock`, `fail`) |
+| `NAI_FACTORY_SSE_HEARTBEAT_MS`            | `15000`                    | Realtime event heartbeat                                            |
+| `LOG_LEVEL`, `LOG_PRETTY`, `LOG_COLORIZE` | `info`, dev only, dev only | Logging                                                             |
+
+Encryption applies to newly written files and the stored API key; plaintext files stay readable:
 
 ```sh
 NAI_FACTORY_DATA_ENCRYPTION_ENABLED=true
 NAI_FACTORY_DATA_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 ```
 
-When enabled, generated images, thumbnails, vibe transfer images, and character reference images are stored with AES-256-GCM. Existing plaintext files remain readable; newly written files are encrypted.
+## Data folder
 
-Keep your API key, local database, generated images, and `.env` files out of public repositories.
+```text
+data/
+  database.db      SQLite database (WAL mode: also database.db-wal / -shm)
+  images/          generated images, by project and scene
+  thumbs/          thumbnails
+  playground/      playground images and thumbnails
+  refs/            vibe transfer and character reference images
+```
 
-## Scripts
+The database stores paths relative to the data folder, so the folder can be moved or mounted
+anywhere. To back up, stop the server and copy the whole folder. Files that no database row
+references are removed automatically (at startup and once a day).
+
+Data folders from versions before 0.3.0 are not supported: the server refuses to start and asks
+for a new folder.
+
+## Settings
+
+After starting the app, open Settings and enter your NovelAI API key. Settings are saved automatically.
+
+Keep your local database, generated images, and `.env` files out of public repositories.
+
+## Development
 
 ```sh
 bun dev                    # Start the API server and web dev server
-bun build                  # Build for production
-bun test                   # Run tests
-bun check                  # Check formatting, lint, and types
-bun format                 # Format with Oxfmt
-bun lint                   # Lint with Oxlint
+bun run build              # Build for production
+bun run test               # Run tests
+bun run check              # Check formatting, lint, and types
+bun run format             # Format with Oxfmt
+bun run lint               # Lint with Oxlint
+bun db:generate            # Generate a migration after changing server/src/db/schema
 ```
+
+- API endpoints are declared once in `shared/src/contract`; the server registers them with
+  `route()` and the web app calls them with `call()`.
+- After changing the database schema, run `bun db:generate` and commit the new migration.
+  Never edit a migration that has been released.
 
 Oxfmt and Oxlint share root configuration across all workspaces. Oxlint includes type-aware
 checks; dialog and inline rename fields allow autofocus to preserve their keyboard workflow.

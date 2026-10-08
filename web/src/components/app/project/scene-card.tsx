@@ -1,5 +1,4 @@
-import type { ProjectSettings } from '@nai-factory/shared'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import type { ProjectSettings, SceneSummary } from '@nai-factory/shared'
 import { useNavigate } from '@tanstack/react-router'
 import { Provider, useAtom } from 'jotai'
 import { Check, Copy, Image, ListPlus, Loader, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
@@ -23,11 +22,9 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useGenerationStatus } from '@/hooks/use-queue'
-import type { QueueStatus, SceneSummary } from '@/lib/api'
-import { api, imageResourceUrl } from '@/lib/api'
+import { useSceneCardActions } from '@/hooks/use-scene-card-actions'
+import { assetUrl } from '@/lib/api'
 import { formatSeconds } from '@/lib/generation-progress'
-import { requireApiResult, restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
-import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
 import { sceneCardDeleteOpenAtom, sceneCardThumbIndexAtom } from './atom'
@@ -96,7 +93,6 @@ function SceneCardContent({
     onSelectDragStart,
 }: SceneCardProps) {
     const navigate = useNavigate()
-    const queryClient = useQueryClient()
 
     const queueCount = scene.queueCount ?? 0
     const inQueue = queueCount > 0
@@ -120,132 +116,7 @@ function SceneCardContent({
 
     const currentThumbImg = cycleImages[currentThumbIndex] ?? null
 
-    const deleteScene = useMutation({
-        mutationFn: () => requireApiResult(api.scenes({ id: scene.id }).delete()),
-        onMutate: async () => {
-            const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) =>
-                    query.queryKey[0] === 'queue' ||
-                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === scene.projectId),
-            })
-            queryClient.setQueryData<SceneSummary[]>(qk.scenes(scene.projectId), (scenes) =>
-                scenes?.filter((item) => item.id !== scene.id),
-            )
-            return { snapshots }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-        },
-        onSettled: () => {
-            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            void queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
-            void queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
-        },
-    })
-
-    const duplicateScene = useMutation({
-        mutationFn: () => requireApiResult(api.scenes({ id: scene.id }).duplicate.post()),
-        onMutate: async () => {
-            const snapshots = await snapshotQueries(queryClient, {
-                queryKey: qk.scenes(scene.projectId),
-            })
-            const tempScene: SceneSummary = {
-                ...scene,
-                id: -Date.now(),
-                name: `${scene.name} Copy`,
-                imageCount: 0,
-                latestImages: [],
-                queueCount: 0,
-            }
-            queryClient.setQueryData<SceneSummary[]>(qk.scenes(scene.projectId), (scenes) => {
-                if (!scenes) return scenes
-                const index = scenes.findIndex((item) => item.id === scene.id)
-                const next = [...scenes]
-                next.splice(index + 1, 0, tempScene)
-                return next
-            })
-            return { snapshots, tempId: tempScene.id }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-        },
-        onSuccess: (res, _variables, context) => {
-            if (res.data) {
-                const duplicated: SceneSummary = {
-                    ...res.data,
-                    imageCount: 0,
-                    latestImages: [],
-                    queueCount: 0,
-                }
-                queryClient.setQueryData<SceneSummary[]>(qk.scenes(scene.projectId), (scenes) =>
-                    scenes?.map((item) => (item.id === context?.tempId ? duplicated : item)),
-                )
-            }
-        },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) }),
-    })
-
-    const enqueue = useMutation({
-        mutationFn: (position: 'back' | 'front' = 'back') =>
-            requireApiResult(api.queue.enqueue.post({ sceneId: scene.id, position })),
-        onMutate: async () => {
-            const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) =>
-                    query.queryKey[0] === 'queue' ||
-                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === scene.projectId),
-            })
-            queryClient.setQueryData<SceneSummary[]>(qk.scenes(scene.projectId), (scenes) =>
-                scenes?.map((item) =>
-                    item.id === scene.id
-                        ? { ...item, queueCount: (item.queueCount ?? 0) + 1 }
-                        : item,
-                ),
-            )
-            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) =>
-                status ? { ...status, pendingCount: status.pendingCount + 1 } : status,
-            )
-            return { snapshots }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-        },
-        onSettled: () => {
-            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            void queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
-            void queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
-        },
-    })
-
-    const clearQueue = useMutation({
-        mutationFn: () => requireApiResult(api.queue.delete({ query: { sceneId: scene.id } })),
-        onMutate: async () => {
-            const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) =>
-                    query.queryKey[0] === 'queue' ||
-                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === scene.projectId),
-            })
-            queryClient.setQueryData<SceneSummary[]>(qk.scenes(scene.projectId), (scenes) =>
-                scenes?.map((item) => (item.id === scene.id ? { ...item, queueCount: 0 } : item)),
-            )
-            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) =>
-                status
-                    ? {
-                          ...status,
-                          pendingCount: Math.max(0, status.pendingCount - (scene.queueCount ?? 0)),
-                      }
-                    : status,
-            )
-            return { snapshots }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-        },
-        onSettled: () => {
-            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            void queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
-            void queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
-        },
-    })
+    const { deleteScene, duplicateScene, enqueue, clearQueue } = useSceneCardActions(scene)
 
     return (
         <>
@@ -358,7 +229,7 @@ function SceneCardContent({
                         ) : (
                             <img
                                 key={currentThumbIndex}
-                                src={imageResourceUrl(currentThumbImg, 'thumbnail')}
+                                src={assetUrl(currentThumbImg.thumbAssetId)}
                                 alt={scene.name}
                                 className="h-full w-full object-cover transition-transform duration-200 group-hover/thumb:scale-105"
                                 loading="lazy"
@@ -414,33 +285,37 @@ function SceneCardContent({
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="flex-1 gap-1 rounded-none"
+                            className="min-w-0 flex-1 shrink basis-0 gap-1 rounded-none px-1 text-xs"
                             aria-label="큐 추가"
                             onPointerDown={(e) => e.stopPropagation()}
                             onClick={() => enqueue.mutate('back')}
                             disabled={enqueue.isPending}
                         >
                             <ListPlus className="h-3.5 w-3.5" />
-                            <span className={cn(cardSize === 'sm' && 'sr-only')}>큐 추가</span>
+                            <span className={cn('truncate', cardSize === 'sm' && 'sr-only')}>
+                                큐 추가
+                            </span>
                         </Button>
                         <div className="w-px bg-border" />
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="flex-1 gap-1 rounded-none text-muted-foreground hover:text-destructive"
+                            className="min-w-0 flex-1 shrink basis-0 gap-1 rounded-none px-1 text-xs text-muted-foreground hover:text-destructive"
                             aria-label="큐 삭제"
                             onPointerDown={(e) => e.stopPropagation()}
                             onClick={() => clearQueue.mutate()}
                             disabled={clearQueue.isPending || !inQueue}
                         >
                             <Trash2 className="h-3.5 w-3.5" />
-                            <span className={cn(cardSize === 'sm' && 'sr-only')}>큐 삭제</span>
+                            <span className={cn('truncate', cardSize === 'sm' && 'sr-only')}>
+                                큐 삭제
+                            </span>
                         </Button>
                         <div className="w-px bg-border" />
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="flex-1 gap-1 rounded-none"
+                            className="min-w-0 flex-1 shrink basis-0 gap-1 rounded-none px-1 text-xs"
                             aria-label="수정"
                             onPointerDown={(e) => e.stopPropagation()}
                             onClick={() =>
@@ -451,7 +326,9 @@ function SceneCardContent({
                             }
                         >
                             <Pencil className="h-3.5 w-3.5" />
-                            <span className={cn(cardSize === 'sm' && 'sr-only')}>수정</span>
+                            <span className={cn('truncate', cardSize === 'sm' && 'sr-only')}>
+                                수정
+                            </span>
                         </Button>
                     </div>
                 </ContextMenuTrigger>

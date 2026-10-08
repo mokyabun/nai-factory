@@ -2,16 +2,22 @@ services:
     nai-factory:
         build:
             context: .
-            args:
-                VITE_API_URL: /api
         container_name: nai-factory
         environment:
             PORT: '3000'
-            DATABASE_URL: /app/server/data/database.db
+            # Optional settings:
+            # NAI_FACTORY_ACCESS_TOKEN: change-me # require a token (recommended when exposed on a LAN)
+            # NAI_FACTORY_ALLOWED_HOSTS: nas.local # extra host names allowed in the Host header
+            # NAI_FACTORY_EXPORT_DIR: /exports # enables "server export" (mount the volume below)
+            # NAI_FACTORY_DATA_ENCRYPTION_ENABLED: 'true'
+            # NAI_FACTORY_DATA_ENCRYPTION_KEY: base64:... # 32-byte key
         ports:
-            - '3000:3000'
+            # Only this machine can reach the app. To open it to your LAN, use '3000:3000'
+            # and set NAI_FACTORY_ACCESS_TOKEN.
+            - '127.0.0.1:3000:3000'
         volumes:
             - nai_factory_data:/app/server/data
+            # - ./exports:/exports
         restart: unless-stopped
 
 volumes:

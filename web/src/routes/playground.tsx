@@ -10,8 +10,8 @@ import { ImageReuseMenu } from '@/components/app/images/image-reuse-menu'
 import { ImageSurface } from '@/components/app/images/image-surface'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { useGenerationStatus } from '@/hooks/use-queue'
-import { api, imageResourceUrl } from '@/lib/api'
-import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { assetUrl, call, contract } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 
 export const Route = createFileRoute('/playground')({ component: PlaygroundPage })
@@ -26,11 +26,8 @@ function PlaygroundPage() {
     const { job, progress } = useGenerationStatus()
 
     const imagesQuery = useQuery({
-        queryKey: qk.playgroundImages(),
-        queryFn: async () => {
-            const { data } = await api.playground.images.get({ query: { limit: 40 } })
-            return data ?? []
-        },
+        queryKey: qk.playground.images(),
+        queryFn: () => call(contract.playground.images, { query: { limit: 40 } }),
     })
 
     const images = useMemo(() => imagesQuery.data ?? [], [imagesQuery.data])
@@ -45,7 +42,7 @@ function PlaygroundPage() {
     const newResultCount = following
         ? 0
         : images.filter((image) => image.id > (seenLatestId ?? Infinity)).length
-    const generatingHere = job?.type === 'playground'
+    const generatingHere = job?.kind === 'playground'
 
     function selectImage(image: PlaygroundImage) {
         if (image.id === latestImage?.id) {
@@ -58,14 +55,14 @@ function PlaygroundPage() {
 
     const deleteImage = useMutation({
         mutationFn: (image: PlaygroundImage) =>
-            requireApiResult(api.playground.images.delete({ id: image.id })),
+            call(contract.playground.deleteImage, { params: { id: image.id } }),
         onMutate: async (image) => {
             const previousImages = await snapshotQuery<PlaygroundImage[]>(
                 queryClient,
-                qk.playgroundImages(),
+                qk.playground.images(),
             )
             queryClient.setQueryData<PlaygroundImage[]>(
-                qk.playgroundImages(),
+                qk.playground.images(),
                 (items) => items?.filter((item) => item.id !== image.id) ?? items,
             )
             setPinnedImageId((id) => (id === image.id ? null : id))
@@ -75,7 +72,7 @@ function PlaygroundPage() {
             restoreSnapshot(queryClient, context?.previousImages)
             setPinnedImageId(context?.pinnedImageId ?? null)
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.playgroundImages() }),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.playground.images() }),
     })
 
     return (
@@ -99,7 +96,7 @@ function PlaygroundPage() {
                                 <Info className="h-4 w-4" />
                             </Button>
                             <a
-                                href={imageResourceUrl(selectedImage, 'source')}
+                                href={assetUrl(selectedImage.assetId)}
                                 download
                                 aria-label="다운로드"
                                 className={buttonVariants({ variant: 'ghost', size: 'icon' })}
@@ -176,7 +173,7 @@ function PlaygroundPage() {
                         onClick={() => selectImage(image)}
                     >
                         <img
-                            src={imageResourceUrl(image, 'thumbnail')}
+                            src={assetUrl(image.thumbAssetId)}
                             alt=""
                             className="h-full w-full object-cover"
                         />

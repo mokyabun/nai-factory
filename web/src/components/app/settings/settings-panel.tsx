@@ -1,8 +1,8 @@
-import type { GlobalSettings, SettingsPatchBody } from '@nai-factory/shared'
+import type { SettingsPatch, SettingsView } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom, useAtomValue } from 'jotai'
-import { Bug, Eye, EyeOff, FolderInput, Plus, Save, Settings, X } from 'lucide-react'
-import { type ReactNode, useEffect, useRef } from 'react'
+import { Bug, FolderInput, Plus, Save, Settings, X } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,30 +17,27 @@ import {
 } from '@/components/ui/select'
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { Switch } from '@/components/ui/switch'
-import { api } from '@/lib/api'
-import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
+import { call, contract, errorMessage } from '@/lib/api'
 import { variableValidationMessage } from '@/lib/prompt-variables'
 import { qk } from '@/lib/queries'
-import { cn, debounce } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 import {
     addGlobalVar,
     updateGlobalVar as applyGlobalVarUpdate,
     updateSettingsDraft as applySettingsDraftUpdate,
+    changedSettings,
     createSettingsDraft,
     createSettingsPatch,
-    type ImageFormat,
+    type FullSettingsPatch,
     removeGlobalVar,
     settingsDraftAtom,
     settingsPatchAtom,
-    showApiKeyAtom,
 } from './atom'
-
-const IMAGE_FORMATS = [
-    { value: 'png', label: 'PNG' },
-    { value: 'webp', label: 'WebP' },
-    { value: 'avif', label: 'AVIF' },
-]
+import { ImageSettingsCard } from './image-settings-card'
+import { NovelAIKeyCard } from './novelai-key-card'
+import { SettingField } from './setting-field'
 
 interface SettingsPanelProps {
     variant?: 'page' | 'sidebar'
@@ -57,32 +54,15 @@ export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
 function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
     const compact = variant === 'sidebar'
     const queryClient = useQueryClient()
-    const [showApiKey, setShowApiKey] = useAtom(showApiKeyAtom)
     const [draft, setDraft] = useAtom(settingsDraftAtom)
     const settingsPatch = useAtomValue(settingsPatchAtom)
-    const {
-        apiKey,
-        novelAIMode,
-        globalVars,
-        sourceFormat,
-        sourceQuality,
-        thumbFormat,
-        thumbQuality,
-        thumbSize,
-        debugEnabled,
-        debugRequestLimit,
-        serverExportPath,
-        loaded,
-    } = draft
+    const { novelAIMode, globalVars, debugEnabled, debugRequestLimit, loaded } = draft
 
     const settingsQuery = useQuery({
-        queryKey: qk.settings(),
-        queryFn: async () => {
-            const { data } = await api.settings.get()
-            return data ?? null
-        },
+        queryKey: qk.settings.get(),
+        queryFn: () => call(contract.settings.get),
     })
-    const lastSavedJson = useRef('')
+    const lastSaved = useRef<FullSettingsPatch | null>(null)
 
     useEffect(() => {
         const data = settingsQuery.data
@@ -91,49 +71,32 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
 
         const initialDraft = createSettingsDraft(data)
         setDraft(initialDraft)
-        lastSavedJson.current = JSON.stringify(createSettingsPatch(initialDraft))
+        lastSaved.current = createSettingsPatch(initialDraft)
     }, [settingsQuery.data, loaded, setDraft])
 
     const saveSettings = useMutation({
-        mutationFn: (patch: SettingsPatchBody) => requireApiResult(api.settings.patch(patch)),
-        onMutate: async (patch) => {
-            const previousSettings = await snapshotQuery<GlobalSettings>(queryClient, qk.settings())
-            queryClient.setQueryData<GlobalSettings | null>(qk.settings(), (settings) =>
-                settings ? { ...settings, ...patch } : settings,
-            )
-            return { previousSettings }
+        mutationFn: (patch: SettingsPatch) => call(contract.settings.update, { body: patch }),
+        onSuccess: (data: SettingsView) => queryClient.setQueryData(qk.settings.get(), data),
+        // Resend every section with the next change after a failed save.
+        onError: () => {
+            lastSaved.current = null
         },
-        onError: (_error, _variables, context) => {
-            restoreSnapshot(queryClient, context?.previousSettings)
-        },
-        onSuccess: (res, patch) => {
-            lastSavedJson.current = JSON.stringify(patch)
-            if (res.data) queryClient.setQueryData(qk.settings(), res.data)
-            void queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
-        },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.settings() }),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.settings.get() }),
     })
 
-    const debouncedSaveSettings = useRef(
-        debounce((patch: SettingsPatchBody) => {
-            if (patch.globalVariables && variableValidationMessage(patch.globalVariables)) return
-            saveSettings.mutate(patch)
-        }, 600),
-    )
+    const pendingSave = useDebouncedPatch<SettingsPatch>((patch) => {
+        if (patch.globalVariables && variableValidationMessage(patch.globalVariables)) return
+        saveSettings.mutate(patch)
+    })
 
     useEffect(() => {
         if (!loaded) return
-
-        const nextJson = JSON.stringify(settingsPatch)
-        if (nextJson === lastSavedJson.current) return
-
-        debouncedSaveSettings.current(settingsPatch)
-    }, [loaded, settingsPatch])
-
-    useEffect(() => {
-        const cleanupDebouncedSaveSettings = debouncedSaveSettings.current
-        return () => cleanupDebouncedSaveSettings.flush()
-    }, [])
+        // Send only the sections that changed since the last save.
+        const patch = changedSettings(lastSaved.current, settingsPatch)
+        if (Object.keys(patch).length === 0) return
+        lastSaved.current = settingsPatch
+        pendingSave.schedule(patch)
+    }, [loaded, settingsPatch, pendingSave])
 
     function updateSettingsDraft(update: Partial<typeof draft>) {
         setDraft((current) => applySettingsDraftUpdate(current, update))
@@ -155,7 +118,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
         <Button
             className="gap-1.5"
             disabled={saveSettings.isPending || !!variableValidationMessage(globalVars)}
-            onClick={() => debouncedSaveSettings.current.flush()}
+            onClick={() => pendingSave.flush()}
             size={compact ? 'sm' : 'default'}
         >
             <Save className="h-4 w-4" />
@@ -188,6 +151,9 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                 </div>
             )}
 
+            {saveSettings.error && (
+                <p className="px-2 text-xs text-destructive">{errorMessage(saveSettings.error)}</p>
+            )}
             {settingsQuery.isPending ? (
                 <div
                     className={cn(
@@ -204,36 +170,13 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         compact ? 'gap-3 p-2' : 'gap-4 pb-4',
                     )}
                 >
+                    <NovelAIKeyCard settings={settingsQuery.data} compact={compact} />
+
                     <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
                         <CardHeader>
-                            <CardTitle className="text-base">NovelAI API Key</CardTitle>
-                            <CardDescription>
-                                이미지 생성에 사용할 NovelAI 계정의 API 키
-                            </CardDescription>
+                            <CardTitle className="text-base">NovelAI 모드</CardTitle>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
-                            <div className="relative">
-                                <Input
-                                    type={showApiKey ? 'text' : 'password'}
-                                    value={apiKey}
-                                    onChange={(e) =>
-                                        updateSettingsDraft({ apiKey: e.target.value })
-                                    }
-                                    placeholder="API 키 입력..."
-                                    className="pr-10 font-mono text-sm"
-                                />
-                                <button
-                                    className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                    onClick={() => setShowApiKey((v) => !v)}
-                                    type="button"
-                                >
-                                    {showApiKey ? (
-                                        <EyeOff className="h-4 w-4" />
-                                    ) : (
-                                        <Eye className="h-4 w-4" />
-                                    )}
-                                </button>
-                            </div>
                             <SettingField label="테스트 모드">
                                 <Select
                                     value={novelAIMode}
@@ -335,99 +278,11 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
-                        <CardHeader>
-                            <CardTitle className="text-base">이미지 저장 설정</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex flex-col gap-4">
-                            <SettingField label="원본 형식">
-                                <Select
-                                    value={sourceFormat}
-                                    onValueChange={(v) =>
-                                        updateSettingsDraft({ sourceFormat: v as ImageFormat })
-                                    }
-                                >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {IMAGE_FORMATS.map((format) => (
-                                            <SelectItem key={format.value} value={format.value}>
-                                                {format.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </SettingField>
-
-                            {sourceFormat !== 'png' && (
-                                <SettingField label="원본 품질" htmlFor="source-quality">
-                                    <Input
-                                        id="source-quality"
-                                        type="number"
-                                        value={sourceQuality}
-                                        onChange={(e) =>
-                                            updateSettingsDraft({
-                                                sourceQuality: Number(e.target.value),
-                                            })
-                                        }
-                                        min={1}
-                                        max={100}
-                                    />
-                                </SettingField>
-                            )}
-
-                            <SettingField label="썸네일 형식">
-                                <Select
-                                    value={thumbFormat}
-                                    onValueChange={(v) =>
-                                        updateSettingsDraft({ thumbFormat: v as ImageFormat })
-                                    }
-                                >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {IMAGE_FORMATS.map((format) => (
-                                            <SelectItem key={format.value} value={format.value}>
-                                                {format.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </SettingField>
-
-                            {thumbFormat !== 'png' && (
-                                <SettingField label="썸네일 품질" htmlFor="thumb-quality">
-                                    <Input
-                                        id="thumb-quality"
-                                        type="number"
-                                        value={thumbQuality}
-                                        onChange={(e) =>
-                                            updateSettingsDraft({
-                                                thumbQuality: Number(e.target.value),
-                                            })
-                                        }
-                                        min={1}
-                                        max={100}
-                                    />
-                                </SettingField>
-                            )}
-
-                            <SettingField label="썸네일 크기 (px)" htmlFor="thumb-size">
-                                <Input
-                                    id="thumb-size"
-                                    type="number"
-                                    value={thumbSize}
-                                    onChange={(e) =>
-                                        updateSettingsDraft({ thumbSize: Number(e.target.value) })
-                                    }
-                                    min={64}
-                                    max={1024}
-                                />
-                            </SettingField>
-                        </CardContent>
-                    </Card>
+                    <ImageSettingsCard
+                        compact={compact}
+                        draft={draft}
+                        onChange={updateSettingsDraft}
+                    />
 
                     <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
                         <CardHeader>
@@ -436,21 +291,15 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                 Export
                             </CardTitle>
                             <CardDescription>
-                                서버 머신으로 복사할 때 사용할 대상 폴더
+                                서버 머신의 폴더로 이미지를 복사합니다
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <SettingField label="서버 export 경로" htmlFor="server-export-path">
-                                <Input
-                                    id="server-export-path"
-                                    value={serverExportPath}
-                                    onChange={(e) =>
-                                        updateSettingsDraft({ serverExportPath: e.target.value })
-                                    }
-                                    placeholder="/path/to/export"
-                                    className="font-mono"
-                                />
-                            </SettingField>
+                            <p className="text-xs text-muted-foreground">
+                                {settingsQuery.data?.export.serverExportEnabled
+                                    ? '서버 export가 켜져 있습니다. 내보내기 창에서 폴더 이름을 입력하면 서버의 export 폴더 아래에 저장됩니다.'
+                                    : '서버 export는 서버의 NAI_FACTORY_EXPORT_DIR 환경 변수를 설정해야 사용할 수 있습니다.'}
+                            </p>
                         </CardContent>
                     </Card>
 
@@ -498,23 +347,6 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                     </Card>
                 </div>
             )}
-        </div>
-    )
-}
-
-function SettingField({
-    label,
-    htmlFor,
-    children,
-}: {
-    label: string
-    htmlFor?: string
-    children: ReactNode
-}) {
-    return (
-        <div className="flex flex-col gap-1.5">
-            <Label htmlFor={htmlFor}>{label}</Label>
-            {children}
         </div>
     )
 }

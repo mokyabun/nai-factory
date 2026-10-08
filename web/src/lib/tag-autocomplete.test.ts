@@ -1,22 +1,19 @@
 import { CompletionContext } from '@codemirror/autocomplete'
 import { EditorState, type TransactionSpec } from '@codemirror/state'
+import { contract } from '@nai-factory/shared'
 import { describe, expect, it, vi } from 'vitest'
 
-import { api } from './api'
+import { call } from './api'
 import { createPromptCompletionSource, tagCompletionSource } from './tag-autocomplete'
 
-vi.mock('./api', () => ({
-    api: {
-        tags: {
-            autocomplete: {
-                get: vi.fn(async () => ({
-                    data: [{ id: 1, alias: 'cats', tag: 'cat', category: 0, priority: 100 }],
-                    error: null,
-                })),
-            },
-        },
-    },
-}))
+vi.mock('./api', async () => {
+    const shared =
+        await vi.importActual<typeof import('@nai-factory/shared')>('@nai-factory/shared')
+    return {
+        contract: shared.contract,
+        call: vi.fn(async () => [{ id: 1, alias: 'cats', tag: 'cat', category: 0, priority: 100 }]),
+    }
+})
 
 function completionContext(doc: string, explicit = false) {
     return new CompletionContext(EditorState.create({ doc }), doc.length, explicit)
@@ -53,7 +50,7 @@ describe('prompt autocomplete', () => {
             new CompletionContext(state, state.doc.length, false),
         )
 
-        expect(api.tags.autocomplete.get).toHaveBeenCalledWith({
+        expect(call).toHaveBeenCalledWith(contract.tags.autocomplete, {
             query: { q: 'ca', limit: 20 },
         })
         expect(result).not.toBeNull()

@@ -7,6 +7,7 @@ import {
     useSensor,
     useSensors,
 } from '@dnd-kit/core'
+import type { GroupNode } from '@nai-factory/shared'
 import { useAtom } from 'jotai'
 import { Plus } from 'lucide-react'
 import { useMemo } from 'react'
@@ -18,11 +19,11 @@ import {
     ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
-import type { GroupWithProjects, ProjectGroupId } from '@/lib/api'
 
 import { activeGroupDragIdAtom, activeProjectDragIdAtom, type ProjectSummary } from './atom'
 import { ProjectGroup } from './project-group'
 import { GroupDragPreview, ProjectDragPreview, SidebarMessage } from './project-tree-parts'
+import type { ProjectGroupId } from './project-tree-types'
 import type { ProjectTreeProps } from './project-tree-types'
 import { RootProjects } from './root-projects'
 
@@ -40,7 +41,7 @@ export function ProjectTree({
     const [activeGroupId, setActiveGroupId] = useAtom(activeGroupDragIdAtom)
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
     const groupItems = useMemo(
-        () => groups.filter((group): group is GroupWithProjects => group.type === 'group'),
+        () => groups.filter((group): group is GroupNode => group.type === 'group'),
         [groups],
     )
     const ungroupedProjects = useMemo(
@@ -70,14 +71,14 @@ export function ProjectTree({
 
     function handleDragStart(event: DragStartEvent) {
         const project = event.active.data.current?.project as ProjectSummary | undefined
-        const group = event.active.data.current?.group as GroupWithProjects | undefined
+        const group = event.active.data.current?.group as GroupNode | undefined
         setActiveProjectId(project?.id ?? null)
         setActiveGroupId(group?.id ?? null)
     }
 
     function handleDragEnd(event: DragEndEvent) {
         const project = event.active.data.current?.project as ProjectSummary | undefined
-        const group = event.active.data.current?.group as GroupWithProjects | undefined
+        const group = event.active.data.current?.group as GroupNode | undefined
 
         setActiveProjectId(null)
         setActiveGroupId(null)
@@ -93,7 +94,7 @@ export function ProjectTree({
         }
 
         if (!group) return
-        if (group.parentGroupId === groupId) return
+        if (group.parentId === groupId) return
         if (group.id === groupId) return
         if (groupId !== null && isDescendantGroup(group, groupId)) return
 
@@ -179,18 +180,18 @@ export function ProjectTree({
     )
 }
 
-function flattenGroupTree(group: GroupWithProjects): GroupWithProjects[] {
+function flattenGroupTree(group: GroupNode): GroupNode[] {
     return [group, ...group.groups.flatMap((childGroup) => flattenGroupTree(childGroup))]
 }
 
-function flattenGroupProjects(group: GroupWithProjects): ProjectSummary[] {
+function flattenGroupProjects(group: GroupNode): ProjectSummary[] {
     return [
         ...group.projects,
         ...group.groups.flatMap((childGroup) => flattenGroupProjects(childGroup)),
     ]
 }
 
-function isDescendantGroup(group: GroupWithProjects, groupId: number): boolean {
+function isDescendantGroup(group: GroupNode, groupId: number): boolean {
     return group.groups.some(
         (childGroup) => childGroup.id === groupId || isDescendantGroup(childGroup, groupId),
     )

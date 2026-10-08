@@ -1,5 +1,5 @@
-import type { Project, ProjectArchiveExportBody, SceneJsonImportMode } from '@nai-factory/shared'
-import { DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS, SceneJsonData } from '@nai-factory/shared'
+import type { ArchiveExportBody, Project, SceneImportMode, SceneSummary } from '@nai-factory/shared'
+import { DEFAULT_ARCHIVE_INCLUDE, SceneJsonData } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Download, FileJson, Upload } from 'lucide-react'
@@ -7,12 +7,13 @@ import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { api, type SceneSummary } from '@/lib/api'
+import { call, contract } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { optimisticSceneSummaries } from '@/lib/optimistic-scenes'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+
+import { ArchiveOption, sanitizeFilename, sceneJsonItems } from './project-files-parts'
 
 interface ProjectFilesSettingsProps {
     onImported: () => void
@@ -24,7 +25,7 @@ interface ProjectFilesSettingsProps {
 type PendingMethod = 'scene-json-export' | 'scene-json-import' | 'archive' | 'import'
 
 const SCENE_JSON_IMPORT_MODE_OPTIONS: Array<{
-    value: SceneJsonImportMode
+    value: SceneImportMode
     label: string
     description: string
 }> = [
@@ -48,9 +49,9 @@ export function ProjectFilesSettings({
 }: ProjectFilesSettingsProps) {
     const queryClient = useQueryClient()
     const navigate = useNavigate()
-    const [archiveInclude, setArchiveInclude] = useState(DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS)
+    const [archiveInclude, setArchiveInclude] = useState(DEFAULT_ARCHIVE_INCLUDE)
     const [sceneJsonFile, setSceneJsonFile] = useState<File | null>(null)
-    const [sceneJsonMode, setSceneJsonMode] = useState<SceneJsonImportMode>('append')
+    const [sceneJsonMode, setSceneJsonMode] = useState<SceneImportMode>('append')
     const [importFile, setImportFile] = useState<File | null>(null)
     const [pendingMethod, setPendingMethod] = useState<PendingMethod | null>(null)
     const [message, setMessage] = useState('')
@@ -58,14 +59,14 @@ export function ProjectFilesSettings({
     useEffect(() => {
         if (!project) return
         // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
-        setArchiveInclude(DEFAULT_PROJECT_ARCHIVE_INCLUDE_OPTIONS)
+        setArchiveInclude(DEFAULT_ARCHIVE_INCLUDE)
         setSceneJsonFile(null)
         setSceneJsonMode('append')
         setImportFile(null)
         setMessage('')
     }, [project])
 
-    function archiveBody(): ProjectArchiveExportBody {
+    function archiveBody(): ArchiveExportBody {
         return { include: archiveInclude }
     }
 
@@ -76,11 +77,9 @@ export function ProjectFilesSettings({
     async function exportSceneJson() {
         if (!project) return
         const sceneIds = selectedSceneIds.length > 0 ? selectedSceneIds : undefined
-        const { data, error } = await api.scenes['export-json'].post({
-            projectId: project.id,
-            sceneIds,
+        const data = await call(contract.scenes.exportJson, {
+            body: { projectId: project.id, sceneIds },
         })
-        if (error || !data) throw new Error('Scene JSON export failed')
 
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
@@ -100,67 +99,33 @@ export function ProjectFilesSettings({
 
         const previousScenes = await snapshotQuery<SceneSummary[]>(
             queryClient,
-            qk.scenes(project.id),
+            qk.scenes.list(project.id),
         )
-        const now = new Date().toISOString()
-        const optimisticScenes = sceneJsonItems(parsed.data).map((scene, index) => ({
-            id: -(Date.now() + index),
-            projectId: project.id,
-            displayOrder: `optimistic-${now}-${index}`,
-            name: scene.name,
-            variations: scene.variations.map((variation, variationIndex) => ({
-                id: -(Date.now() + index * 100 + variationIndex),
-                sceneId: -(Date.now() + index),
-                displayOrder: String(variationIndex),
-                variables: variation.variables,
-                createdAt: now,
-                updatedAt: now,
-            })),
-            createdAt: now,
-            updatedAt: now,
-            imageCount: 0,
-            queueCount: 0,
-            latestImages: [],
-        }))
-        queryClient.setQueryData<SceneSummary[]>(qk.scenes(project.id), (current) =>
+        const optimisticScenes = optimisticSceneSummaries(project.id, sceneJsonItems(parsed.data))
+        queryClient.setQueryData<SceneSummary[]>(qk.scenes.list(project.id), (current) =>
             sceneJsonMode === 'replace'
                 ? optimisticScenes
                 : [...(current ?? []), ...optimisticScenes],
         )
 
-        const { data: result, error } = await api.scenes['import-json'].post({
-            projectId: project.id,
-            data: parsed.data,
-            mode: sceneJsonMode,
-        })
-        if (error) {
+        try {
+            await call(contract.scenes.importJson, {
+                body: { projectId: project.id, data: parsed.data, mode: sceneJsonMode },
+            })
+        } catch (error) {
             restoreSnapshot(queryClient, previousScenes)
-            throw new Error('Scene JSON import failed')
-        }
-        if (result?.scenes) {
-            const importedScenes = result.scenes.map((scene) => ({
-                ...scene,
-                imageCount: 0,
-                queueCount: 0,
-                latestImages: [],
-            }))
-            queryClient.setQueryData<SceneSummary[]>(
-                qk.scenes(project.id),
-                sceneJsonMode === 'replace'
-                    ? importedScenes
-                    : [...(previousScenes.data ?? []), ...importedScenes],
-            )
+            throw error
         }
 
-        await queryClient.invalidateQueries({ queryKey: qk.scenes(project.id) })
+        await queryClient.invalidateQueries({ queryKey: qk.scenes.list(project.id) })
     }
 
     async function exportProjectArchive() {
         if (!project) return
-        const { data, error } = await api
-            .projects({ projectId: project.id })
-            .archive.post(archiveBody())
-        if (error || !data) throw new Error('Project archive export failed')
+        const data = await call(contract.projects.exportArchive, {
+            params: { id: project.id },
+            body: archiveBody(),
+        })
 
         const url = URL.createObjectURL(data)
         const link = document.createElement('a')
@@ -173,11 +138,10 @@ export function ProjectFilesSettings({
     async function importProjectArchive() {
         if (!importFile) return
 
-        const { data, error } = await api.projects.import.post({ archive: importFile })
-        if (error || !data) throw new Error('Project archive import failed')
+        const data = await call(contract.projects.importArchive, { body: { archive: importFile } })
 
-        await queryClient.invalidateQueries({ queryKey: qk.groupsWithProjects() })
-        queryClient.setQueryData(qk.project(data.id), data)
+        await queryClient.invalidateQueries({ queryKey: qk.groups.all() })
+        queryClient.setQueryData(qk.projects.get(data.id), data)
         onImported()
         void navigate({ to: '/project/$projectId', params: { projectId: String(data.id) } })
     }
@@ -387,62 +351,4 @@ export function ProjectFilesSettings({
             {message && <p className="text-xs text-muted-foreground">{message}</p>}
         </div>
     )
-}
-
-interface ArchiveOptionProps {
-    id: string
-    label: string
-    description: string
-    checked: boolean
-    disabled?: boolean
-    onChange: (checked: boolean) => void
-}
-
-function ArchiveOption({
-    id,
-    label,
-    description,
-    checked,
-    disabled,
-    onChange,
-}: ArchiveOptionProps) {
-    return (
-        <div className="flex items-start justify-between gap-4">
-            <Label
-                htmlFor={id}
-                className="flex min-w-0 cursor-pointer flex-col gap-0.5 data-disabled:cursor-not-allowed data-disabled:opacity-50"
-                data-disabled={disabled ? '' : undefined}
-            >
-                <span className="text-sm">{label}</span>
-                <span className="text-xs font-normal text-muted-foreground">{description}</span>
-            </Label>
-            <Switch
-                id={id}
-                checked={checked}
-                onCheckedChange={onChange}
-                disabled={disabled}
-                className="mt-0.5 shrink-0"
-            />
-        </div>
-    )
-}
-
-function sanitizeFilename(value: string) {
-    const sanitized = value
-        .replace(/[\\/:*?"<>|]/g, '-')
-        .split('')
-        .map((char) => (char.charCodeAt(0) < 32 ? '-' : char))
-        .join('')
-        .replace(/\s+/g, ' ')
-        .replace(/-+/g, '-')
-        .trim()
-        .replace(/^[.\s-]+|[.\s-]+$/g, '')
-
-    return sanitized || 'asset'
-}
-
-function sceneJsonItems(data: SceneJsonData) {
-    if (Array.isArray(data)) return data
-    if ('scenes' in data) return data.scenes
-    return [data]
 }

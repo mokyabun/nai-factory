@@ -1,3 +1,4 @@
+import type { NovelAIAccountStatus } from '@nai-factory/shared'
 import { useQuery } from '@tanstack/react-query'
 import { useRouterState } from '@tanstack/react-router'
 import { Fragment } from 'react'
@@ -11,7 +12,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { api } from '@/lib/api'
+import { call, contract } from '@/lib/api'
 import { qk } from '@/lib/queries'
 
 export function Header() {
@@ -22,41 +23,26 @@ export function Header() {
     const scenePathId = Number.isFinite(sceneId) ? sceneId : null
 
     const projectQuery = useQuery({
-        queryKey: qk.project(projectPathId ?? 0),
-        queryFn: async () => {
-            if (projectPathId === null) return null
-            const { data } = await api.projects({ projectId: projectPathId }).get()
-            return data ?? null
-        },
+        queryKey: qk.projects.get(projectPathId ?? 0),
+        queryFn: () => call(contract.projects.get, { params: { id: projectPathId as number } }),
         enabled: projectPathId !== null,
     })
     const sceneQuery = useQuery({
-        queryKey: qk.scene(scenePathId ?? 0),
-        queryFn: async () => {
-            if (scenePathId === null) return null
-            const { data } = await api.scenes({ id: scenePathId }).get()
-            return data ?? null
-        },
+        queryKey: qk.scenes.get(scenePathId ?? 0),
+        queryFn: () => call(contract.scenes.get, { params: { id: scenePathId as number } }),
         enabled: scenePathId !== null,
     })
     const sceneProjectId = sceneQuery.data?.projectId ?? null
     const sceneProjectQuery = useQuery({
-        queryKey: qk.project(sceneProjectId ?? 0),
-        queryFn: async () => {
-            if (sceneProjectId === null) return null
-            const { data } = await api.projects({ projectId: sceneProjectId }).get()
-            return data ?? null
-        },
+        queryKey: qk.projects.get(sceneProjectId ?? 0),
+        queryFn: () => call(contract.projects.get, { params: { id: sceneProjectId as number } }),
         enabled: sceneProjectId !== null,
     })
+    // No polling: generations and NovelAI settings changes refresh it through realtime events.
     const statusQuery = useQuery({
-        queryKey: qk.novelAIStatus(),
-        queryFn: async () => {
-            const { data } = await api.settings.novelai.status.get()
-            return data ?? null
-        },
-        staleTime: 60_000,
-        refetchInterval: 120_000,
+        queryKey: qk.settings.novelAIStatus(),
+        queryFn: () => call(contract.settings.novelAIStatus),
+        staleTime: 5 * 60_000,
     })
 
     const parts = createBreadcrumbParts({
@@ -82,7 +68,7 @@ export function Header() {
                     ))}
                 </BreadcrumbList>
             </Breadcrumb>
-            <AnlasStatus status={statusQuery.data ?? null} pending={statusQuery.isPending} />
+            <AnlasStatus status={statusQuery.data} pending={statusQuery.isPending} />
         </header>
     )
 }
@@ -139,7 +125,7 @@ function AnlasStatus({
     status,
     pending,
 }: {
-    status: Awaited<ReturnType<typeof api.settings.novelai.status.get>>['data']
+    status: NovelAIAccountStatus | undefined
     pending: boolean
 }) {
     let label = 'Anlas -'

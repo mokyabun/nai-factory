@@ -1,17 +1,12 @@
-import {
-    DEFAULT_PLAYGROUND_SETTINGS,
-    type PlaygroundSettings,
-    type Project,
-} from '@nai-factory/shared'
+import type { PlaygroundState, Project } from '@nai-factory/shared'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { api } from '@/lib/api'
+import { call, contract } from '@/lib/api'
 import {
     applyGenerationParameters,
     type GenerationSettings,
     type SeedMode,
 } from '@/lib/generation-settings'
-import { requireApiResult } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 
 type ApplyRequest = {
@@ -29,23 +24,19 @@ export function useApplyGenerationSettings() {
     const toPlayground = useMutation({
         mutationFn: async ({ settings, seedMode }: ApplyRequest) => {
             const current = await queryClient.ensureQueryData({
-                queryKey: qk.playgroundSettings(),
-                queryFn: async () => {
-                    const { data } = await api.playground.settings.get()
-                    return data ?? DEFAULT_PLAYGROUND_SETTINGS
-                },
+                queryKey: qk.playground.state(),
+                queryFn: () => call(contract.playground.state),
             })
-            const { data } = await requireApiResult(
-                api.playground.settings.patch({
+            return call(contract.playground.updateState, {
+                body: {
                     prompt: settings.prompt ?? current.prompt,
                     negativePrompt: settings.negativePrompt ?? current.negativePrompt,
                     parameters: applyGenerationParameters(current.parameters, settings, seedMode),
-                }),
-            )
-            return data
+                },
+            })
         },
         onSuccess: (data) => {
-            if (data) queryClient.setQueryData<PlaygroundSettings>(qk.playgroundSettings(), data)
+            queryClient.setQueryData<PlaygroundState>(qk.playground.state(), data)
         },
     })
 
@@ -56,24 +47,20 @@ export function useApplyGenerationSettings() {
             seedMode,
         }: ApplyRequest & { projectId: number }) => {
             const current = await queryClient.ensureQueryData({
-                queryKey: qk.project(projectId),
-                queryFn: async () => {
-                    const { data } = await api.projects({ projectId }).get()
-                    return data ?? null
-                },
+                queryKey: qk.projects.get(projectId),
+                queryFn: () => call(contract.projects.get, { params: { id: projectId } }),
             })
-            if (!current) throw new Error('프로젝트를 찾을 수 없습니다')
 
             // Only parameters: the project prompt is a template, while metadata holds its output.
-            const { data } = await requireApiResult(
-                api.projects({ projectId }).patch({
+            return call(contract.projects.update, {
+                params: { id: projectId },
+                body: {
                     parameters: applyGenerationParameters(current.parameters, settings, seedMode),
-                }),
-            )
-            return data
+                },
+            })
         },
         onSuccess: (data, { projectId }) => {
-            if (data) queryClient.setQueryData<Project | null>(qk.project(projectId), data)
+            queryClient.setQueryData<Project>(qk.projects.get(projectId), data)
         },
     })
 

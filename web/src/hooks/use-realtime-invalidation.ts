@@ -1,96 +1,97 @@
-import type { RealtimeEvent } from '@nai-factory/shared'
+import { EVENTS_PATH, type QueueStatus, type RealtimeEvent } from '@nai-factory/shared'
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
 import { useEffect } from 'react'
 
-import { BASE_URL } from '@/lib/api'
 import { qk } from '@/lib/queries'
 
-function hasRoot(queryKey: QueryKey, root: string, scope?: string) {
-    return queryKey[0] === root && (scope === undefined || queryKey[1] === scope)
+const REALTIME_ROOTS = new Set(['jobs', 'images', 'scenes', 'playground', 'settings', 'debug'])
+
+function isNovelAIStatus(queryKey: QueryKey) {
+    return queryKey[0] === 'settings' && queryKey[1] === 'novelai-status'
 }
 
-function isActiveRealtimeQuery(queryKey: QueryKey) {
-    return (
-        hasRoot(queryKey, 'queue') ||
-        hasRoot(queryKey, 'images') ||
-        hasRoot(queryKey, 'scene') ||
-        hasRoot(queryKey, 'scenes') ||
-        hasRoot(queryKey, 'playground', 'images') ||
-        hasRoot(queryKey, 'settings', 'novelai-status') ||
-        hasRoot(queryKey, 'debug', 'requests')
-    )
-}
-
-function invalidateActiveQueueLists(queryClient: QueryClient) {
-    void queryClient.invalidateQueries({
-        predicate: (query) => query.isActive() && hasRoot(query.queryKey, 'queue', 'items'),
-    })
-}
-
+/**
+ * After a `resync` (missed events could not be replayed) refetch every active query that
+ * realtime events keep fresh. The NovelAI account status is left alone: it calls NovelAI.
+ */
 export function syncActiveRealtimeQueries(queryClient: QueryClient) {
     void queryClient.invalidateQueries({
-        predicate: (query) => query.isActive() && isActiveRealtimeQuery(query.queryKey),
+        predicate: (query) =>
+            query.isActive() &&
+            REALTIME_ROOTS.has(String(query.queryKey[0])) &&
+            !isNovelAIStatus(query.queryKey),
     })
-}
-
-function isRealtimeEvent(value: unknown): value is RealtimeEvent {
-    if (!value || typeof value !== 'object' || !('type' in value)) return false
-
-    const event = value as Partial<RealtimeEvent>
-    if (event.type === 'queue.changed') return true
-    if (event.type === 'playground.images.changed') return true
-    if (event.type === 'debug.requests.changed') return true
-    if (event.type !== 'scene.images.changed') return false
-
-    return (
-        'projectId' in event &&
-        'sceneId' in event &&
-        typeof event.projectId === 'number' &&
-        typeof event.sceneId === 'number'
-    )
 }
 
 export function handleRealtimeEvent(queryClient: QueryClient, event: RealtimeEvent) {
     switch (event.type) {
-        case 'queue.changed':
-            void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-            invalidateActiveQueueLists(queryClient)
+        case 'job.progress':
+            // Progress updates the cached status directly instead of refetching it.
+            queryClient.setQueryData<QueueStatus>(qk.jobs.status(), (status) =>
+                status?.current?.jobId === event.jobId
+                    ? {
+                          ...status,
+                          current: {
+                              ...status.current,
+                              done: event.done,
+                              total: event.total,
+                              imageStartedAt: event.imageStartedAt,
+                          },
+                      }
+                    : status,
+            )
+            break
+        case 'jobs.changed':
+            void queryClient.invalidateQueries({ queryKey: qk.jobs.all() })
+            // Scene cards show how many jobs are queued for them.
+            void queryClient.invalidateQueries({ queryKey: qk.scenes.all() })
             break
         case 'scene.images.changed':
-            void queryClient.invalidateQueries({ queryKey: qk.images(event.sceneId) })
-            void queryClient.invalidateQueries({ queryKey: qk.scene(event.sceneId) })
-            void queryClient.invalidateQueries({ queryKey: qk.scenes(event.projectId) })
-            void queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.images.list(event.sceneId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes.summary(event.sceneId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes.list(event.projectId) })
+            void queryClient.invalidateQueries({ queryKey: qk.settings.novelAIStatus() })
             break
         case 'playground.images.changed':
-            void queryClient.invalidateQueries({ queryKey: qk.playgroundImages() })
-            void queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
+            void queryClient.invalidateQueries({ queryKey: qk.playground.images() })
+            void queryClient.invalidateQueries({ queryKey: qk.settings.novelAIStatus() })
+            break
+        case 'settings.changed':
+            void queryClient.invalidateQueries({ queryKey: qk.settings.get() })
+            if (event.sections.includes('novelai')) {
+                void queryClient.invalidateQueries({ queryKey: qk.settings.novelAIStatus() })
+            }
             break
         case 'debug.requests.changed':
-            void queryClient.invalidateQueries({ queryKey: qk.debugRequests() })
+            void queryClient.invalidateQueries({ queryKey: qk.debug.requests() })
+            break
+        case 'resync':
+            syncActiveRealtimeQueries(queryClient)
             break
     }
 }
 
+function parseEvent(data: string): RealtimeEvent | null {
+    try {
+        const value = JSON.parse(data) as unknown
+        if (value && typeof value === 'object' && 'type' in value) return value as RealtimeEvent
+    } catch {
+        // Ignore malformed messages.
+    }
+    return null
+}
+
+/**
+ * Subscribes to server events. EventSource reconnects on its own and sends `Last-Event-ID`,
+ * so the server replays what was missed and only asks for a full refetch when it cannot.
+ */
 export function useRealtimeInvalidation(queryClient: QueryClient) {
     useEffect(() => {
-        const es = new EventSource(`${BASE_URL}/sse`)
-        let opened = false
-
-        es.addEventListener('open', () => {
-            if (opened) syncActiveRealtimeQueries(queryClient)
-            opened = true
-        })
-
-        es.onmessage = (e: MessageEvent<string>) => {
-            try {
-                const event = JSON.parse(e.data) as unknown
-                if (isRealtimeEvent(event)) handleRealtimeEvent(queryClient, event)
-            } catch {
-                // ignore malformed messages
-            }
+        const source = new EventSource(EVENTS_PATH)
+        source.onmessage = (message: MessageEvent<string>) => {
+            const event = parseEvent(message.data)
+            if (event) handleRealtimeEvent(queryClient, event)
         }
-
-        return () => es.close()
+        return () => source.close()
     }, [queryClient])
 }

@@ -1,11 +1,11 @@
 import { ImageOff, Loader, RotateCw } from 'lucide-react'
 import { useState } from 'react'
 
-import { imageResourceUrl, type ImageUrlResource } from '@/lib/api/utils'
+import { assetUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 interface ImageSurfaceProps {
-    image: ImageUrlResource
+    image: { assetId: number; thumbAssetId: number | null }
     alt?: string
     className?: string
     /** Tone for the loading/failure overlays; `dark` for full-screen viewers. */
@@ -20,8 +20,8 @@ type LoadState = { url: string; status: 'loaded' | 'failed' }
  * Both layers fill the surface with `object-contain`, so they line up regardless of resolution.
  */
 export function ImageSurface({ image, alt = '', className, tone = 'light' }: ImageSurfaceProps) {
-    const thumbnailUrl = imageResourceUrl(image, 'thumbnail')
-    const sourceUrl = imageResourceUrl(image, 'source')
+    const sourceUrl = assetUrl(image.assetId)
+    const thumbnailUrl = image.thumbAssetId === null ? sourceUrl : assetUrl(image.thumbAssetId)
     const [attempt, setAttempt] = useState(0)
     const [load, setLoad] = useState<LoadState | null>(null)
 

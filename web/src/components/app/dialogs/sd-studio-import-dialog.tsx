@@ -1,3 +1,4 @@
+import type { SceneSummary } from '@nai-factory/shared'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Provider, useAtom } from 'jotai'
@@ -15,11 +16,10 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { api, type SceneSummary } from '@/lib/api'
-import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { call, contract } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { optimisticSceneSummaries } from '@/lib/optimistic-scenes'
 import { qk } from '@/lib/queries'
-import { cn } from '@/lib/utils'
 
 import {
     parsedSdStudioFileAtom,
@@ -29,6 +29,7 @@ import {
     sdStudioParseErrorAtom,
     sdStudioProjectNameAtom,
 } from './atom'
+import { OptionRow } from './option-row'
 
 interface Props {
     open: boolean
@@ -92,35 +93,24 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
     const importMutation = useMutation({
         mutationFn: async () => {
             if (!parsed || !projectId) throw new Error('Invalid state')
-            const { data } = await requireApiResult(
-                api['sd-studio'].import.post({
-                    projectId,
-                    data: parsed.raw,
-                    options,
-                }),
-            )
-            return data
+            return call(contract.sdStudio.import, {
+                body: { projectId, data: parsed.raw, options },
+            })
         },
         onMutate: async () => {
             if (!parsed || !projectId || !options.importScenes) return null
             const previousScenes = await snapshotQuery<SceneSummary[]>(
                 queryClient,
-                qk.scenes(projectId),
+                qk.scenes.list(projectId),
             )
-            const now = new Date().toISOString()
-            const optimisticScenes = Array.from({ length: parsed.sceneCount }, (_, index) => ({
-                id: -(Date.now() + index),
+            const optimisticScenes = optimisticSceneSummaries(
                 projectId,
-                displayOrder: `optimistic-${now}-${index}`,
-                name: `${parsed.name} ${index + 1}`,
-                variations: [],
-                createdAt: now,
-                updatedAt: now,
-                imageCount: 0,
-                queueCount: 0,
-                latestImages: [],
-            }))
-            queryClient.setQueryData<SceneSummary[]>(qk.scenes(projectId), (scenes) => [
+                Array.from({ length: parsed.sceneCount }, (_, index) => ({
+                    name: `${parsed.name} ${index + 1}`,
+                    variations: [],
+                })),
+            )
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes.list(projectId), (scenes) => [
                 ...(scenes ?? []),
                 ...optimisticScenes,
             ])
@@ -129,20 +119,11 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousScenes)
         },
-        onSuccess: (result, _variables, context) => {
-            if (projectId && result?.scenes) {
-                const scenes = result.scenes.map((scene) => ({
-                    ...scene,
-                    imageCount: 0,
-                    queueCount: 0,
-                    latestImages: [],
-                }))
-                queryClient.setQueryData<SceneSummary[]>(qk.scenes(projectId), [
-                    ...(context?.previousScenes.data ?? []),
-                    ...scenes,
-                ])
+        onSuccess: () => {
+            if (projectId) {
+                void queryClient.invalidateQueries({ queryKey: qk.scenes.list(projectId) })
+                void queryClient.invalidateQueries({ queryKey: qk.projects.get(projectId) })
             }
-            void queryClient.invalidateQueries({ queryKey: qk.scenes(projectId as number) })
             onOpenChange(false)
         },
     })
@@ -151,16 +132,12 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
         mutationFn: async () => {
             if (!parsed || !projectName.trim()) throw new Error('Invalid state')
 
-            const { data: project } = await requireApiResult(
-                api.projects.post({
-                    groupId: null,
-                    name: projectName.trim(),
-                }),
-            )
-            if (!project) throw new Error('프로젝트 생성 실패')
+            const project = await call(contract.projects.create, {
+                body: { groupId: null, name: projectName.trim() },
+            })
 
-            await requireApiResult(
-                api['sd-studio'].import.post({
+            await call(contract.sdStudio.import, {
+                body: {
                     projectId: project.id,
                     data: parsed.raw,
                     options: {
@@ -170,13 +147,13 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
                         importCharacterPrompts: true,
                         importParameters: true,
                     },
-                }),
-            )
+                },
+            })
 
             return project.id
         },
         onSuccess: (newProjectId) => {
-            void queryClient.invalidateQueries({ queryKey: qk.groupsWithProjects() })
+            void queryClient.invalidateQueries({ queryKey: qk.groups.tree() })
             void navigate({
                 to: '/project/$projectId',
                 params: { projectId: String(newProjectId) },
@@ -398,30 +375,3 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
 }
 
 // ─── OptionRow ────────────────────────────────────────────────────────────────
-
-interface OptionRowProps {
-    id: string
-    label: string
-    description: string
-    checked: boolean
-    disabled?: boolean
-    onChange: () => void
-}
-
-function OptionRow({ id, label, description, checked, disabled, onChange }: OptionRowProps) {
-    return (
-        <div className={cn('flex items-start justify-between gap-4', disabled && 'opacity-40')}>
-            <Label htmlFor={id} className="flex cursor-pointer gap-0.5">
-                <span>{label}</span>
-                <span className="text-xs font-normal text-muted-foreground">{description}</span>
-            </Label>
-            <Switch
-                id={id}
-                checked={checked}
-                onCheckedChange={onChange}
-                disabled={disabled}
-                className="mt-0.5 shrink-0"
-            />
-        </div>
-    )
-}

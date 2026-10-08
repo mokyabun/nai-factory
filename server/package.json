@@ -1,22 +1,16 @@
 {
     "name": "@nai-factory/server",
-    "version": "0.2.0",
-    "module": "src/index.js",
-    "types": "src/index.ts",
-    "imports": {
-        "#/services": "./src/services/index.ts",
-        "#/*": "./src/*"
-    },
+    "version": "0.3.0",
+    "module": "src/index.ts",
     "scripts": {
         "dev": "bun run --hot src/index.ts",
-        "build": "bun run build:tag-index && bun build src/index.ts --outdir=dist --target=bun --minify --sourcemap",
-        "build:prod": "rm -rf dist && bun run build:tag-index && bun build src/index.ts --outdir=dist --target=bun --minify --sourcemap=none",
+        "build": "bun run build:tag-index && bun build src/index.ts --outdir=dist --target=bun --minify --sourcemap && bun run build:migrations",
+        "build:prod": "rm -rf dist && bun run build:tag-index && bun build src/index.ts --outdir=dist --target=bun --minify --sourcemap=none && bun run build:migrations",
         "build:tag-index": "bun run scripts/build-tag-search-index.ts",
         "start": "bun dist/index.js",
         "test": "NODE_ENV=test bun test",
         "check:type": "tsc --noEmit",
         "db:generate": "drizzle-kit generate",
-        "db:migrate": "bun run src/db/migrate.ts",
         "check": "bun run --parallel --no-exit-on-error format:check lint typecheck",
         "check:fix": "bun run lint:fix && bun run format && bun run typecheck",
         "format": "oxfmt .",
@@ -24,10 +18,11 @@
         "lint": "oxlint .",
         "lint:fix": "oxlint --fix .",
         "typecheck": "bun run check:type",
-        "format:check": "oxfmt --check ."
+        "format:check": "oxfmt --check .",
+        "build:migrations": "rm -rf dist/migrations && cp -R src/db/migrations dist/migrations",
+        "db:check": "drizzle-kit check"
     },
     "dependencies": {
-        "@hono/zod-validator": "^0.8.0",
         "@nai-factory/shared": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "fflate": "^0.8.3",
@@ -35,7 +30,6 @@
         "fractional-indexing-jittered": "^1.0.0",
         "handlebars": "^4.7.9",
         "hono": "^4.12.21",
-        "ky": "^2.0.2",
         "pino": "^10.3.1",
         "sharp": "^0.34.5",
         "zod": "^4.4.3"

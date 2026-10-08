@@ -5,11 +5,11 @@ import { useCallback } from 'react'
 
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
-import type { ProjectGroupId } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 import type { ProjectSummary } from './atom'
 import { ProjectContextMenuContent, ProjectMenu, RenameInput } from './project-tree-parts'
+import type { ProjectGroupId } from './project-tree-types'
 
 interface ProjectRowProps {
     project: ProjectSummary

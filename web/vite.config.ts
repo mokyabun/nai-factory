@@ -6,8 +6,14 @@ import { defineConfig, type PluginOption } from 'vite'
 
 const analyze = process.env.ANALYZE === 'true'
 
+const apiTarget = process.env.NAI_FACTORY_API_TARGET ?? 'http://localhost:3000'
+
 const config = defineConfig({
     resolve: { tsconfigPaths: true },
+    server: {
+        // The API is always same-origin (`/api`); in development Vite forwards it to the server.
+        proxy: { '/api': { target: apiTarget } },
+    },
     build: {
         rolldownOptions: {
             output: {

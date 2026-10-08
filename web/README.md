@@ -1,7 +1,7 @@
 # NAI Factory Web
 
-`web-next` is the React SPA frontend for NAI Factory. It uses Vite, TanStack Router file routes,
-TanStack Query, and the Hono API served by `server-next`.
+The React SPA frontend for NAI Factory. It uses Vite, TanStack Router file routes, TanStack Query,
+and the API served by `@nai-factory/server`.
 
 ## Development
 
@@ -12,8 +12,14 @@ bun dev
 ```
 
 The web app runs on port `5173` by default and waits for the API server before starting through
-the root workspace script. Set `VITE_API_URL` when the API is hosted somewhere other than
-`http://localhost:3000`.
+the root workspace script. The app always calls the API on its own origin (`/api`); in development
+Vite proxies `/api` to `http://localhost:3000` (override with `NAI_FACTORY_API_TARGET`).
+
+## API calls
+
+Endpoints are declared once in `@nai-factory/shared` (`contract`). Call them with
+`call(contract.scenes.update, { params: { id }, body })` from `src/lib/api`; failures throw an
+`ApiError` with the server's `{ code, message }`. Files are loaded from `assetUrl(assetId)`.
 
 ## Workspace Commands
 

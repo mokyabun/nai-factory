@@ -8,19 +8,20 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { VibeTransfer, VibeTransferPatchBody } from '@nai-factory/shared'
+import type { VibeTransfer, VibeTransferPatch } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { GripVertical, Trash2, Upload } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
-import { api, imageUrl } from '@/lib/api'
-import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
+import { assetUrl, call, contract } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
-import { debounce } from '@/lib/utils'
+import type { OrderPatch } from '@/lib/reorder'
 
 import {
     createVibeTransferItemDraft,
@@ -31,7 +32,7 @@ import {
 
 interface SortableVibeItemProps {
     vibe: VibeTransfer
-    onUpdate: (id: number, patch: VibeTransferPatchBody) => void
+    onUpdate: (id: number, patch: VibeTransferPatch) => void
     onDelete: (id: number) => void
 }
 
@@ -59,16 +60,11 @@ function SortableVibeItemContent({ vibe, onUpdate, onDelete }: SortableVibeItemP
     const refStrength = draft.referenceStrength
     const infoExtracted = draft.informationExtracted
 
-    const onUpdateRef = useRef(onUpdate)
-    // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
-    onUpdateRef.current = onUpdate
-
-    const debouncedUpdate = useRef(
-        // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
-        debounce((id: number, patch: VibeTransferPatchBody) => {
-            onUpdateRef.current(id, patch)
-        }, 400),
+    const save = useCallback(
+        (patch: VibeTransferPatch) => onUpdate(vibe.id, patch),
+        [onUpdate, vibe.id],
     )
+    const pendingUpdate = useDebouncedPatch(save, 400)
 
     useEffect(() => {
         setDraft(createVibeTransferItemDraft(vibe))
@@ -79,7 +75,7 @@ function SortableVibeItemContent({ vibe, onUpdate, onDelete }: SortableVibeItemP
             ...(current ?? createVibeTransferItemDraft(vibe)),
             referenceStrength: value,
         }))
-        debouncedUpdate.current(vibe.id, { referenceStrength: value })
+        pendingUpdate.schedule({ referenceStrength: value })
     }
 
     function handleInfoExtractedChange(value: number) {
@@ -87,7 +83,7 @@ function SortableVibeItemContent({ vibe, onUpdate, onDelete }: SortableVibeItemP
             ...(current ?? createVibeTransferItemDraft(vibe)),
             informationExtracted: value,
         }))
-        debouncedUpdate.current(vibe.id, { informationExtracted: value })
+        pendingUpdate.schedule({ informationExtracted: value })
     }
 
     function sliderValue(value: number | readonly number[], fallback: number) {
@@ -121,7 +117,7 @@ function SortableVibeItemContent({ vibe, onUpdate, onDelete }: SortableVibeItemP
 
             <div className="h-20 w-20 shrink-0 overflow-hidden rounded border bg-muted">
                 <img
-                    src={imageUrl(vibe.sourceImagePath)}
+                    src={assetUrl(vibe.sourceAssetId)}
                     alt=""
                     className="h-full w-full object-cover"
                     draggable={false}
@@ -181,11 +177,8 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
     const setItems = useSetAtom(vibeTransferItemsAtom)
 
     const query = useQuery({
-        queryKey: qk.vibeTransfers(projectId),
-        queryFn: async () => {
-            const { data } = await api.projects({ projectId })['vibe-transfers'].get()
-            return data ?? []
-        },
+        queryKey: qk.projects.vibeTransfers(projectId),
+        queryFn: () => call(contract.projects.vibeTransfers, { params: { id: projectId } }),
     })
 
     useEffect(() => {
@@ -196,31 +189,32 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
 
     const uploadMutation = useMutation({
         mutationFn: (file: File) =>
-            requireApiResult(
-                api.projects({ projectId })['vibe-transfers'].upload.post({ image: file }),
-            ),
-        onSuccess: (res) => {
-            if (res.data) {
-                queryClient.setQueryData<VibeTransfer[]>(qk.vibeTransfers(projectId), (current) => [
-                    ...(current ?? []),
-                    res.data as VibeTransfer,
-                ])
-                setItems((current) => [...current, res.data as VibeTransfer])
-            }
-            void queryClient.invalidateQueries({ queryKey: qk.vibeTransfers(projectId) })
+            call(contract.projects.uploadVibeTransfer, {
+                params: { id: projectId },
+                body: { image: file },
+            }),
+        onSuccess: (created) => {
+            queryClient.setQueryData<VibeTransfer[]>(
+                qk.projects.vibeTransfers(projectId),
+                (current) => [...(current ?? []), created],
+            )
+            setItems((current) => [...current, created])
+            void queryClient.invalidateQueries({ queryKey: qk.projects.vibeTransfers(projectId) })
         },
     })
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, patch }: { id: number; patch: VibeTransferPatchBody }) =>
-            requireApiResult(api.projects({ projectId })['vibe-transfers']({ id }).patch(patch)),
+        mutationFn: ({ id, patch }: { id: number; patch: VibeTransferPatch }) =>
+            call(contract.vibeTransfers.update, { params: { id }, body: patch }),
         onMutate: async ({ id, patch }) => {
             const previousItems = await snapshotQuery<VibeTransfer[]>(
                 queryClient,
-                qk.vibeTransfers(projectId),
+                qk.projects.vibeTransfers(projectId),
             )
-            queryClient.setQueryData<VibeTransfer[]>(qk.vibeTransfers(projectId), (current) =>
-                current?.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+            queryClient.setQueryData<VibeTransfer[]>(
+                qk.projects.vibeTransfers(projectId),
+                (current) =>
+                    current?.map((item) => (item.id === id ? { ...item, ...patch } : item)),
             )
             setItems((current) =>
                 current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
@@ -231,31 +225,25 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
             restoreSnapshot(queryClient, context?.previousItems)
             if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
-        onSuccess: (res) => {
-            if (!res.data) return
-            queryClient.setQueryData<VibeTransfer[]>(qk.vibeTransfers(projectId), (current) =>
-                current?.map((item) =>
-                    item.id === res.data?.id ? (res.data as VibeTransfer) : item,
-                ),
+        onSuccess: (updated) => {
+            queryClient.setQueryData<VibeTransfer[]>(
+                qk.projects.vibeTransfers(projectId),
+                (current) => current?.map((item) => (item.id === updated.id ? updated : item)),
             )
-            setItems((current) =>
-                current.map((item) =>
-                    item.id === res.data?.id ? (res.data as VibeTransfer) : item,
-                ),
-            )
+            setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)))
         },
     })
 
     const deleteMutation = useMutation({
-        mutationFn: (id: number) =>
-            requireApiResult(api.projects({ projectId })['vibe-transfers']({ id }).delete()),
+        mutationFn: (id: number) => call(contract.vibeTransfers.delete, { params: { id } }),
         onMutate: async (id) => {
             const previousItems = await snapshotQuery<VibeTransfer[]>(
                 queryClient,
-                qk.vibeTransfers(projectId),
+                qk.projects.vibeTransfers(projectId),
             )
-            queryClient.setQueryData<VibeTransfer[]>(qk.vibeTransfers(projectId), (current) =>
-                current?.filter((item) => item.id !== id),
+            queryClient.setQueryData<VibeTransfer[]>(
+                qk.projects.vibeTransfers(projectId),
+                (current) => current?.filter((item) => item.id !== id),
             )
             setItems((current) => current.filter((item) => item.id !== id))
             return { previousItems, previousLocalItems: items }
@@ -264,44 +252,34 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
             restoreSnapshot(queryClient, context?.previousItems)
             if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.vibeTransfers(projectId) }),
+        onSettled: () =>
+            queryClient.invalidateQueries({ queryKey: qk.projects.vibeTransfers(projectId) }),
     })
 
     const reorderMutation = useMutation({
-        mutationFn: ({
-            id,
-            prevId,
-            nextId,
-        }: {
-            id: number
-            prevId: number | null
-            nextId: number | null
-        }) =>
-            requireApiResult(
-                api.projects({ projectId })['vibe-transfers'].reorder.patch({
-                    id,
-                    prevId,
-                    nextId,
-                }),
-            ),
+        mutationFn: ({ id, beforeId, afterId }: OrderPatch) =>
+            call(contract.vibeTransfers.move, { params: { id }, body: { beforeId, afterId } }),
         onMutate: async () => {
             const previousItems = await snapshotQuery<VibeTransfer[]>(
                 queryClient,
-                qk.vibeTransfers(projectId),
+                qk.projects.vibeTransfers(projectId),
             )
-            queryClient.setQueryData(qk.vibeTransfers(projectId), items)
+            queryClient.setQueryData(qk.projects.vibeTransfers(projectId), items)
             return { previousItems, previousLocalItems: query.data ?? [] }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousItems)
             if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.vibeTransfers(projectId) }),
+        onSettled: () =>
+            queryClient.invalidateQueries({ queryKey: qk.projects.vibeTransfers(projectId) }),
     })
 
-    function handleUpdate(id: number, patch: VibeTransferPatchBody) {
-        updateMutation.mutate({ id, patch })
-    }
+    const updateItem = updateMutation.mutate
+    const handleUpdate = useCallback(
+        (id: number, patch: VibeTransferPatch) => updateItem({ id, patch }),
+        [updateItem],
+    )
 
     function handleDelete(id: number) {
         deleteMutation.mutate(id)

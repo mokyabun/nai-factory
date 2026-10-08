@@ -1,4 +1,6 @@
-import type { GroupWithProjects, ProjectGroupId, ProjectGroupItem } from '@/lib/api'
+import type { GroupNode, GroupTreeItem } from '@nai-factory/shared'
+
+export type ProjectGroupId = number | null
 
 import type { ActiveRenameTarget, ProjectSummary } from './atom'
 
@@ -8,21 +10,21 @@ export interface RenameState {
 }
 
 export interface ProjectTreeActions {
-    createGroup: (group: GroupWithProjects | null) => void
-    createProject: (group: GroupWithProjects | null) => void
-    renameGroup: (group: GroupWithProjects) => void
-    deleteGroup: (group: GroupWithProjects) => void
+    createGroup: (group: GroupNode | null) => void
+    createProject: (group: GroupNode | null) => void
+    renameGroup: (group: GroupNode) => void
+    deleteGroup: (group: GroupNode) => void
     selectProject: (project: ProjectSummary) => void
     preloadProject: (project: ProjectSummary) => void
     renameProject: (project: ProjectSummary) => void
     duplicateProject: (project: ProjectSummary) => void
     moveProject: (project: ProjectSummary, groupId: ProjectGroupId) => void
-    moveGroup: (group: GroupWithProjects, parentGroupId: ProjectGroupId) => void
+    moveGroup: (group: GroupNode, parentId: ProjectGroupId) => void
     deleteProject: (project: ProjectSummary) => void
 }
 
 export interface ProjectTreeProps {
-    groups: ProjectGroupItem[]
+    groups: GroupTreeItem[]
     isLoading: boolean
     currentProjectId: number | null
     rename: RenameState
@@ -33,7 +35,7 @@ export interface ProjectTreeProps {
 }
 
 export interface ProjectGroupProps extends Omit<ProjectTreeProps, 'groups' | 'isLoading'> {
-    group: GroupWithProjects
+    group: GroupNode
     depth?: number
 }
 

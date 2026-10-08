@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { compareDisplayOrder, reorderById } from './reorder'
+import { comparePosition, reorderById } from './reorder'
 
 const items = [{ id: 1 }, { id: 2 }, { id: 3 }]
 
@@ -10,8 +10,8 @@ describe('reorderById', () => {
             items: [{ id: 3 }, { id: 1 }, { id: 2 }],
             orderPatch: {
                 id: 3,
-                prevId: null,
-                nextId: 1,
+                beforeId: null,
+                afterId: 1,
             },
         })
     })
@@ -22,16 +22,16 @@ describe('reorderById', () => {
     })
 })
 
-describe('compareDisplayOrder', () => {
+describe('comparePosition', () => {
     it('matches SQLite binary text ordering instead of locale collation', () => {
         expect(
             [
-                { id: 49, displayOrder: 'a0' },
-                { id: 50, displayOrder: 'Zz' },
-            ].sort(compareDisplayOrder),
+                { id: 49, position: 'a0' },
+                { id: 50, position: 'Zz' },
+            ].sort(comparePosition),
         ).toEqual([
-            { id: 50, displayOrder: 'Zz' },
-            { id: 49, displayOrder: 'a0' },
+            { id: 50, position: 'Zz' },
+            { id: 49, position: 'a0' },
         ])
     })
 })

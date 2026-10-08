@@ -1,3 +1,4 @@
+import type { DebugRequest } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Bug, Trash2 } from 'lucide-react'
@@ -5,35 +6,33 @@ import { useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { api, type DebugRequestEntry } from '@/lib/api'
-import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { call, contract } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
+import { formatDateTime } from '@/lib/time'
 
 export const Route = createFileRoute('/log')({ component: LogPage })
 
 function LogPage() {
     const queryClient = useQueryClient()
     const requestsQuery = useQuery({
-        queryKey: qk.debugRequests(),
-        queryFn: async () => {
-            const { data } = await api.debug.requests.get()
-            return data ?? []
-        },
+        queryKey: qk.debug.requests(),
+        queryFn: () => call(contract.debug.requests),
     })
     const clearRequests = useMutation({
-        mutationFn: () => requireApiResult(api.debug.requests.delete()),
+        mutationFn: () => call(contract.debug.clearRequests),
         onMutate: async () => {
-            const previousRequests = await snapshotQuery<DebugRequestEntry[]>(
+            const previousRequests = await snapshotQuery<DebugRequest[]>(
                 queryClient,
-                qk.debugRequests(),
+                qk.debug.requests(),
             )
-            queryClient.setQueryData(qk.debugRequests(), [])
+            queryClient.setQueryData(qk.debug.requests(), [])
             return { previousRequests }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousRequests)
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.debugRequests() }),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.debug.requests() }),
     })
     const requests = requestsQuery.data ?? []
 
@@ -79,7 +78,7 @@ function LogPage() {
     )
 }
 
-function LogRequestRow({ request }: { request: DebugRequestEntry }) {
+function LogRequestRow({ request }: { request: DebugRequest }) {
     const [open, setOpen] = useState(false)
     const statusVariant =
         request.status === 'success'
@@ -135,5 +134,5 @@ function formatDuration(milliseconds: number | null) {
 }
 
 function formatDate(value: string) {
-    return new Date(value).toLocaleString()
+    return formatDateTime(value)
 }

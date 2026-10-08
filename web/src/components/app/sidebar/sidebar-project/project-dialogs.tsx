@@ -1,7 +1,8 @@
+import type { GroupNode } from '@nai-factory/shared'
+
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateGroupDialog } from '@/components/app/dialogs/create-group-dialog'
 import { CreateProjectDialog } from '@/components/app/dialogs/create-project-dialog'
-import type { GroupWithProjects } from '@/lib/api'
 
 import type { DeleteTarget, ProjectDialog } from './atom'
 
@@ -66,11 +67,11 @@ function getDeleteDescription(deleteTarget: DeleteTarget | null) {
     return `"${deleteTarget.project.name}" 프로젝트와 모든 씬, 이미지를 삭제합니다. 이 작업은 되돌릴 수 없습니다.`
 }
 
-function countDescendantGroups(group: GroupWithProjects): number {
+function countDescendantGroups(group: GroupNode): number {
     return group.groups.reduce((count, child) => count + 1 + countDescendantGroups(child), 0)
 }
 
-function countProjects(group: GroupWithProjects): number {
+function countProjects(group: GroupNode): number {
     return group.groups.reduce(
         (count, child) => count + countProjects(child),
         group.projects.length,

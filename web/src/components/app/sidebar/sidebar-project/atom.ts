@@ -1,17 +1,16 @@
+import type { GroupNode, ProjectSummary } from '@nai-factory/shared'
 import { atom } from 'jotai'
-
-import type { GroupWithProjects, ProjectGroupItem } from '@/lib/api'
 
 const COLLAPSED_GROUP_IDS_STORAGE_KEY = 'nai-factory.sidebar.project.collapsedGroupIds'
 
-export type ProjectSummary = ProjectGroupItem['projects'][number]
+export type { ProjectSummary }
 export type ActiveRenameTarget = { type: 'group'; id: number } | { type: 'project'; id: number }
 export type DeleteTarget =
-    | { type: 'group'; group: GroupWithProjects }
+    | { type: 'group'; group: GroupNode }
     | { type: 'project'; project: ProjectSummary }
 export type ProjectDialog =
-    | { type: 'create-group'; group: GroupWithProjects | null }
-    | { type: 'create-project'; group: GroupWithProjects | null }
+    | { type: 'create-group'; group: GroupNode | null }
+    | { type: 'create-project'; group: GroupNode | null }
     | { type: 'delete'; target: DeleteTarget }
     | null
 
