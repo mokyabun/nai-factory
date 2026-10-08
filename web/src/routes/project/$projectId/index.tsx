@@ -31,7 +31,7 @@ import {
     Trash2,
     X,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { type PointerEvent, useEffect, useRef, useState } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
 import { ExportDialog } from '@/components/app/project/export-dialog'
@@ -84,7 +84,7 @@ const SCENE_CARD_SIZE_OPTIONS: Array<{ value: ProjectSettings['sceneCardSize']; 
 ]
 
 interface SelectionDragState {
-    startIndex: number
+    startIndex: number | null
     action: 'select' | 'deselect'
     baseSelectedIds: Set<number>
 }
@@ -490,6 +490,8 @@ function ProjectPageContent() {
     function applySelectionDragRange(state: SelectionDragState, targetIndex: number) {
         if (items.length === 0) return
 
+        if (state.startIndex === null) state.startIndex = targetIndex
+
         const clampedTargetIndex = Math.min(Math.max(targetIndex, 0), items.length - 1)
         const from = Math.min(state.startIndex, clampedTargetIndex)
         const to = Math.max(state.startIndex, clampedTargetIndex)
@@ -521,6 +523,17 @@ function ProjectPageContent() {
         if (!state) return
 
         applySelectionDragRange(state, index)
+    }
+
+    function handleGridPointerDown(event: PointerEvent<HTMLDivElement>) {
+        if (event.button !== 0 || event.target !== event.currentTarget) return
+
+        event.preventDefault()
+        selectionDragRef.current = {
+            startIndex: null,
+            action: 'select',
+            baseSelectedIds: new Set(selectedIds),
+        }
     }
 
     function toggleSelect(id: number) {
@@ -746,7 +759,10 @@ function ProjectPageContent() {
                     onDragEnd={handleDragEnd}
                 >
                     <SortableContext items={items.map((s) => s.id)} strategy={rectSortingStrategy}>
-                        <div className="flex flex-wrap gap-4 pb-4">
+                        <div
+                            className="flex min-h-0 flex-1 flex-wrap content-start gap-4 pb-4"
+                            onPointerDown={handleGridPointerDown}
+                        >
                             {items.map((scene, index) => (
                                 <SortableSceneItem
                                     key={scene.id}

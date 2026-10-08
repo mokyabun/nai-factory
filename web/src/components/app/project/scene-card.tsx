@@ -265,7 +265,8 @@ function SceneCardContent({
                                     variant="ghost"
                                     size="icon-xs"
                                     aria-label={`${scene.name} 메뉴 열기`}
-                                    className="pointer-events-none absolute top-1.5 right-1.5 z-30 rounded bg-black/35 text-white opacity-0 shadow-sm hover:bg-black/55 hover:text-white group-hover/scene-card:pointer-events-auto group-hover/scene-card:opacity-100 aria-expanded:pointer-events-auto aria-expanded:opacity-100"
+                                    className="pointer-events-none absolute top-1.5 right-1.5 z-30 rounded bg-black/35 text-white opacity-0 shadow-sm hover:bg-black/55 hover:text-white group-hover/scene-card:pointer-events-auto group-hover/scene-card:opacity-100 aria-expanded:pointer-events-auto aria-expanded:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
+                                    onPointerDown={(e) => e.stopPropagation()}
                                 />
                             }
                         >
@@ -303,7 +304,7 @@ function SceneCardContent({
                             type="button"
                             aria-label={selected ? `${scene.name} 선택 해제` : `${scene.name} 선택`}
                             className={cn(
-                                'pointer-events-none absolute top-1.5 left-1.5 z-20 flex h-5 w-5 items-center justify-center rounded border-2 opacity-0 shadow-sm transition-all group-hover/scene-card:pointer-events-auto group-hover/scene-card:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100',
+                                'pointer-events-none absolute top-1.5 left-1.5 z-20 flex h-5 w-5 items-center justify-center rounded border-2 opacity-0 shadow-sm transition-all group-hover/scene-card:pointer-events-auto group-hover/scene-card:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100',
                                 selected
                                     ? 'border-primary bg-primary text-primary-foreground'
                                     : 'border-white/75 bg-black/35 text-transparent hover:border-primary hover:bg-primary hover:text-primary-foreground',
@@ -414,6 +415,7 @@ function SceneCardContent({
                             size="sm"
                             className="h-8 flex-1 gap-1 rounded-none text-xs"
                             aria-label="큐 추가"
+                            onPointerDown={(e) => e.stopPropagation()}
                             onClick={() => enqueue.mutate('back')}
                             disabled={enqueue.isPending}
                         >
@@ -426,6 +428,7 @@ function SceneCardContent({
                             size="sm"
                             className="h-8 flex-1 gap-1 rounded-none text-xs text-muted-foreground hover:text-destructive"
                             aria-label="큐 삭제"
+                            onPointerDown={(e) => e.stopPropagation()}
                             onClick={() => clearQueue.mutate()}
                             disabled={clearQueue.isPending || !inQueue}
                         >
@@ -438,6 +441,7 @@ function SceneCardContent({
                             size="sm"
                             className="h-8 flex-1 gap-1 rounded-none text-xs"
                             aria-label="수정"
+                            onPointerDown={(e) => e.stopPropagation()}
                             onClick={() =>
                                 navigate({
                                     to: '/scene/$sceneId',

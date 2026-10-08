@@ -30,13 +30,14 @@ export function SortableSceneItem({
     onSelectDragStart,
     onSelectDragEnter,
 }: SortableSceneItemProps) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({
         id: scene.id,
+        animateLayoutChanges: () => false,
     })
 
     const style = {
         transform: CSS.Transform.toString(transform),
-        transition,
+        transition: 'none',
     }
 
     return (
@@ -58,11 +59,10 @@ export function SortableSceneItem({
                 onSelectDragStart={onSelectDragStart}
             />
 
-            {/* Drag handle */}
             <div
                 {...attributes}
                 {...listeners}
-                className="pointer-events-none absolute top-1 left-1/2 z-30 flex -translate-x-1/2 cursor-grab items-center justify-center rounded bg-black/50 px-2 py-0.5 opacity-0 transition-opacity group-hover/scene-item:pointer-events-auto group-hover/scene-item:opacity-100 active:cursor-grabbing"
+                className="pointer-events-none absolute top-1 left-1/2 z-30 flex -translate-x-1/2 cursor-grab items-center justify-center rounded bg-black/50 px-2 py-0.5 opacity-0 transition-opacity group-hover/scene-item:pointer-events-auto group-hover/scene-item:opacity-100 active:cursor-grabbing [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
             >
                 <GripHorizontal className="h-3.5 w-3.5 text-white" />
             </div>
