@@ -1,4 +1,5 @@
 import {
+    isNovelAIV5Model,
     NOVEL_AI_MODEL_OPTIONS,
     NOVEL_AI_NOISE_SCHEDULE_OPTIONS,
     NOVEL_AI_SAMPLER_OPTIONS,
@@ -62,6 +63,7 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
     const queryClient = useQueryClient()
     const [draftParams, setDraftParams] = useAtom(parametersPanelParamsAtom)
     const params = draftParams ?? project.parameters
+    const isV5 = isNovelAIV5Model(params.model)
     const [activeTab, setActiveTab] = useAtom(parametersPanelActiveTabAtom)
 
     useEffect(() => {
@@ -150,6 +152,13 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {isV5 && (
+                                <p className="text-xs text-muted-foreground">
+                                    V5는 Karras를 사용하며 Variety+, 바이브 전송, 캐릭터 레퍼런스를
+                                    지원하지 않습니다.
+                                </p>
+                            )}
 
                             {/* Size */}
                             <div className="flex gap-3">
@@ -280,7 +289,8 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
                             <div className="flex flex-col gap-1.5">
                                 <Label>노이즈 스케줄</Label>
                                 <Select
-                                    value={params.noiseSchedule}
+                                    value={isV5 ? 'karras' : params.noiseSchedule}
+                                    disabled={isV5}
                                     onValueChange={(v) =>
                                         v &&
                                         set('noiseSchedule', v as ProjectParams['noiseSchedule'])
@@ -311,7 +321,10 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
                                     <div key={key} className="flex items-center justify-between">
                                         <Label>{label}</Label>
                                         <Switch
-                                            checked={params[key] as boolean}
+                                            checked={
+                                                key === 'varietyPlus' && isV5 ? false : params[key]
+                                            }
+                                            disabled={key === 'varietyPlus' && isV5}
                                             onCheckedChange={(v) => set(key, v)}
                                         />
                                     </div>
@@ -320,7 +333,14 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
                         </TabsContent>
 
                         <TabsContent value="vibe" className="mt-0 py-4">
-                            <VibeTransferEditor projectId={project.id} />
+                            {isV5 ? (
+                                <p className="text-xs text-muted-foreground">
+                                    V5는 바이브 전송을 지원하지 않습니다. 저장된 바이브 이미지는
+                                    다른 모델에서 사용할 수 있습니다.
+                                </p>
+                            ) : (
+                                <VibeTransferEditor projectId={project.id} />
+                            )}
                         </TabsContent>
 
                         <TabsContent value="character" className="mt-0 py-4">

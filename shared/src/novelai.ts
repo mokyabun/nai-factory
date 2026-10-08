@@ -2,6 +2,8 @@ import * as z from 'zod'
 
 /** Novel AI Model */
 export const NOVEL_AI_MODELS = [
+    'nai-diffusion-5-full',
+    'nai-diffusion-5-curated',
     'nai-diffusion-4-5-full',
     'nai-diffusion-4-5-curated',
     'nai-diffusion-4-full',
@@ -11,7 +13,13 @@ export const NOVEL_AI_MODELS = [
 export const NovelAIModel = z.enum(NOVEL_AI_MODELS)
 export type NovelAIModel = z.infer<typeof NovelAIModel>
 
+export function isNovelAIV5Model(model: string): boolean {
+    return model === 'nai-diffusion-5-full' || model === 'nai-diffusion-5-curated'
+}
+
 export const NOVEL_AI_MODEL_OPTIONS = [
+    { label: 'NAI Diffusion 5 Full', value: 'nai-diffusion-5-full' },
+    { label: 'NAI Diffusion 5 Curated', value: 'nai-diffusion-5-curated' },
     { label: 'NAI Diffusion 4.5 Full', value: 'nai-diffusion-4-5-full' },
     { label: 'NAI Diffusion 4.5 Curated', value: 'nai-diffusion-4-5-curated' },
     { label: 'NAI Diffusion 4 Full', value: 'nai-diffusion-4-full' },
@@ -137,7 +145,7 @@ export interface NovelAIParameters {
     noise_schedule: NovelAINoiseSchedule
 
     /** Vibe Transfer */
-    normalize_reference_strength_multiple: boolean
+    normalize_reference_strength_multiple?: boolean
     reference_image_multiple?: string[]
     reference_image_multiple_cached?: NovelAICachedImage[]
     reference_strength_multiple?: number[]
@@ -167,7 +175,7 @@ export interface NovelAIParameters {
     use_coords: boolean
     add_original_image: boolean
     inpaintImg2ImgStrength: number
-    skip_cfg_above_sigma: 58 | null
+    skip_cfg_above_sigma?: 58 | null
 
     v4_prompt: NovelAIV4Prompt
     v4_negative_prompt: NovelAIV4NegativePrompt

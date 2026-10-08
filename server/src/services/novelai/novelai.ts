@@ -11,6 +11,7 @@ import type {
     SimpleNovelAIParameters,
     UserData,
 } from '@nai-factory/shared'
+import { isNovelAIV5Model } from '@nai-factory/shared'
 import { unzipSync } from 'fflate'
 import type { Options } from 'ky'
 import ky from 'ky'
@@ -33,6 +34,9 @@ export type NovelAIAnlasStatus = {
 }
 
 export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Promise<string> {
+    if (isNovelAIV5Model(request.model)) {
+        throw new Error('NovelAI V5 does not support Vibe Transfer')
+    }
     const startedAt = Date.now()
     log.debug(
         { model: request.model, informationExtracted: request.information_extracted },
@@ -184,12 +188,17 @@ function getUploadRefs(params: SimpleNovelAIParameters) {
 type UploadRefs = ReturnType<typeof getUploadRefs>
 
 function createGenerateImageRequest(params: SimpleNovelAIParameters, seed: number): NovelAIRequest {
+    const isV5 = isNovelAIV5Model(params.model)
     const enabledChars = params.characterPrompts.filter((c) => c.enabled)
     const vibeTransfers = params.vibeTransfers ?? []
     const characterReferences = params.characterReferences ?? []
 
+    if (isV5 && (vibeTransfers.length > 0 || characterReferences.length > 0)) {
+        throw new Error('NovelAI V5 does not support Vibe Transfer or Character Reference')
+    }
+
     const parameters: NovelAIParameters = {
-        params_version: 3,
+        params_version: isV5 ? 4 : 3,
 
         // Prompts
         characterPrompts: enabledChars,
@@ -207,7 +216,7 @@ function createGenerateImageRequest(params: SimpleNovelAIParameters, seed: numbe
         seed: seed,
         sampler: params.sampler,
         cfg_rescale: params.promptGuidanceRescale,
-        noise_schedule: params.noiseSchedule,
+        noise_schedule: isV5 ? 'karras' : params.noiseSchedule,
 
         v4_prompt: {
             caption: {
@@ -252,6 +261,12 @@ function createGenerateImageRequest(params: SimpleNovelAIParameters, seed: numbe
         legacy: false,
         legacy_v3_extend: false,
         legacy_uc: false,
+    }
+
+    if (isV5) {
+        delete parameters.skip_cfg_above_sigma
+        delete parameters.normalize_reference_strength_multiple
+        parameters.deliberate_euler_ancestral_bug = false
     }
 
     if (vibeTransfers.length > 0) {

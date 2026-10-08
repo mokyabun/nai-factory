@@ -1,5 +1,6 @@
 import type { Parameters } from '@nai-factory/shared'
 import {
+    isNovelAIV5Model,
     NOVEL_AI_MODEL_OPTIONS,
     NOVEL_AI_NOISE_SCHEDULE_OPTIONS,
     NOVEL_AI_SAMPLER_OPTIONS,
@@ -23,6 +24,7 @@ interface PlaygroundParametersProps {
 }
 
 export function PlaygroundParameters({ parameters, onChange }: PlaygroundParametersProps) {
+    const isV5 = isNovelAIV5Model(parameters.model)
     function sliderValue(value: number | readonly number[], fallback: number) {
         return typeof value === 'number' ? value : (value[0] ?? fallback)
     }
@@ -47,6 +49,12 @@ export function PlaygroundParameters({ parameters, onChange }: PlaygroundParamet
                     </SelectContent>
                 </Select>
             </div>
+
+            {isV5 && (
+                <p className="text-xs text-muted-foreground">
+                    V5는 Karras를 사용하며 Variety+를 지원하지 않습니다.
+                </p>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
                 <NumberField
@@ -131,7 +139,8 @@ export function PlaygroundParameters({ parameters, onChange }: PlaygroundParamet
             <div className="flex flex-col gap-1.5">
                 <Label>노이즈 스케줄</Label>
                 <Select
-                    value={parameters.noiseSchedule}
+                    value={isV5 ? 'karras' : parameters.noiseSchedule}
+                    disabled={isV5}
                     onValueChange={(value) =>
                         onChange('noiseSchedule', value as Parameters['noiseSchedule'])
                     }
@@ -157,7 +166,8 @@ export function PlaygroundParameters({ parameters, onChange }: PlaygroundParamet
                 />
                 <ToggleRow
                     label="Variety+"
-                    checked={parameters.varietyPlus}
+                    checked={!isV5 && parameters.varietyPlus}
+                    disabled={isV5}
                     onChange={(checked) => onChange('varietyPlus', checked)}
                 />
             </div>
@@ -228,15 +238,17 @@ function ToggleRow({
     label,
     checked,
     onChange,
+    disabled,
 }: {
     label: string
     checked: boolean
     onChange: (checked: boolean) => void
+    disabled?: boolean
 }) {
     return (
         <div className="flex items-center justify-between gap-3">
             <Label>{label}</Label>
-            <Switch checked={checked} onCheckedChange={onChange} />
+            <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
         </div>
     )
 }

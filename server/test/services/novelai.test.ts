@@ -3,6 +3,13 @@ import { rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { SimpleNovelAIParameters } from '@nai-factory/shared'
+import {
+    DEFAULT_PROJECT_PARAMETERS,
+    NOVEL_AI_MODELS,
+    Parameters,
+    PlaygroundEnqueueBody,
+    ProjectPatchBody,
+} from '@nai-factory/shared'
 import { zipSync } from 'fflate'
 
 type KyPostOptions = {
@@ -105,6 +112,88 @@ describe('NovelAI cached reference requests', () => {
 
         const request = getRequestFromMultipart(options)
         expect(request.parameters).not.toHaveProperty('reference_image_multiple_cached')
+    })
+
+    for (const model of ['nai-diffusion-5-full', 'nai-diffusion-5-curated'] as const) {
+        it(`generates with ${model} using V5 parameters and character prompts`, async () => {
+            const character = {
+                enabled: true,
+                center: { x: 0.35, y: 0.7 },
+                prompt: 'a girl',
+                uc: 'bad hands',
+            }
+            await generateImage('key', {
+                ...baseParams,
+                model,
+                prompt: '공원에서 고양이와 소녀',
+                characterPrompts: [character, { ...character, enabled: false }],
+                useCharacterPositions: true,
+                varietyPlus: true,
+                noiseSchedule: 'exponential',
+            })
+
+            const options = getPostOptions()
+            expect(getMultipartPartNames(options)).toEqual(['request'])
+            const request = getRequestFromMultipart(options)
+            expect(request).toMatchObject({
+                model,
+                action: 'generate',
+                input: '공원에서 고양이와 소녀',
+                parameters: {
+                    params_version: 4,
+                    noise_schedule: 'karras',
+                    seed: 12345,
+                    sampler: 'k_euler',
+                    deliberate_euler_ancestral_bug: false,
+                    characterPrompts: [character],
+                    v4_prompt: {
+                        caption: {
+                            base_caption: '공원에서 고양이와 소녀',
+                            char_captions: [
+                                { char_caption: 'a girl', centers: [character.center] },
+                            ],
+                        },
+                        use_coords: true,
+                    },
+                    v4_negative_prompt: {
+                        caption: {
+                            char_captions: [
+                                { char_caption: 'bad hands', centers: [character.center] },
+                            ],
+                        },
+                    },
+                },
+            })
+            expect(request.parameters).not.toHaveProperty('skip_cfg_above_sigma')
+            expect(request.parameters).not.toHaveProperty('normalize_reference_strength_multiple')
+            expect(request.parameters).not.toHaveProperty('reference_image_multiple_cached')
+            expect(request.parameters).not.toHaveProperty('director_reference_images_cached')
+        })
+    }
+
+    it('preserves V4.5 noise schedule and Variety+ settings', async () => {
+        await generateImage('key', {
+            ...baseParams,
+            varietyPlus: true,
+            noiseSchedule: 'exponential',
+        })
+        expect(getRequestFromMultipart(getPostOptions()).parameters).toMatchObject({
+            params_version: 3,
+            noise_schedule: 'exponential',
+            skip_cfg_above_sigma: 58,
+        })
+    })
+
+    it('rejects unsupported V5 references before posting', async () => {
+        // eslint-disable-next-line typescript/await-thenable -- Bun async resolves/rejects matchers are awaited even though their types return void.
+        await expect(
+            generateImage('key', {
+                ...baseParams,
+                model: 'nai-diffusion-5-full',
+                vibeTransfers: [{ cacheSecretKey: 'vibe-key', strength: 0.6 }],
+            }),
+        ).rejects.toThrow('NovelAI V5 does not support Vibe Transfer or Character Reference')
+        expect(postMock).not.toHaveBeenCalled()
     })
 
     it('uploads character references as director_ref parts before request', async () => {
@@ -244,6 +333,18 @@ describe('encodeVibe', () => {
         )
     })
 
+    it('rejects V5 vibe encoding before posting', async () => {
+        // eslint-disable-next-line typescript/await-thenable -- Bun async resolves/rejects matchers are awaited even though their types return void.
+        await expect(
+            encodeVibe('key', {
+                image: 'image',
+                information_extracted: 1,
+                model: 'nai-diffusion-5-curated',
+            }),
+        ).rejects.toThrow('NovelAI V5 does not support Vibe Transfer')
+        expect(postMock).not.toHaveBeenCalled()
+    })
+
     it('posts image and request as multipart binary parts', async () => {
         const result = await encodeVibe('key', {
             image: Buffer.from([1, 2, 3]).toString('base64'),
@@ -270,6 +371,19 @@ describe('encodeVibe', () => {
             model: 'nai-diffusion-4-5-full',
         })
     })
+})
+
+describe('NovelAI model validation', () => {
+    for (const model of NOVEL_AI_MODELS) {
+        it(`accepts ${model} in project and playground parameters`, () => {
+            const parameters = { ...DEFAULT_PROJECT_PARAMETERS, model }
+            expect(Parameters.parse(parameters).model).toBe(model)
+            expect(ProjectPatchBody.parse({ parameters }).parameters?.model).toBe(model)
+            expect(
+                PlaygroundEnqueueBody.parse({ prompt: 'a cat', parameters }).parameters.model,
+            ).toBe(model)
+        })
+    }
 })
 
 describe('fetchAnlasStatus', () => {

@@ -1,7 +1,8 @@
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it, spyOn } from 'bun:test'
 import { rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { DEFAULT_GLOBAL_SETTINGS, DEFAULT_PROJECT_PARAMETERS } from '@nai-factory/shared'
 import { eq, inArray } from 'drizzle-orm'
 
 const tempDbPath = join(import.meta.dir, `character-reference-${Date.now()}.db`)
@@ -14,6 +15,12 @@ const [{ createApp }, dbModule] = await Promise.all([
 ])
 
 const { characterReferences, db, groups, projects, scenes } = dbModule
+
+const { runJob } = await import('../../src/services/app/queue-runner')
+const novelAIService = await import('../../src/services/novelai/novelai')
+const settingsService = await import('../../src/services/app/settings')
+const vibeImageService = await import('../../src/services/novelai/vibe-image')
+const characterReferenceService = await import('../../src/services/novelai/character-reference')
 
 beforeAll(async () => {
     await rm(tempImagePath, { force: true })
@@ -108,6 +115,100 @@ describe('character reference domain', () => {
         )
         expect(await afterDeleteResponse.json()).toEqual([])
     })
+})
+
+describe('V5 project generation', () => {
+    for (const model of ['nai-diffusion-5-full', 'nai-diffusion-5-curated'] as const) {
+        it(`skips saved references for ${model} without changing them`, async () => {
+            const project = await seedProject()
+            const ref = await seedCharacterReference(project.id)
+            await db
+                .update(projects)
+                .set({
+                    prompt: 'a cat',
+                    parameters: { ...DEFAULT_PROJECT_PARAMETERS, model },
+                })
+                .where(eq(projects.id, project.id))
+            const [vibe] = await db
+                .insert(dbModule.vibeTransfers)
+                .values({
+                    projectId: project.id,
+                    displayOrder: 'a0',
+                    sourceImagePath: '/missing-v5-reference.png',
+                })
+                .returning()
+            const [scene] = await db
+                .insert(scenes)
+                .values({
+                    projectId: project.id,
+                    name: 'V5 scene',
+                    displayOrder: 'a0',
+                })
+                .returning()
+            if (!scene || !vibe) throw new Error('Failed to seed V5 scene and vibe')
+            const [variation] = await db
+                .insert(dbModule.sceneVariations)
+                .values({
+                    sceneId: scene.id,
+                    displayOrder: 'a0',
+                    variables: [],
+                })
+                .returning()
+            if (!variation) throw new Error('Failed to seed V5 variation')
+            const [job] = await db
+                .insert(dbModule.queueItems)
+                .values({
+                    projectId: project.id,
+                    sceneId: scene.id,
+                    sceneVariationId: variation.id,
+                    sortIndex: 0,
+                })
+                .returning()
+            if (!job) throw new Error('Failed to seed V5 job')
+
+            const settingsSpy = spyOn(settingsService, 'get').mockReturnValue({
+                ...DEFAULT_GLOBAL_SETTINGS,
+                novelai: { apiKey: 'test-key', mode: 'live' },
+            })
+            const vibesSpy = spyOn(vibeImageService, 'checkVibesForProject')
+            const referencesSpy = spyOn(
+                characterReferenceService,
+                'prepareCharacterReferencesForProject',
+            )
+            // Stop after capturing the generation request, before image storage or network access.
+            const generateSpy = spyOn(novelAIService, 'generateImage').mockRejectedValue(
+                new Error('V5 request captured'),
+            )
+            try {
+                // eslint-disable-next-line typescript/await-thenable -- Bun async resolves/rejects matchers are awaited even though their types return void.
+                await expect(runJob(job.id).next()).rejects.toThrow('V5 request captured')
+                expect(vibesSpy).not.toHaveBeenCalled()
+                expect(referencesSpy).not.toHaveBeenCalled()
+                expect(generateSpy.mock.calls[0]?.[1]).toMatchObject({
+                    model,
+                    vibeTransfers: [],
+                    characterReferences: [],
+                })
+                expect(
+                    await db
+                        .select()
+                        .from(characterReferences)
+                        .where(eq(characterReferences.id, ref.id)),
+                ).toEqual([ref])
+                expect(
+                    await db
+                        .select()
+                        .from(dbModule.vibeTransfers)
+                        .where(eq(dbModule.vibeTransfers.id, vibe.id)),
+                ).toEqual([vibe])
+            } finally {
+                generateSpy.mockRestore()
+                referencesSpy.mockRestore()
+                vibesSpy.mockRestore()
+                settingsSpy.mockRestore()
+            }
+        })
+    }
 })
 
 describe('group domain', () => {

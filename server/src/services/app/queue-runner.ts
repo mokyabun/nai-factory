@@ -1,4 +1,5 @@
 import type { GlobalSettings, Prompt, SimpleNovelAIParameters } from '@nai-factory/shared'
+import { isNovelAIV5Model } from '@nai-factory/shared'
 import { asc, eq } from 'drizzle-orm'
 
 import {
@@ -38,11 +39,12 @@ function generationParametersMetadata(params: SimpleNovelAIParameters) {
         promptGuidance: params.promptGuidance,
         promptGuidanceRescale: params.promptGuidanceRescale,
         sampler: params.sampler,
-        noiseSchedule: params.noiseSchedule,
+        noiseSchedule: isNovelAIV5Model(params.model) ? 'karras' : params.noiseSchedule,
         seed: params.seed,
         qualityToggle: params.qualityToggle,
-        varietyPlus: params.varietyPlus,
-        normalizeReferenceStrengthValues: params.normalizeReferenceStrengthValues,
+        varietyPlus: !isNovelAIV5Model(params.model) && params.varietyPlus,
+        normalizeReferenceStrengthValues:
+            !isNovelAIV5Model(params.model) && params.normalizeReferenceStrengthValues,
         useCharacterPositions: params.useCharacterPositions,
     }
 }
@@ -293,15 +295,19 @@ export async function* runJob(jobId: number) {
     )
 
     const [vibeTransfers, characterReferences] = await Promise.all([
-        vibeImageService.checkVibesForProject(
-            project.id,
-            globalSettings.novelai.apiKey,
-            project.parameters.model,
-        ),
-        characterReferenceService.prepareCharacterReferencesForProject(
-            project.id,
-            project.parameters.model,
-        ),
+        isNovelAIV5Model(project.parameters.model)
+            ? Promise.resolve([])
+            : vibeImageService.checkVibesForProject(
+                  project.id,
+                  globalSettings.novelai.apiKey,
+                  project.parameters.model,
+              ),
+        isNovelAIV5Model(project.parameters.model)
+            ? Promise.resolve([])
+            : characterReferenceService.prepareCharacterReferencesForProject(
+                  project.id,
+                  project.parameters.model,
+              ),
     ])
     log.debug(
         {

@@ -1,4 +1,5 @@
 import type { PromptVariable } from '@nai-factory/shared'
+import { isNovelAIV5Model } from '@nai-factory/shared'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom } from 'jotai'
 import { AlignLeft } from 'lucide-react'
@@ -11,7 +12,11 @@ import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
 
-import { createSidebarPromptDraft, sidebarPromptDraftAtom } from './atom'
+import {
+    createSidebarPromptDraft,
+    sidebarParameterParamsAtom,
+    sidebarPromptDraftAtom,
+} from './atom'
 import { CharacterPromptEditor } from './character-prompt-editor'
 import { CharacterReferenceEditor } from './character-reference-editor'
 import { ParameterEditor } from './parameter-editor'
@@ -48,6 +53,7 @@ export function SidebarPrompt({ projectId }: SidebarPromptProps) {
 export function SidebarPromptContent({ projectId }: { projectId: number }) {
     const queryClient = useQueryClient()
     const [draft, setDraft] = useAtom(sidebarPromptDraftAtom)
+    const [parameterDraft] = useAtom(sidebarParameterParamsAtom)
     const { loadedProjectId, prompt, negativePrompt, variables } = draft
 
     const projectQuery = useQuery({
@@ -134,6 +140,7 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
     }
 
     const project = projectQuery.data
+    const isV5 = isNovelAIV5Model(parameterDraft?.model ?? project?.parameters.model ?? '')
     const completionVariables = useMemo(
         () => [...(settingsQuery.data?.globalVariables ?? []), ...variables],
         [settingsQuery.data?.globalVariables, variables],
@@ -200,11 +207,20 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
                         value="reference"
                         className="flex flex-col gap-4 overflow-y-auto px-2 py-4 scrollbar-none"
                     >
-                        <span className="text-lg">바이브 이미지</span>
-                        <VibeTransferEditor projectId={project.id} />
+                        {isV5 ? (
+                            <p className="text-xs text-muted-foreground">
+                                V5는 바이브 전송과 캐릭터 레퍼런스를 지원하지 않습니다. 저장된
+                                레퍼런스는 다른 모델에서 사용할 수 있습니다.
+                            </p>
+                        ) : (
+                            <>
+                                <span className="text-lg">바이브 이미지</span>
+                                <VibeTransferEditor projectId={project.id} />
 
-                        <span className="text-lg mt-4">캐릭터 레퍼런스</span>
-                        <CharacterReferenceEditor projectId={project.id} />
+                                <span className="text-lg mt-4">캐릭터 레퍼런스</span>
+                                <CharacterReferenceEditor projectId={project.id} />
+                            </>
+                        )}
                     </SidebarPromptTabsContent>
 
                     <SidebarPromptTabsContent

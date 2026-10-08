@@ -1,4 +1,5 @@
 import {
+    isNovelAIV5Model,
     NOVEL_AI_MODEL_OPTIONS,
     NOVEL_AI_NOISE_SCHEDULE_OPTIONS,
     NOVEL_AI_SAMPLER_OPTIONS,
@@ -36,6 +37,7 @@ interface ParameterEditorProps {
 export function ParameterEditor({ project }: ParameterEditorProps) {
     const queryClient = useQueryClient()
     const params = useAtomValue(sidebarParameterParamsAtom) ?? project.parameters
+    const isV5 = isNovelAIV5Model(params.model)
     const setParams = useSetAtom(sidebarParameterParamsAtom)
     const latestProjectIdRef = useRef(project.id)
     const latestParamsRef = useRef<ProjectParams>({ ...project.parameters })
@@ -112,6 +114,13 @@ export function ParameterEditor({ project }: ParameterEditorProps) {
                     </SelectContent>
                 </Select>
             </div>
+
+            {isV5 && (
+                <p className="text-xs text-muted-foreground">
+                    V5는 Karras를 사용하며 Variety+, 바이브 전송, 캐릭터 레퍼런스를 지원하지
+                    않습니다.
+                </p>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
@@ -224,7 +233,8 @@ export function ParameterEditor({ project }: ParameterEditorProps) {
             <div className="flex flex-col gap-1.5">
                 <Label>노이즈 스케줄</Label>
                 <Select
-                    value={params.noiseSchedule}
+                    value={isV5 ? 'karras' : params.noiseSchedule}
+                    disabled={isV5}
                     onValueChange={(v) =>
                         v && set('noiseSchedule', v as ProjectParams['noiseSchedule'])
                     }
@@ -253,7 +263,8 @@ export function ParameterEditor({ project }: ParameterEditorProps) {
                     <div key={key} className="flex items-center justify-between">
                         <Label>{label}</Label>
                         <Switch
-                            checked={params[key] as boolean}
+                            checked={key === 'varietyPlus' && isV5 ? false : params[key]}
+                            disabled={key === 'varietyPlus' && isV5}
                             onCheckedChange={(v) => set(key, v)}
                         />
                     </div>
