@@ -39,12 +39,17 @@ Cached vibe transfer images can be reused without re-uploading them every time.
 - Global and scene-level variables
 - Tag autocomplete
 - NovelAI image generation queue
+- NovelAI Diffusion V5 Full and Curated, alongside V4.5 and V4
 - Playground mode for quick generations
 - Character reference and vibe transfer support
 - Cached vibe transfer images
 - Local image and thumbnail storage
 - SD Studio import
 - Local SQLite database
+
+V5 uses the Karras noise schedule and currently does not support Variety+, Vibe Transfer,
+or Character Reference. Existing project reference images and settings are retained when
+switching models, but are not applied to V5 generations.
 
 ## Getting Started
 

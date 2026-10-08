@@ -355,7 +355,7 @@ function ImagesPage() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 shrink-0"
+                        className="shrink-0"
                         onClick={goBack}
                         aria-label="프로젝트로 돌아가기"
                     >

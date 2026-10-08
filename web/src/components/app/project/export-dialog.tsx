@@ -195,7 +195,7 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
                             render={
                                 <button
                                     type="button"
-                                    className="flex h-6 w-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                                    className="flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                                     aria-label="템플릿 사용법"
                                 />
                             }
@@ -217,7 +217,7 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
                     id="output-template"
                     value={template}
                     onChange={(event) => updateTemplate(event.target.value)}
-                    className="font-mono text-xs"
+                    className="font-mono"
                 />
                 <p className="truncate text-[11px] text-muted-foreground">
                     예상 출력: <span className="font-mono">{preview}</span>

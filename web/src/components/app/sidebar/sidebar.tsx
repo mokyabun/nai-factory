@@ -195,13 +195,13 @@ function SidebarContent({ projectId }: AppSidebarProps) {
         else setOpen(nextOpen)
     }
 
-    function renderIconRail(mobile = false) {
+    function renderIconRail() {
         return (
             <>
                 <SidebarHeader />
                 <Base.SidebarContent>
                     <Base.SidebarGroup className="h-full">
-                        <Base.SidebarGroupContent className="h-full px-1.5 md:px-0">
+                        <Base.SidebarGroupContent className="h-full">
                             <Base.SidebarMenu className="flex h-full flex-col">
                                 {topItems.map((item) => (
                                     <Base.SidebarMenuItem key={item.title}>
@@ -215,11 +215,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
                                             }
                                             onClick={() => handleItemClick(item)}
                                             isActive={isSidebarItemActive(item)}
-                                            className={
-                                                mobile
-                                                    ? 'h-10 justify-center px-2.5 [&>span]:sr-only'
-                                                    : 'px-2.5 md:px-2'
-                                            }
+                                            className="h-10 justify-center p-2.5 [&_svg]:size-5 [&>span]:sr-only"
                                         >
                                             <item.icon />
                                             <span>{item.title}</span>
@@ -239,11 +235,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
                                                 }
                                                 onClick={() => handleItemClick(item)}
                                                 isActive={isSidebarItemActive(item)}
-                                                className={
-                                                    mobile
-                                                        ? 'h-10 justify-center px-2.5 [&>span]:sr-only'
-                                                        : 'px-2.5 md:px-2'
-                                                }
+                                                className="h-10 justify-center p-2.5 [&_svg]:size-5 [&>span]:sr-only"
                                             >
                                                 <item.icon />
                                                 <span>{item.title}</span>
@@ -285,7 +277,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
                     </SheetHeader>
                     <div className="flex h-full min-h-0 w-full">
                         <div className="flex w-[calc(var(--sidebar-width-icon)_+_1px)] shrink-0 flex-col border-e [&_[data-sidebar=menu-button]>div:last-child]:sr-only">
-                            {renderIconRail(true)}
+                            {renderIconRail()}
                         </div>
                         <div className="flex min-h-0 min-w-0 flex-1 flex-col">{renderPanel()}</div>
                     </div>

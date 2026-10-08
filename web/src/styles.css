@@ -195,3 +195,14 @@ body,
         transition: none !important;
     }
 }
+
+/*
+ * Motion is off unless <html data-motion="on">. Loading indicators keep animating
+ * so in-progress state stays visible.
+ */
+:root:not([data-motion='on']) *:not(.animate-spin, .animate-pulse),
+:root:not([data-motion='on']) *::before,
+:root:not([data-motion='on']) *::after {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+}

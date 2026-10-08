@@ -34,8 +34,8 @@ interface ProjectMenuActions {
 
 export function ProjectDragPreview({ project }: { project: ProjectSummary }) {
     return (
-        <div className="flex h-7 min-w-36 items-center gap-2 border bg-popover px-2 text-xs text-popover-foreground shadow">
-            <File className="h-3.5 w-3.5 shrink-0" />
+        <div className="flex h-8 min-w-36 items-center gap-2 border bg-popover px-2 text-sm text-popover-foreground shadow">
+            <File className="size-4 shrink-0" />
             <span className="truncate">{project.name}</span>
         </div>
     )
@@ -43,8 +43,8 @@ export function ProjectDragPreview({ project }: { project: ProjectSummary }) {
 
 export function GroupDragPreview({ group }: { group: GroupWithProjects }) {
     return (
-        <div className="flex h-7 min-w-36 items-center gap-2 border bg-popover px-2 text-xs text-popover-foreground shadow">
-            <Folder className="h-3.5 w-3.5 shrink-0" />
+        <div className="flex h-8 min-w-36 items-center gap-2 border bg-popover px-2 text-sm text-popover-foreground shadow">
+            <Folder className="size-4 shrink-0" />
             <span className="truncate">{group.name}</span>
         </div>
     )
@@ -111,8 +111,8 @@ export function GroupMenu({
                 render={
                     <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 shrink-0 opacity-0 group-hover/collapsible:opacity-100"
+                        size="icon-xs"
+                        className="shrink-0 opacity-0 group-hover/collapsible:opacity-100 aria-expanded:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
                     />
                 }
             >
@@ -160,8 +160,8 @@ export function ProjectMenu({ onRename, onDuplicate, onDelete }: ProjectMenuActi
                 render={
                     <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 shrink-0 opacity-0 group-hover/project:opacity-100"
+                        size="icon-xs"
+                        className="shrink-0 opacity-0 group-hover/project:opacity-100 aria-expanded:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
                     />
                 }
             >

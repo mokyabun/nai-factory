@@ -84,7 +84,7 @@ export function ProjectRow({
             >
                 {isRenaming ? (
                     <RenameInput
-                        className="h-6 flex-1 px-1 py-0 text-xs"
+                        className="h-8 flex-1"
                         value={renameValue}
                         onChange={onRenameValueChange}
                         onCommit={onCommitRename}
@@ -93,14 +93,14 @@ export function ProjectRow({
                 ) : variant === 'root' ? (
                     <Base.SidebarMenuButton
                         isActive={isActive}
-                        className="h-7 flex-1 cursor-grab px-2 active:cursor-grabbing"
+                        className="flex-1 cursor-grab px-2 active:cursor-grabbing"
                         onMouseEnter={onPreload}
                         onFocus={onPreload}
                         onClick={onSelect}
                         {...attributes}
                         {...listeners}
                     >
-                        <File className="h-3.5 w-3.5 shrink-0" />
+                        <File className="size-4 shrink-0" />
                         <span className="truncate">{project.name}</span>
                     </Base.SidebarMenuButton>
                 ) : (
@@ -113,7 +113,7 @@ export function ProjectRow({
                         {...attributes}
                         {...listeners}
                     >
-                        <File className="h-3.5 w-3.5 shrink-0" />
+                        <File className="size-4 shrink-0" />
                         <span className="truncate">{project.name}</span>
                     </Base.SidebarMenuSubButton>
                 )}

@@ -67,14 +67,14 @@ export function QueueFailureAlerts() {
             {notices.map((notice) => (
                 <Alert
                     key={notice.id}
-                    className="pointer-events-auto border-destructive/40 bg-background shadow-lg"
+                    className="pointer-events-auto border-destructive/40 bg-background shadow-lg *:[svg]:text-destructive"
                 >
                     <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
                     <AlertTitle className="flex items-center justify-between gap-2">
                         <span className="min-w-0 truncate">생성 실패</span>
                         <button
                             type="button"
-                            className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                            className="relative shrink-0 text-muted-foreground transition-colors after:absolute after:-inset-2 hover:text-foreground"
                             onClick={() =>
                                 setNotices((current) =>
                                     current.filter((item) => item.id !== notice.id),
@@ -101,7 +101,7 @@ export function QueueFailureAlerts() {
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-7 w-fit gap-1.5"
+                                className="w-fit gap-1.5"
                                 onClick={() => setActivePanel('queue')}
                             >
                                 <ListTodo className="h-3.5 w-3.5" />

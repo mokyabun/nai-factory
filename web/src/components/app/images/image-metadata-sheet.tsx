@@ -141,7 +141,7 @@ function CopyBlock({ value }: { value: string }) {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 gap-1.5"
+                    className="gap-1.5"
                     onClick={copy}
                     disabled={!value}
                 >

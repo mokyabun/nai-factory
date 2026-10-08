@@ -887,7 +887,6 @@ function ProjectSettingsDialog({
                                     onChange={(event) =>
                                         onSlideshowImageCountChange(event.target.value)
                                     }
-                                    className="h-8 text-xs"
                                 />
                             </div>
 
@@ -1046,7 +1045,6 @@ function StashDialog({
                                             value={name}
                                             onChange={(event) => setName(event.target.value)}
                                             placeholder={`${STASH_TAB_LABELS[type]} Stash 이름`}
-                                            className="h-8"
                                         />
                                         <Button
                                             size="sm"

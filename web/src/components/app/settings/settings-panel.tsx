@@ -2,7 +2,7 @@ import type { GlobalSettings, SettingsPatchBody } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom, useAtomValue } from 'jotai'
 import { Bug, Eye, EyeOff, FolderInput, Plus, Save, Settings, X } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { type ReactNode, useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -200,16 +200,11 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
             ) : (
                 <div
                     className={cn(
-                        'min-h-0 flex-1 overflow-y-auto',
-                        compact
-                            ? 'flex flex-col gap-3 p-2'
-                            : 'grid auto-rows-min gap-4 pb-4 lg:grid-cols-2',
+                        'flex min-h-0 flex-1 flex-col overflow-y-auto',
+                        compact ? 'gap-3 p-2' : 'gap-4 pb-4',
                     )}
                 >
-                    <Card
-                        className={compact ? 'shrink-0' : 'lg:col-span-2'}
-                        size={compact ? 'sm' : 'default'}
-                    >
+                    <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
                         <CardHeader>
                             <CardTitle className="text-base">NovelAI API Key</CardTitle>
                             <CardDescription>
@@ -239,8 +234,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                     )}
                                 </button>
                             </div>
-                            <div className="flex flex-col gap-1.5">
-                                <Label>테스트 모드</Label>
+                            <SettingField label="테스트 모드">
                                 <Select
                                     value={novelAIMode}
                                     onValueChange={(value) =>
@@ -258,14 +252,11 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                         <SelectItem value="fail">Mock fail</SelectItem>
                                     </SelectContent>
                                 </Select>
-                            </div>
+                            </SettingField>
                         </CardContent>
                     </Card>
 
-                    <Card
-                        className={compact ? 'shrink-0' : 'lg:col-span-2'}
-                        size={compact ? 'sm' : 'default'}
-                    >
+                    <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
                         <CardHeader>
                             <CardTitle className="text-base">전역 변수</CardTitle>
                             <CardDescription>
@@ -292,7 +283,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                             )}
                                         >
                                             <Input
-                                                className="h-8 flex-1 font-mono text-xs"
+                                                className="flex-1 font-mono"
                                                 value={key}
                                                 placeholder="변수명"
                                                 onChange={(e) =>
@@ -310,14 +301,14 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-8 w-8 shrink-0"
+                                                className="shrink-0"
                                                 onClick={() => deleteGlobalVar(i)}
                                             >
                                                 <X className="h-3.5 w-3.5" />
                                             </Button>
                                         </div>
                                         <Input
-                                            className="h-8 flex-1 text-xs"
+                                            className="flex-1"
                                             value={value}
                                             placeholder="값"
                                             onChange={(e) =>
@@ -344,103 +335,89 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card
-                        className={compact ? 'shrink-0' : 'lg:col-span-2'}
-                        size={compact ? 'sm' : 'default'}
-                    >
+                    <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
                         <CardHeader>
                             <CardTitle className="text-base">이미지 저장 설정</CardTitle>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
-                            <div
-                                className={cn(
-                                    'grid gap-4',
-                                    compact ? 'grid-cols-1' : 'grid-cols-2',
-                                )}
-                            >
-                                <div className="flex flex-col gap-1.5">
-                                    <Label>원본 형식</Label>
-                                    <Select
-                                        value={sourceFormat}
-                                        onValueChange={(v) =>
-                                            updateSettingsDraft({ sourceFormat: v as ImageFormat })
-                                        }
-                                    >
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {IMAGE_FORMATS.map((format) => (
-                                                <SelectItem key={format.value} value={format.value}>
-                                                    {format.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {sourceFormat !== 'png' && (
-                                        <div className="flex items-center gap-2">
-                                            <Label className="text-xs">품질</Label>
-                                            <Input
-                                                type="number"
-                                                className="h-7 text-xs"
-                                                value={sourceQuality}
-                                                onChange={(e) =>
-                                                    updateSettingsDraft({
-                                                        sourceQuality: Number(e.target.value),
-                                                    })
-                                                }
-                                                min={1}
-                                                max={100}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
+                            <SettingField label="원본 형식">
+                                <Select
+                                    value={sourceFormat}
+                                    onValueChange={(v) =>
+                                        updateSettingsDraft({ sourceFormat: v as ImageFormat })
+                                    }
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {IMAGE_FORMATS.map((format) => (
+                                            <SelectItem key={format.value} value={format.value}>
+                                                {format.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </SettingField>
 
-                                <div className="flex flex-col gap-1.5">
-                                    <Label>썸네일 형식</Label>
-                                    <Select
-                                        value={thumbFormat}
-                                        onValueChange={(v) =>
-                                            updateSettingsDraft({ thumbFormat: v as ImageFormat })
+                            {sourceFormat !== 'png' && (
+                                <SettingField label="원본 품질" htmlFor="source-quality">
+                                    <Input
+                                        id="source-quality"
+                                        type="number"
+                                        value={sourceQuality}
+                                        onChange={(e) =>
+                                            updateSettingsDraft({
+                                                sourceQuality: Number(e.target.value),
+                                            })
                                         }
-                                    >
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {IMAGE_FORMATS.map((format) => (
-                                                <SelectItem key={format.value} value={format.value}>
-                                                    {format.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {thumbFormat !== 'png' && (
-                                        <div className="flex items-center gap-2">
-                                            <Label className="text-xs">품질</Label>
-                                            <Input
-                                                type="number"
-                                                className="h-7 text-xs"
-                                                value={thumbQuality}
-                                                onChange={(e) =>
-                                                    updateSettingsDraft({
-                                                        thumbQuality: Number(e.target.value),
-                                                    })
-                                                }
-                                                min={1}
-                                                max={100}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                        min={1}
+                                        max={100}
+                                    />
+                                </SettingField>
+                            )}
 
-                            <div className="flex flex-col gap-1.5">
-                                <Label htmlFor="thumb-size">썸네일 크기 (px)</Label>
+                            <SettingField label="썸네일 형식">
+                                <Select
+                                    value={thumbFormat}
+                                    onValueChange={(v) =>
+                                        updateSettingsDraft({ thumbFormat: v as ImageFormat })
+                                    }
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {IMAGE_FORMATS.map((format) => (
+                                            <SelectItem key={format.value} value={format.value}>
+                                                {format.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </SettingField>
+
+                            {thumbFormat !== 'png' && (
+                                <SettingField label="썸네일 품질" htmlFor="thumb-quality">
+                                    <Input
+                                        id="thumb-quality"
+                                        type="number"
+                                        value={thumbQuality}
+                                        onChange={(e) =>
+                                            updateSettingsDraft({
+                                                thumbQuality: Number(e.target.value),
+                                            })
+                                        }
+                                        min={1}
+                                        max={100}
+                                    />
+                                </SettingField>
+                            )}
+
+                            <SettingField label="썸네일 크기 (px)" htmlFor="thumb-size">
                                 <Input
                                     id="thumb-size"
                                     type="number"
-                                    className="w-32"
                                     value={thumbSize}
                                     onChange={(e) =>
                                         updateSettingsDraft({ thumbSize: Number(e.target.value) })
@@ -448,14 +425,11 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                     min={64}
                                     max={1024}
                                 />
-                            </div>
+                            </SettingField>
                         </CardContent>
                     </Card>
 
-                    <Card
-                        className={compact ? 'shrink-0' : undefined}
-                        size={compact ? 'sm' : 'default'}
-                    >
+                    <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <FolderInput className="h-4 w-4" />
@@ -466,8 +440,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="flex flex-col gap-1.5">
-                                <Label htmlFor="server-export-path">서버 export 경로</Label>
+                            <SettingField label="서버 export 경로" htmlFor="server-export-path">
                                 <Input
                                     id="server-export-path"
                                     value={serverExportPath}
@@ -475,16 +448,13 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                         updateSettingsDraft({ serverExportPath: e.target.value })
                                     }
                                     placeholder="/path/to/export"
-                                    className="font-mono text-xs"
+                                    className="font-mono"
                                 />
-                            </div>
+                            </SettingField>
                         </CardContent>
                     </Card>
 
-                    <Card
-                        className={compact ? 'shrink-0' : undefined}
-                        size={compact ? 'sm' : 'default'}
-                    >
+                    <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Bug className="h-4 w-4" />
@@ -506,10 +476,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                 />
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor="debug-limit" className="shrink-0">
-                                    최근
-                                </Label>
+                            <SettingField label="최근 요청 기록 개수" htmlFor="debug-limit">
                                 <Input
                                     id="debug-limit"
                                     type="number"
@@ -524,15 +491,30 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                             ),
                                         })
                                     }
-                                    className="h-8 w-20 text-xs"
                                     disabled={!debugEnabled}
                                 />
-                                <span className="text-xs text-muted-foreground">개</span>
-                            </div>
+                            </SettingField>
                         </CardContent>
                     </Card>
                 </div>
             )}
+        </div>
+    )
+}
+
+function SettingField({
+    label,
+    htmlFor,
+    children,
+}: {
+    label: string
+    htmlFor?: string
+    children: ReactNode
+}) {
+    return (
+        <div className="flex flex-col gap-1.5">
+            <Label htmlFor={htmlFor}>{label}</Label>
+            {children}
         </div>
     )
 }

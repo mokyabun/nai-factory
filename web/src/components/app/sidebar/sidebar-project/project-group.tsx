@@ -93,17 +93,17 @@ export function ProjectGroup({
                             render={
                                 <button
                                     type="button"
-                                    className="flex flex-1 cursor-grab items-center gap-1 rounded px-2 py-1 text-sm hover:bg-sidebar-accent active:cursor-grabbing"
+                                    className="flex h-8 min-w-0 flex-1 cursor-grab items-center gap-2 rounded-none px-2 text-sm hover:bg-sidebar-accent active:cursor-grabbing"
                                     {...attributes}
                                     {...listeners}
                                 />
                             }
                         >
-                            <ChevronRight className="chevron h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                            <Folder className="h-3.5 w-3.5 shrink-0" />
+                            <ChevronRight className="chevron size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                            <Folder className="size-4 shrink-0" />
                             {isRenaming ? (
                                 <RenameInput
-                                    className="h-5 flex-1 px-1 py-0 text-xs"
+                                    className="h-7 min-w-0 flex-1 px-1.5"
                                     value={rename.value}
                                     onChange={onRenameValueChange}
                                     onCommit={() => onCommitRename(groupRenameTarget)}
@@ -111,7 +111,7 @@ export function ProjectGroup({
                                     stopClickPropagation
                                 />
                             ) : (
-                                <span className="truncate text-xs">{group.name}</span>
+                                <span className="truncate">{group.name}</span>
                             )}
                         </CollapsibleTrigger>
 
@@ -126,7 +126,7 @@ export function ProjectGroup({
                         {isEmpty ? (
                             <div
                                 className={cn(
-                                    'py-1 pl-8 text-xs text-muted-foreground transition-colors',
+                                    'flex h-8 items-center px-2 text-xs text-muted-foreground transition-colors',
                                     isOver && 'text-primary',
                                 )}
                             >

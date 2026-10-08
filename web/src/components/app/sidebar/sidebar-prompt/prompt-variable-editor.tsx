@@ -43,15 +43,15 @@ export function PromptVariableEditor({ variables, onChange }: PromptVariableEdit
                 >
                     <div className="flex items-center gap-1">
                         <Input
-                            className="h-7 flex-1 px-2 font-mono text-xs"
+                            className="flex-1 px-2 font-mono"
                             value={key}
                             placeholder="변수명"
                             onChange={(e) => updateVarKey(i, e.target.value)}
                         />
                         <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0"
+                            size="icon-xs"
+                            className="shrink-0"
                             onClick={() => removeVariable(i)}
                         >
                             <X className="h-3 w-3" />
@@ -66,12 +66,7 @@ export function PromptVariableEditor({ variables, onChange }: PromptVariableEdit
                     />
                 </div>
             ))}
-            <Button
-                variant="outline"
-                size="sm"
-                className="h-7 gap-1.5 text-xs"
-                onClick={addVariable}
-            >
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={addVariable}>
                 <Plus className="h-3.5 w-3.5" />
                 변수 추가
             </Button>

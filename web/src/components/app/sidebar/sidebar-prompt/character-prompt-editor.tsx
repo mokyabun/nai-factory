@@ -61,7 +61,7 @@ function SortableItem({ id, cp, completionSource, onUpdate, onRemove }: Sortable
                             type="button"
                             {...attributes}
                             {...listeners}
-                            className="flex h-7 w-7 cursor-grab items-center justify-center active:cursor-grabbing"
+                            className="flex h-9 w-9 cursor-grab items-center justify-center active:cursor-grabbing"
                         >
                             <GripVertical className="h-3 w-3" />
                         </button>
@@ -75,8 +75,8 @@ function SortableItem({ id, cp, completionSource, onUpdate, onRemove }: Sortable
                     <div>
                         <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-primary"
+                            size="icon-xs"
+                            className="text-muted-foreground hover:text-primary"
                             onClick={() => onUpdate({ enabled: !cp.enabled })}
                         >
                             {cp.enabled ? (
@@ -87,8 +87,8 @@ function SortableItem({ id, cp, completionSource, onUpdate, onRemove }: Sortable
                         </Button>
                         <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                            size="icon-xs"
+                            className="text-muted-foreground hover:text-destructive"
                             onClick={onRemove}
                         >
                             <Trash2 className="h-3.5 w-3.5" />

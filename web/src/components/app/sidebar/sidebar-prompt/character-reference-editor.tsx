@@ -149,8 +149,8 @@ function SortableCharacterReferenceItemContent({
                 <div className="flex flex-col items-center gap-1">
                     <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                        size="icon-xs"
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
                         onClick={() => onDelete(reference.id)}
                     >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -183,7 +183,7 @@ function SortableCharacterReferenceItemContent({
                     <div className="flex flex-col gap-1.5">
                         <Label className="text-xs">모드</Label>
                         <Select value={referenceMode} onValueChange={handleReferenceModeChange}>
-                            <SelectTrigger className="h-7 w-full">
+                            <SelectTrigger className="w-full">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

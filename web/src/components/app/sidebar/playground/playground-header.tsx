@@ -33,7 +33,7 @@ export function PlaygroundHeader({
                 <Button
                     type="button"
                     size="sm"
-                    className="h-8 gap-1.5"
+                    className="gap-1.5"
                     onClick={onGenerate}
                     disabled={isDisabled}
                     title="대기 중인 작업보다 먼저 생성합니다"
@@ -45,7 +45,7 @@ export function PlaygroundHeader({
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-8 gap-1.5"
+                    className="gap-1.5"
                     onClick={onEnqueue}
                     disabled={isDisabled}
                     title="대기열 끝에 추가만 하고 시작하지 않습니다"

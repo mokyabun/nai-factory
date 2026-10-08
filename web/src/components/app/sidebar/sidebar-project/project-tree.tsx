@@ -106,10 +106,11 @@ export function ProjectTree({
                 <span>프로젝트</span>
                 <button
                     type="button"
-                    className="rounded p-0.5 hover:bg-sidebar-accent"
+                    aria-label="새 그룹"
+                    className="flex size-7 items-center justify-center hover:bg-sidebar-accent"
                     onClick={() => actions.createGroup(null)}
                 >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="size-4" />
                 </button>
             </Base.SidebarGroupLabel>
 

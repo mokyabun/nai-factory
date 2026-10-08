@@ -65,7 +65,7 @@ export function SortableImageItem({
             <button
                 type="button"
                 aria-label={selected ? '이미지 선택 해제' : '이미지 선택'}
-                className={`pointer-events-none absolute top-1.5 left-1.5 z-20 flex h-5 w-5 items-center justify-center rounded border-2 opacity-0 shadow-sm transition-all group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 ${
+                className={`pointer-events-none absolute top-1.5 left-1.5 z-20 flex h-6 w-6 items-center justify-center rounded border-2 opacity-0 after:absolute after:-inset-2 shadow-sm transition-all group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 ${
                     selected
                         ? 'border-primary bg-primary text-primary-foreground opacity-100'
                         : 'border-white/75 bg-black/35 text-transparent hover:border-primary hover:bg-primary hover:text-primary-foreground'
@@ -87,8 +87,8 @@ export function SortableImageItem({
 
             <Button
                 variant="ghost"
-                size="icon"
-                className="absolute top-1.5 right-1.5 hidden h-7 w-7 rounded-full bg-black/50 text-white hover:bg-black/70 group-hover:flex [@media(hover:none)]:flex"
+                size="icon-sm"
+                className="absolute top-1.5 right-1.5 hidden rounded-full bg-black/50 text-white hover:bg-black/70 group-hover:flex [@media(hover:none)]:flex"
                 onPointerDown={(e) => {
                     e.stopPropagation()
                 }}

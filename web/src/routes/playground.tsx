@@ -141,7 +141,7 @@ function PlaygroundPage() {
                         <Button
                             type="button"
                             size="sm"
-                            className="absolute top-3 left-1/2 h-8 -translate-x-1/2 gap-1.5 shadow-md"
+                            className="absolute top-3 left-1/2 -translate-x-1/2 gap-1.5 shadow-md"
                             onClick={() => setPinnedImageId(null)}
                         >
                             <ArrowUp className="h-3.5 w-3.5" />새 결과 {newResultCount}개

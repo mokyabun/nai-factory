@@ -13,12 +13,12 @@ export function SidebarHeader() {
                     {isMobile ? (
                         <Base.SidebarMenuButton
                             size="lg"
-                            className="h-10 justify-center px-2.5"
+                            className="h-10 justify-center p-0 [&_svg]:size-5 [&>div:last-child]:sr-only"
                             aria-label="사이드바 닫기"
                             onClick={() => setOpenMobile(false)}
                         >
-                            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                                <X className="size-4" />
+                            <div className="flex aspect-square size-10 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                                <X className="size-5" />
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight">
                                 <span className="truncate font-semibold">사이드바 닫기</span>
@@ -28,11 +28,11 @@ export function SidebarHeader() {
                     ) : (
                         <Base.SidebarMenuButton
                             size="lg"
-                            className="md:h-8 md:p-0"
+                            className="h-10 justify-center p-0 [&_svg]:size-5 [&>div:last-child]:sr-only"
                             render={<Link to="/" />}
                         >
-                            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                                <Factory className="size-4" />
+                            <div className="flex aspect-square size-10 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                                <Factory className="size-5" />
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight">
                                 <span className="truncate font-semibold">NAI Factory</span>

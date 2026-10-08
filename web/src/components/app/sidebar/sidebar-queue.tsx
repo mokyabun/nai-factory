@@ -59,7 +59,7 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                         <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 gap-1.5"
+                            className="gap-1.5"
                             onClick={() => stop.mutate()}
                             disabled={stop.isPending}
                             title="현재 작업을 마친 뒤 정지합니다"
@@ -71,7 +71,7 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                         <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 gap-1.5"
+                            className="gap-1.5"
                             onClick={() => start.mutate()}
                             disabled={start.isPending || status.pendingCount === 0}
                         >
@@ -169,7 +169,7 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 gap-1.5 text-xs"
+                                className="gap-1.5"
                                 onClick={() => clearAll.mutate()}
                                 disabled={clearAll.isPending}
                             >

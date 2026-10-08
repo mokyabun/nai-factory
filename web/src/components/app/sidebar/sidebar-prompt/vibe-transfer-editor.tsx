@@ -103,8 +103,8 @@ function SortableVibeItemContent({ vibe, onUpdate, onDelete }: SortableVibeItemP
             <div className="flex flex-col items-center gap-1 h-full justify-between">
                 <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                    size="icon-xs"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
                     onClick={() => onDelete(vibe.id)}
                 >
                     <Trash2 className="h-3.5 w-3.5" />

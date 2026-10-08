@@ -71,7 +71,7 @@ function SortableVariation({
                 type="button"
                 {...attributes}
                 {...listeners}
-                className="mt-3 flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-md border bg-background text-muted-foreground active:cursor-grabbing"
+                className="mt-3 flex h-10 w-10 shrink-0 cursor-grab items-center justify-center rounded-md border bg-background text-muted-foreground active:cursor-grabbing"
             >
                 <GripVertical className="h-4 w-4" />
             </button>
@@ -84,16 +84,16 @@ function SortableVariation({
                     <div className="flex shrink-0 items-center gap-1">
                         <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground"
+                            size="icon-sm"
+                            className="text-muted-foreground"
                             onClick={() => onAddKey(varIdx)}
                         >
                             <Plus className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            size="icon-sm"
+                            className="text-muted-foreground hover:text-destructive"
                             onClick={() => onRemoveVariation(varIdx)}
                         >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -111,7 +111,7 @@ function SortableVariation({
                             >
                                 <div className="flex items-center gap-1.5">
                                     <Input
-                                        className="h-7 flex-1 px-2 font-mono text-xs"
+                                        className="flex-1 px-2 font-mono"
                                         value={key}
                                         placeholder="변수명"
                                         onChange={(e) =>
@@ -120,8 +120,8 @@ function SortableVariation({
                                     />
                                     <Button
                                         variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 shrink-0 text-muted-foreground"
+                                        size="icon-xs"
+                                        className="shrink-0 text-muted-foreground"
                                         onClick={() => onRemoveKey(varIdx, keyIdx)}
                                     >
                                         <X className="h-3 w-3" />

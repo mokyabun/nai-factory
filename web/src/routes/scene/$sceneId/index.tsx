@@ -167,7 +167,7 @@ function SceneEditPage() {
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 shrink-0"
+                    className="shrink-0"
                     onClick={() =>
                         navigate({
                             to: '/project/$projectId',
@@ -180,7 +180,7 @@ function SceneEditPage() {
                 <Input
                     value={name}
                     onChange={(e) => handleNameChange(e.target.value)}
-                    className="h-8 max-w-xs text-sm font-medium"
+                    className="max-w-xs text-sm font-medium"
                     placeholder="씬 이름..."
                 />
                 <span className="text-xs text-muted-foreground">
