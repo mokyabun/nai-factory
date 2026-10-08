@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { reorderById } from './reorder'
+import { compareDisplayOrder, reorderById } from './reorder'
 
 const items = [{ id: 1 }, { id: 2 }, { id: 3 }]
 
@@ -18,5 +18,19 @@ describe('reorderById', () => {
     it('ignores no-op or unknown drag targets', () => {
         expect(reorderById(items, 1, 1)).toBeNull()
         expect(reorderById(items, 1, 99)).toBeNull()
+    })
+})
+
+describe('compareDisplayOrder', () => {
+    it('matches SQLite binary text ordering instead of locale collation', () => {
+        expect(
+            [
+                { id: 49, displayOrder: 'a0' },
+                { id: 50, displayOrder: 'Zz' },
+            ].sort(compareDisplayOrder),
+        ).toEqual([
+            { id: 50, displayOrder: 'Zz' },
+            { id: 49, displayOrder: 'a0' },
+        ])
     })
 })

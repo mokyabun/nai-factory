@@ -26,8 +26,12 @@ const log = logger.child({ module: 'scene-domain' })
 
 type LatestImage = {
     id: number
+    assetId: number | null
+    thumbnailAssetId: number | null
+    displayOrder: string
     filePath: string
     thumbnailPath: string | null
+    createdAt: string
 }
 
 const summaryColumns = {
@@ -42,11 +46,15 @@ const summaryColumns = {
     latestImages: sql<string | null>`(
         select json_group_array(json_object(
             'id', i.id,
+            'assetId', i.asset_id,
+            'thumbnailAssetId', i.thumbnail_asset_id,
+            'displayOrder', i.display_order,
             'filePath', i.file_path,
-            'thumbnailPath', i.thumbnail_path
+            'thumbnailPath', i.thumbnail_path,
+            'createdAt', i.created_at
         ))
         from (
-            select id, file_path, thumbnail_path
+            select id, asset_id, thumbnail_asset_id, display_order, file_path, thumbnail_path, created_at
             from images
             where scene_id = scenes.id
             order by display_order asc, id asc
@@ -59,11 +67,17 @@ function variationOrder(index: number) {
     return index.toString().padStart(8, '0')
 }
 
+function compareDisplayOrder(a: LatestImage, b: LatestImage) {
+    if (a.displayOrder < b.displayOrder) return -1
+    if (a.displayOrder > b.displayOrder) return 1
+    return a.id - b.id
+}
+
 function parseLatestImages(value: string | null): LatestImage[] {
     if (!value) return []
 
     try {
-        return JSON.parse(value) as LatestImage[]
+        return (JSON.parse(value) as LatestImage[]).sort(compareDisplayOrder)
     } catch {
         return []
     }

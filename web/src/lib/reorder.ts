@@ -6,6 +6,12 @@ export type OrderPatch = {
     nextId: number | null
 }
 
+export function compareDisplayOrder<T extends { displayOrder: string; id: number }>(a: T, b: T) {
+    if (a.displayOrder < b.displayOrder) return -1
+    if (a.displayOrder > b.displayOrder) return 1
+    return a.id - b.id
+}
+
 export function reorderById<T extends { id: number }>(
     items: T[],
     activeId: number,

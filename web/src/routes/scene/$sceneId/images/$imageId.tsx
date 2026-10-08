@@ -12,8 +12,9 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet'
-import { api, imageUrl } from '@/lib/api'
+import { api, imageResourceUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
+import { compareDisplayOrder } from '@/lib/reorder'
 
 export const Route = createFileRoute('/scene/$sceneId/images/$imageId')({
     component: ImageViewerPage,
@@ -34,10 +35,7 @@ function ImageViewerPage() {
     })
 
     const images = useMemo(
-        () =>
-            [...(imagesQuery.data ?? [])].sort(
-                (a, b) => a.displayOrder.localeCompare(b.displayOrder) || a.id - b.id,
-            ),
+        () => [...(imagesQuery.data ?? [])].sort(compareDisplayOrder),
         [imagesQuery.data],
     )
     const currentIndex = images.findIndex((i) => i.id === Number(imageId))
@@ -117,7 +115,7 @@ function ImageViewerPage() {
                     )}
                     {current && (
                         <a
-                            href={imageUrl(current.filePath)}
+                            href={imageResourceUrl(current, 'source')}
                             download
                             className="inline-flex h-9 w-9 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white"
                         >
@@ -132,7 +130,7 @@ function ImageViewerPage() {
                 {current ? (
                     <img
                         key={current.id}
-                        src={imageUrl(current.filePath)}
+                        src={imageResourceUrl(current, 'source')}
                         alt=""
                         className="max-h-full max-w-full object-contain"
                         draggable={false}
@@ -178,7 +176,7 @@ function ImageViewerPage() {
                             }`}
                         >
                             <img
-                                src={imageUrl(img.thumbnailPath ?? img.filePath)}
+                                src={imageResourceUrl(img, 'thumbnail')}
                                 alt=""
                                 className="h-full w-full object-cover"
                                 loading="lazy"

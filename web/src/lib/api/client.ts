@@ -16,6 +16,7 @@ async function readError(error: HTTPError): Promise<ApiError> {
 
 function normalizeOptions(options: ApiRequestOptions) {
     return {
+        cache: 'no-store' as const,
         ...options,
         searchParams: toSearchParams(options.searchParams),
     }

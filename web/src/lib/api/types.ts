@@ -26,7 +26,10 @@ export type GroupWithProjects = Extract<GroupListItem, { type: 'group' }>
 export type ProjectGroupItem = GroupListItem
 export type ProjectGroupId = Project['groupId']
 
-export type SceneImage = Pick<Image, 'id' | 'filePath' | 'thumbnailPath'>
+export type SceneImage = Pick<
+    Image,
+    'id' | 'assetId' | 'thumbnailAssetId' | 'filePath' | 'thumbnailPath' | 'createdAt'
+>
 
 export type SceneSummary = Scene & {
     imageCount: number

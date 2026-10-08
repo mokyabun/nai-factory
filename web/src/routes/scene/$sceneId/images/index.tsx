@@ -6,8 +6,9 @@ import { useMemo, useState } from 'react'
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { SortableImageItem } from '@/components/app/project/sortable-image-item'
 import { Button } from '@/components/ui/button'
-import { api, imageUrl } from '@/lib/api'
+import { api, imageResourceUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
+import { compareDisplayOrder } from '@/lib/reorder'
 
 export const Route = createFileRoute('/scene/$sceneId/images/')({ component: ImagesPage })
 
@@ -35,10 +36,7 @@ function ImagesPage() {
 
     const [deleteTarget, setDeleteTarget] = useState<Image | null>(null)
     const images = useMemo(
-        () =>
-            [...(imagesQuery.data ?? [])].sort(
-                (a, b) => a.displayOrder.localeCompare(b.displayOrder) || a.id - b.id,
-            ),
+        () => [...(imagesQuery.data ?? [])].sort(compareDisplayOrder),
         [imagesQuery.data],
     )
 
@@ -92,7 +90,7 @@ function ImagesPage() {
                             <SortableImageItem
                                 key={img.id}
                                 img={img}
-                                imageUrl={imageUrl(img.thumbnailPath ?? img.filePath)}
+                                imageUrl={imageResourceUrl(img, 'thumbnail')}
                                 onView={(img) =>
                                     navigate({
                                         to: '/scene/$sceneId/images/$imageId',

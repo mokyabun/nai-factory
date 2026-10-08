@@ -5,15 +5,12 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db, images, scenes } from '@/db'
 import logger from '@/logger'
-import { removeAssets, remove as removeFile } from '@/services'
+import { realtimeEvents, removeAssets, remove as removeFile } from '@/services'
 import { planDisplayOrderUpdate } from '@/services/order'
 
 const log = logger.child({ module: 'image-domain' })
 
-async function getAllBySceneId(sceneId: number) {
-    const [scene] = await db.select().from(scenes).where(eq(scenes.id, sceneId))
-    if (!scene) return null
-
+function listBySceneId(sceneId: number) {
     return db
         .select()
         .from(images)
@@ -21,20 +18,34 @@ async function getAllBySceneId(sceneId: number) {
         .orderBy(asc(images.displayOrder), asc(images.id))
 }
 
+async function getAllBySceneId(sceneId: number) {
+    const [scene] = await db.select().from(scenes).where(eq(scenes.id, sceneId))
+    if (!scene) return null
+
+    return listBySceneId(sceneId)
+}
+
 async function update(id: number, data: ImagePatchBody) {
     const [updated] = await db.update(images).set(data).where(eq(images.id, id)).returning()
-    if (updated)
+    if (updated) {
         log.debug(
             { imageId: id, sceneId: updated.sceneId, fields: Object.keys(data) },
             'Image updated',
         )
+        const [scene] = await db
+            .select({ projectId: scenes.projectId })
+            .from(scenes)
+            .where(eq(scenes.id, updated.sceneId))
+        if (scene) publishSceneImagesChanged(scene.projectId, updated.sceneId)
+    }
     return updated ?? null
 }
 
 async function reorder(id: number, prevId: number | null, nextId: number | null) {
     const [image] = await db
-        .select({ sceneId: images.sceneId })
+        .select({ sceneId: images.sceneId, projectId: scenes.projectId })
         .from(images)
+        .innerJoin(scenes, eq(images.sceneId, scenes.id))
         .where(eq(images.id, id))
     if (!image) throw new HTTPException(404, { message: 'Image not found' })
 
@@ -73,13 +84,25 @@ async function reorder(id: number, prevId: number | null, nextId: number | null)
 
     if (updated) {
         log.debug({ imageId: id, sceneId: image.sceneId, planType: plan.type }, 'Image reordered')
+        publishSceneImagesChanged(image.projectId, image.sceneId)
     }
 
-    return updated
+    return listBySceneId(image.sceneId)
 }
 
 async function remove(id: number) {
-    const [image] = await db.select().from(images).where(eq(images.id, id))
+    const [image] = await db
+        .select({
+            sceneId: images.sceneId,
+            projectId: scenes.projectId,
+            filePath: images.filePath,
+            thumbnailPath: images.thumbnailPath,
+            assetId: images.assetId,
+            thumbnailAssetId: images.thumbnailAssetId,
+        })
+        .from(images)
+        .innerJoin(scenes, eq(images.sceneId, scenes.id))
+        .where(eq(images.id, id))
     if (!image) return false
 
     await db.delete(images).where(eq(images.id, id))
@@ -87,7 +110,12 @@ async function remove(id: number) {
     await removeAssets([image.assetId, image.thumbnailAssetId])
 
     log.debug({ imageId: id, sceneId: image.sceneId }, 'Image deleted')
+    publishSceneImagesChanged(image.projectId, image.sceneId)
     return true
+}
+
+function publishSceneImagesChanged(projectId: number, sceneId: number) {
+    realtimeEvents.publish({ type: 'scene.images.changed', projectId, sceneId })
 }
 
 export const image = new Hono()

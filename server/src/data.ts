@@ -132,7 +132,7 @@ export async function serveFile(relativePath: string) {
         return new Response(data, {
             headers: {
                 'content-type': contentType(path),
-                'cache-control': 'public, max-age=31536000, immutable',
+                'cache-control': 'no-cache',
             },
         })
     } catch (error) {

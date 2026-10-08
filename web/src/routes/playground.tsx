@@ -4,7 +4,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { ImageIcon, Loader, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { api, imageUrl } from '@/lib/api'
+import { api, imageResourceUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
 
 export const Route = createFileRoute('/playground')({ component: PlaygroundPage })
@@ -44,7 +44,7 @@ function PlaygroundPage() {
                     <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
                 ) : selectedImage ? (
                     <img
-                        src={imageUrl(selectedImage.filePath)}
+                        src={imageResourceUrl(selectedImage, 'source')}
                         alt="Playground result"
                         className="max-h-full max-w-full object-contain"
                     />
@@ -69,7 +69,7 @@ function PlaygroundPage() {
                         onClick={() => setSelectedImageId(image.id)}
                     >
                         <img
-                            src={imageUrl(image.thumbnailPath ?? image.filePath)}
+                            src={imageResourceUrl(image, 'thumbnail')}
                             alt=""
                             className="h-full w-full object-cover"
                         />

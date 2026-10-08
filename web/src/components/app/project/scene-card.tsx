@@ -21,7 +21,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { SceneSummary } from '@/lib/api'
-import { api, imageUrl } from '@/lib/api'
+import { api, imageResourceUrl } from '@/lib/api'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import { sceneCardDeleteOpenAtom, sceneCardThumbIndexAtom } from './atom'
@@ -257,9 +257,7 @@ function SceneCardContent({
                         ) : (
                             <img
                                 key={currentThumbIndex}
-                                src={imageUrl(
-                                    currentThumbImg.thumbnailPath ?? currentThumbImg.filePath,
-                                )}
+                                src={imageResourceUrl(currentThumbImg, 'thumbnail')}
                                 alt={scene.name}
                                 className="h-full w-full object-cover transition-transform duration-200 group-hover/thumb:scale-105"
                                 loading="lazy"

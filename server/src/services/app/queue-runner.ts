@@ -1,5 +1,5 @@
 import type { GlobalSettings, Prompt, SimpleNovelAIParameters } from '@nai-factory/shared'
-import { desc, eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import {
     db,
     images,
@@ -14,7 +14,7 @@ import logger from '@/logger'
 import * as characterReferenceService from '@/services/novelai/character-reference'
 import * as novelAIService from '@/services/novelai/novelai'
 import * as vibeImageService from '@/services/novelai/vibe-image'
-import { nextDisplayOrder } from '@/services/order'
+import { displayOrderBetween } from '@/services/order'
 import { withNormalizedVariables } from '@/utils'
 import { realtimeEvents } from './events'
 import * as imageService from './image'
@@ -158,14 +158,14 @@ async function generateAndSaveImage(
         sceneVariationId: job.sceneVariationId,
     })
 
-    const [lastImage] = await db
+    const [firstImage] = await db
         .select({ displayOrder: images.displayOrder })
         .from(images)
         .where(eq(images.sceneId, scene.id))
-        .orderBy(desc(images.displayOrder))
+        .orderBy(asc(images.displayOrder))
         .limit(1)
 
-    const newDisplayOrder = nextDisplayOrder(lastImage?.displayOrder)
+    const newDisplayOrder = displayOrderBetween(null, firstImage?.displayOrder)
     const [image] = await db
         .insert(images)
         .values({

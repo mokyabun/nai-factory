@@ -28,6 +28,26 @@ export function parseText(text: string) {
     }
 }
 
-export function imageUrl(path: string): string {
-    return `${BASE_URL}/${apiPath(path)}`
+export function imageUrl(path: string, version?: string | number | null): string {
+    const url = `${BASE_URL}/${apiPath(path)}`
+    if (version === null || version === undefined || version === '') return url
+
+    return `${url}?v=${encodeURIComponent(String(version))}`
+}
+
+export type ImageUrlResource = {
+    filePath: string
+    thumbnailPath?: string | null
+    assetId?: number | null
+    thumbnailAssetId?: number | null
+    createdAt?: string | null
+}
+
+export function imageResourceUrl(resource: ImageUrlResource, variant: 'source' | 'thumbnail') {
+    const useThumbnail = variant === 'thumbnail' && resource.thumbnailPath
+    const path = useThumbnail ? resource.thumbnailPath : resource.filePath
+    const assetId = useThumbnail ? resource.thumbnailAssetId : resource.assetId
+    const version = [assetId, resource.createdAt].filter(Boolean).join('-')
+
+    return imageUrl(path ?? resource.filePath, version)
 }

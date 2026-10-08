@@ -210,7 +210,7 @@ const images = Object.assign(
             http.patch<Image>(`/images/${id}`, json),
         delete: () => http.delete<void>(`/images/${id}`),
         order: {
-            patch: (json: ImageOrderPatchBody) => http.patch<Image>(`/images/${id}/order`, json),
+            patch: (json: ImageOrderPatchBody) => http.patch<Image[]>(`/images/${id}/order`, json),
         },
     }),
     {
