@@ -254,7 +254,7 @@ async function generateAndSavePlaygroundImage(
 
 async function markUploadedReferenceCaches(params: SimpleNovelAIParameters) {
     const uploadedVibeIds = params.vibeTransfers
-        .map((ref) => (ref.uploadFieldName && ref.filePath ? ref.id : undefined))
+        .map((ref) => (ref.uploadFieldName && ref.encodedBytes ? ref.id : undefined))
         .filter((id): id is number => id !== undefined)
     const uploadedCharacterReferenceIds = params.characterReferences
         .map((ref) => (ref.uploadFieldName && ref.filePath ? ref.id : undefined))
@@ -267,7 +267,11 @@ async function markUploadedReferenceCaches(params: SimpleNovelAIParameters) {
         ),
     ])
 
-    for (const ref of [...params.vibeTransfers, ...params.characterReferences]) {
+    for (const ref of params.vibeTransfers) {
+        delete ref.uploadFieldName
+        delete ref.encodedBytes
+    }
+    for (const ref of params.characterReferences) {
         delete ref.uploadFieldName
         delete ref.filePath
     }

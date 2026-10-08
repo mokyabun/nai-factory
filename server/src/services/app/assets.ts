@@ -17,6 +17,7 @@ export type AssetKind =
     | 'character-reference-thumbnail'
     | 'character-reference-processed'
     | 'vibe-source'
+    | 'vibe-encoded'
 
 function contentType(path: string) {
     switch (extname(path).toLowerCase()) {

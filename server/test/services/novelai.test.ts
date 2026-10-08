@@ -6,7 +6,8 @@ import { zipSync } from 'fflate'
 
 type KyPostOptions = {
     json?: unknown
-    body?: FormData
+    body?: unknown
+    headers?: Record<string, string>
 }
 
 const arrayBufferMock = mock(() => Promise.resolve(new ArrayBuffer(0)))
@@ -48,10 +49,28 @@ const baseParams: SimpleNovelAIParameters = {
     qualityToggle: true,
 }
 
-async function getRequestFromForm(form: FormData) {
-    const request = form.get('request')
-    expect(request).toBeInstanceOf(Blob)
-    return JSON.parse(await (request as Blob).text())
+function getMultipartText(options: KyPostOptions) {
+    if (!(options.body instanceof Uint8Array)) throw new Error('Expected multipart byte body')
+    return Buffer.from(options.body).toString('utf8')
+}
+
+function getMultipartPartNames(options: KyPostOptions) {
+    return [
+        ...getMultipartText(options).matchAll(/Content-Disposition: form-data; name="([^"]+)"/g),
+    ]
+        .map((match) => match[1])
+        .filter((name): name is string => name !== undefined)
+}
+
+function getRequestFromMultipart(options: KyPostOptions) {
+    const text = getMultipartText(options)
+    expect(text).toContain('Content-Type: application/json\r\n')
+
+    const match = text.match(
+        /Content-Disposition: form-data; name="request"; filename="blob"\r\nContent-Type: application\/json\r\n\r\n([\s\S]*?)\r\n------WebKitFormBoundary/,
+    )
+    if (!match?.[1]) throw new Error('Expected multipart request part')
+    return JSON.parse(match[1])
 }
 
 function getPostOptions() {
@@ -72,19 +91,19 @@ describe('NovelAI cached reference requests', () => {
         await rm(tempImagePath, { force: true })
     })
 
-    it('uses JSON for generation without cached references', async () => {
+    it('uses multipart request parts for generation without cached references', async () => {
         await generateImage('key', baseParams)
 
-        expect(postMock).toHaveBeenCalledWith(
-            'https://image.novelai.net/ai/generate-image',
-            expect.objectContaining({
-                json: expect.objectContaining({
-                    parameters: expect.not.objectContaining({
-                        reference_image_multiple_cached: expect.anything(),
-                    }),
-                }),
-            }),
+        expect(postMock.mock.calls[0]?.[0]).toBe('https://image.novelai.net/ai/generate-image')
+        const options = getPostOptions()
+        expect(options.body).toBeInstanceOf(Uint8Array)
+        expect(options.headers?.['Content-Type']).toMatch(
+            /^multipart\/form-data; boundary=----WebKitFormBoundary/,
         )
+        expect(getMultipartPartNames(options)).toEqual(['request'])
+
+        const request = getRequestFromMultipart(options)
+        expect(request.parameters).not.toHaveProperty('reference_image_multiple_cached')
     })
 
     it('uploads character references as director_ref parts before request', async () => {
@@ -104,10 +123,9 @@ describe('NovelAI cached reference requests', () => {
         })
 
         const options = getPostOptions()
-        const form = options.body as FormData
-        expect([...form.keys()]).toEqual(['director_ref_0', 'request'])
+        expect(getMultipartPartNames(options)).toEqual(['director_ref_0', 'request'])
 
-        const request = await getRequestFromForm(form)
+        const request = getRequestFromMultipart(options)
         expect(request.parameters.director_reference_images_cached).toEqual([
             { cache_secret_key: 'character-key', data: 'director_ref_0' },
         ])
@@ -130,10 +148,9 @@ describe('NovelAI cached reference requests', () => {
         })
 
         const options = getPostOptions()
-        const form = options.body as FormData
-        expect([...form.keys()]).toEqual(['request'])
+        expect(getMultipartPartNames(options)).toEqual(['request'])
 
-        const request = await getRequestFromForm(form)
+        const request = getRequestFromMultipart(options)
         expect(request.parameters.director_reference_images_cached).toEqual([
             { cache_secret_key: 'character-key' },
         ])
@@ -147,21 +164,51 @@ describe('NovelAI cached reference requests', () => {
                     id: 1,
                     cacheSecretKey: 'vibe-key',
                     uploadFieldName: 'ref_multiple_0',
-                    filePath: tempImagePath,
+                    encodedBytes: new Uint8Array([1, 2, 3, 4]),
                     strength: 0.6,
                 },
             ],
         })
 
         const options = getPostOptions()
-        const form = options.body as FormData
-        expect([...form.keys()]).toEqual(['ref_multiple_0', 'request'])
+        expect(getMultipartPartNames(options)).toEqual(['ref_multiple_0', 'request'])
+        expect(getMultipartText(options)).toContain(
+            'Content-Disposition: form-data; name="ref_multiple_0"; filename="blob"\r\nContent-Type: image/png\r\n',
+        )
+        expect(getMultipartText(options)).toContain('\r\n\r\n\x01\x02\x03\x04\r\n')
 
-        const request = await getRequestFromForm(form)
+        const request = getRequestFromMultipart(options)
         expect(request.parameters.reference_image_multiple_cached).toEqual([
             { cache_secret_key: 'vibe-key', data: 'ref_multiple_0' },
         ])
+        expect(request.parameters.reference_information_extracted_multiple).toEqual([1])
         expect(request.parameters.reference_strength_multiple).toEqual([0.6])
+    })
+
+    it('uses cached vibe parameters even when encoded data exists', async () => {
+        await generateImage('key', {
+            ...baseParams,
+            vibeTransfers: [
+                {
+                    id: 1,
+                    cacheSecretKey: 'vibe-key',
+                    encodedBytes: new Uint8Array([1, 2, 3, 4]),
+                    informationExtracted: 0.7,
+                    strength: 0.6,
+                },
+            ],
+        })
+
+        const options = getPostOptions()
+        expect(getMultipartPartNames(options)).toEqual(['request'])
+
+        const request = getRequestFromMultipart(options)
+        expect(request.parameters.reference_image_multiple_cached).toEqual([
+            { cache_secret_key: 'vibe-key' },
+        ])
+        expect(request.parameters.reference_information_extracted_multiple).toEqual([0.7])
+        expect(request.parameters.reference_strength_multiple).toEqual([0.6])
+        expect(request.parameters.reference_image_multiple).toBeUndefined()
     })
 
     it('returns a local mock image without calling NovelAI', async () => {
@@ -198,6 +245,7 @@ describe('encodeVibe', () => {
     it('posts image and request as multipart binary parts', async () => {
         const result = await encodeVibe('key', {
             image: Buffer.from([1, 2, 3]).toString('base64'),
+            imageContentType: 'image/png',
             information_extracted: 0.7,
             model: 'nai-diffusion-4-5-full',
         })
@@ -205,11 +253,17 @@ describe('encodeVibe', () => {
         expect(result).toBe(Buffer.from('Hello').toString('base64'))
 
         const options = getPostOptions()
-        const form = options.body as FormData
-        expect([...form.keys()]).toEqual(['image', 'request'])
+        expect(options.headers?.['Content-Type']).toMatch(
+            /^multipart\/form-data; boundary=----WebKitFormBoundary/,
+        )
+        expect(getMultipartPartNames(options)).toEqual(['image', 'request'])
+        expect(getMultipartText(options)).toContain(
+            'Content-Disposition: form-data; name="image"; filename="blob"\r\nContent-Type: image/png\r\n',
+        )
 
-        const request = await getRequestFromForm(form)
+        const request = getRequestFromMultipart(options)
         expect(request).toEqual({
+            image: 'image',
             information_extracted: 0.7,
             model: 'nai-diffusion-4-5-full',
         })
@@ -244,5 +298,22 @@ describe('fetchAnlasStatus', () => {
             unlimited: false,
             anlas: 1500,
         })
+        expect(globalThis.fetch).toHaveBeenCalledWith('https://image.novelai.net/user/data', {
+            headers: { Authorization: 'Bearer key' },
+        })
+    })
+
+    it('includes NovelAI response details when Anlas status fails', async () => {
+        globalThis.fetch = mock(() =>
+            Promise.resolve(
+                new Response(JSON.stringify({ message: 'use image API host' }), {
+                    status: 400,
+                }),
+            ),
+        ) as unknown as typeof fetch
+
+        await expect(fetchAnlasStatus('key')).rejects.toThrow(
+            'NovelAI account status failed (400): use image API host',
+        )
     })
 })

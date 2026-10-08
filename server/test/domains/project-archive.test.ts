@@ -20,8 +20,16 @@ const [{ createApp }, dbModule, dataStorage] = await Promise.all([
     import('../../src/data'),
 ])
 
-const { characterReferences, db, images, projects, scenes, sceneVariations, vibeTransfers } =
-    dbModule
+const {
+    assets,
+    characterReferences,
+    db,
+    images,
+    projects,
+    scenes,
+    sceneVariations,
+    vibeTransfers,
+} = dbModule
 
 afterAll(async () => {
     await rm(tempBasePath, { recursive: true, force: true })
@@ -96,13 +104,24 @@ describe('project archive export', () => {
         })
 
         const vibePath = await writeDataFile(join(tempBasePath, 'vibes', 'vibe.png'))
+        const encodedVibePath = await writeDataFile(
+            join(tempBasePath, 'vibes', 'vibe-encoded.vibe'),
+        )
+        const [encodedVibeAsset] = await db
+            .insert(assets)
+            .values({
+                kind: 'vibe-encoded',
+                path: encodedVibePath,
+                contentType: 'application/octet-stream',
+            })
+            .returning()
         await db.insert(vibeTransfers).values({
             projectId: project.id,
             displayOrder: 'a0',
             sourceImagePath: vibePath,
+            encodedAssetId: encodedVibeAsset?.id,
             referenceStrength: 0.5,
             informationExtracted: 0.9,
-            encodedData: 'encoded-vibe',
             encodedInformationExtracted: 0.9,
         })
 
@@ -149,7 +168,7 @@ describe('project archive export', () => {
         expect(manifest.scenes[0]?.images).toHaveLength(1)
         expect(manifest.characterReferences).toHaveLength(1)
         expect(manifest.vibeTransfers).toHaveLength(1)
-        expect(manifest.vibeTransfers[0]?.encodedData).toBe('encoded-vibe')
+        expect(manifest.vibeTransfers[0]?.encodedAssetId).toBeDefined()
 
         const assetKinds = manifest.assets.map((asset) => asset.kind)
         expect(assetKinds).toContain('image')
@@ -158,6 +177,7 @@ describe('project archive export', () => {
         expect(assetKinds).toContain('character-reference-thumbnail')
         expect(assetKinds).toContain('character-reference-processed')
         expect(assetKinds).toContain('vibe-source')
+        expect(assetKinds).toContain('vibe-encoded')
 
         for (const asset of manifest.assets) {
             expect(entries[asset.path]).toBeDefined()
@@ -210,7 +230,7 @@ describe('project archive export', () => {
             .from(vibeTransfers)
             .where(eq(vibeTransfers.projectId, importedProject.id))
         expect(importedVibes).toHaveLength(1)
-        expect(importedVibes[0]?.encodedData).toBe('encoded-vibe')
+        expect(importedVibes[0]?.encodedAssetId).toBeNumber()
         expect(await dataStorage.exists(importedVibes[0]?.sourceImagePath ?? null)).toBe(true)
     })
 })

@@ -108,13 +108,12 @@ export const vibeTransfers = sqliteTable(
         displayOrder: text('display_order').notNull().default(''),
 
         sourceAssetId: integer('source_asset_id').references(() => assets.id),
+        encodedAssetId: integer('encoded_asset_id').references(() => assets.id),
         sourceImagePath: text('source_image_path').notNull(),
 
         referenceStrength: real('reference_strength').notNull().default(0.6),
         informationExtracted: real('information_extracted').notNull().default(1.0),
 
-        // Nullable: empty until encoded by encodeVibe()
-        encodedData: text('encoded_data'),
         encodedInformationExtracted: real('encoded_information_extracted'),
 
         cacheSecretKey: text('cache_secret_key'),
@@ -130,6 +129,7 @@ export const vibeTransfers = sqliteTable(
         ),
         index('vibe_transfers_project_id_display_order_idx').on(t.projectId, t.displayOrder),
         index('vibe_transfers_source_asset_id_idx').on(t.sourceAssetId),
+        index('vibe_transfers_encoded_asset_id_idx').on(t.encodedAssetId),
     ],
 )
 

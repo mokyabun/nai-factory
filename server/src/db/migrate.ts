@@ -3,10 +3,18 @@ import { readFileSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import logger from '../logger'
 import InitialPath from './migrations/0000_initial.sql' with { type: 'file' }
+import VibeEncodedAssetPath from './migrations/0001_vibe_encoded_asset.sql' with { type: 'file' }
+import DropVibeEncodedDataPath from './migrations/0002_drop_vibe_encoded_data.sql' with {
+    type: 'file',
+}
 
 const log = logger.child({ module: 'migrate' })
 
-const migrations: { tag: string; path: string }[] = [{ tag: '0000_initial', path: InitialPath }]
+const migrations: { tag: string; path: string }[] = [
+    { tag: '0000_initial', path: InitialPath },
+    { tag: '0001_vibe_encoded_asset', path: VibeEncodedAssetPath },
+    { tag: '0002_drop_vibe_encoded_data', path: DropVibeEncodedDataPath },
+]
 
 function resolveMigrationPath(path: string) {
     if (path.startsWith('$bunfs/') || isAbsolute(path)) return path

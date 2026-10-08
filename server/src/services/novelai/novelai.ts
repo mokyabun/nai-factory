@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import type {
     DebugSettings,
     EncodeVibeRequest,
@@ -10,6 +11,7 @@ import type {
     UserData,
 } from '@nai-factory/shared'
 import { unzipSync } from 'fflate'
+import type { Options } from 'ky'
 import ky from 'ky'
 import * as dataStorage from '@/data'
 import logger from '@/logger'
@@ -34,34 +36,41 @@ export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Pr
         { model: request.model, informationExtracted: request.information_extracted },
         'Encoding vibe image',
     )
-    const form = new FormData()
     const imageBytes = Buffer.from(request.image, 'base64')
-
-    form.append('image', new Blob([imageBytes], { type: 'image/png' }), 'blob')
-    form.append(
-        'request',
-        new Blob(
-            [
+    const multipart = createMultipartBody([
+        {
+            name: 'image',
+            filename: request.imageFilename ?? 'blob',
+            contentType: request.imageContentType ?? 'image/png',
+            data: imageBytes,
+        },
+        {
+            name: 'request',
+            filename: 'blob',
+            contentType: 'application/json',
+            data: Buffer.from(
                 JSON.stringify({
+                    image: 'image',
                     information_extracted: request.information_extracted,
                     model: request.model,
                 }),
-            ],
-            { type: 'application/json' },
-        ),
-        'blob',
-    )
+            ),
+        },
+    ])
 
-    const binary = await ky
-        .post('https://image.novelai.net/ai/encode-vibe', {
-            body: form,
-            timeout: 60_000,
-            retry: 0,
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-            },
-        })
-        .arrayBuffer()
+    const binary = await postNovelAIArrayBuffer('https://image.novelai.net/ai/encode-vibe', {
+        body: multipart.body,
+        timeout: 60_000,
+        retry: 0,
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Accept: '*/*',
+            'Cache-Control': 'no-cache',
+            'Content-Type': multipart.contentType,
+            Pragma: 'no-cache',
+        },
+        errorPrefix: 'NovelAI vibe encoding failed',
+    })
 
     const encoded = Buffer.from(binary).toString('base64')
     log.debug(
@@ -74,6 +83,36 @@ export async function encodeVibe(apiKey: string, request: EncodeVibeRequest): Pr
     )
 
     return encoded
+}
+
+type NovelAIPostOptions = {
+    errorPrefix: string
+} & Pick<Options, 'body' | 'headers' | 'json' | 'retry' | 'timeout'>
+
+async function postNovelAIArrayBuffer(url: string, options: NovelAIPostOptions) {
+    try {
+        return await ky
+            .post(url, {
+                body: options.body,
+                json: options.json,
+                timeout: options.timeout,
+                retry: options.retry,
+                headers: options.headers,
+            })
+            .arrayBuffer()
+    } catch (error) {
+        if (error instanceof Error && 'response' in error) {
+            const response = error.response as Response | undefined
+            const text = await response?.text().catch(() => '')
+            if (response) {
+                throw new Error(
+                    `${options.errorPrefix} (${response.status}): ${text?.slice(0, 500) || error.message}`,
+                )
+            }
+        }
+
+        throw error
+    }
 }
 
 function getMimeType(path: string) {
@@ -90,23 +129,45 @@ function cachedRef(cacheSecretKey: string, uploadFieldName?: string) {
         : { cache_secret_key: cacheSecretKey }
 }
 
-async function appendUploadPart(form: FormData, fieldName: string, filePath: string) {
-    if (!(await dataStorage.exists(filePath)))
-        throw new Error(`Reference image not found: ${filePath}`)
+type MultipartPart = {
+    name: string
+    filename: string
+    contentType: string
+    data: Uint8Array
+}
 
-    form.append(
-        fieldName,
-        new Blob([await dataStorage.readFile(filePath)], {
-            type: getMimeType(filePath),
-        }),
-        'blob',
-    )
+function createMultipartBody(parts: MultipartPart[]) {
+    const boundary = `----WebKitFormBoundary${randomBytes(12).toString('base64url')}`
+    const chunks: Buffer[] = []
+
+    for (const part of parts) {
+        chunks.push(
+            Buffer.from(
+                [
+                    `--${boundary}`,
+                    `Content-Disposition: form-data; name="${part.name}"; filename="${part.filename}"`,
+                    `Content-Type: ${part.contentType}`,
+                    '',
+                    '',
+                ].join('\r\n'),
+            ),
+            Buffer.from(part.data),
+            Buffer.from('\r\n'),
+        )
+    }
+
+    chunks.push(Buffer.from(`--${boundary}--\r\n`))
+
+    return {
+        body: Buffer.concat(chunks),
+        contentType: `multipart/form-data; boundary=${boundary}`,
+    }
 }
 
 function getUploadRefs(params: SimpleNovelAIParameters) {
     const vibes = (params.vibeTransfers ?? []).filter(
-        (ref): ref is NovelAIVibeImage & { uploadFieldName: string; filePath: string } =>
-            !!ref.uploadFieldName && !!ref.filePath,
+        (ref): ref is NovelAIVibeImage & { uploadFieldName: string; encodedBytes: Uint8Array } =>
+            !!ref.uploadFieldName && !!ref.encodedBytes,
     )
     const characterReferences = (params.characterReferences ?? []).filter(
         (
@@ -195,6 +256,9 @@ function createGenerateImageRequest(params: SimpleNovelAIParameters, seed: numbe
         parameters.reference_image_multiple_cached = vibeTransfers.map((ref) =>
             cachedRef(ref.cacheSecretKey, ref.uploadFieldName),
         )
+        parameters.reference_information_extracted_multiple = vibeTransfers.map(
+            (ref) => ref.informationExtracted ?? 1,
+        )
         parameters.reference_strength_multiple = vibeTransfers.map((ref) => ref.strength)
     }
 
@@ -235,42 +299,39 @@ async function postGenerateImageRequest(
     shouldUseMultipart: boolean,
 ) {
     if (shouldUseMultipart) {
-        const form = new FormData()
+        const parts: MultipartPart[] = []
 
         for (const ref of uploadRefs.characterReferences) {
-            await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
+            if (!(await dataStorage.exists(ref.filePath))) {
+                throw new Error(`Reference image not found: ${ref.filePath}`)
+            }
+            parts.push({
+                name: ref.uploadFieldName,
+                filename: 'blob',
+                contentType: getMimeType(ref.filePath),
+                data: await dataStorage.readFile(ref.filePath),
+            })
         }
         for (const ref of uploadRefs.vibes) {
-            await appendUploadPart(form, ref.uploadFieldName, ref.filePath)
+            parts.push({
+                name: ref.uploadFieldName,
+                filename: 'blob',
+                contentType: 'image/png',
+                data: ref.encodedBytes,
+            })
         }
 
-        form.append(
-            'request',
-            new Blob([JSON.stringify(body)], { type: 'application/json' }),
-            'blob',
-        )
+        parts.push({
+            name: 'request',
+            filename: 'blob',
+            contentType: 'application/json',
+            data: Buffer.from(JSON.stringify(body)),
+        })
 
-        return ky
-            .post('https://image.novelai.net/ai/generate-image', {
-                body: form,
-                timeout: 120_000,
-                retry: {
-                    limit: 5,
-                    delay: (attempt) => 1000 * 2 ** (attempt - 1),
-                },
-                headers: {
-                    Authorization: `Bearer ${apiKey}`,
-                    Accept: '*/*',
-                    'Cache-Control': 'no-cache',
-                    Pragma: 'no-cache',
-                },
-            })
-            .arrayBuffer()
-    }
+        const multipart = createMultipartBody(parts)
 
-    return ky
-        .post('https://image.novelai.net/ai/generate-image', {
-            json: body,
+        return postNovelAIArrayBuffer('https://image.novelai.net/ai/generate-image', {
+            body: multipart.body,
             timeout: 120_000,
             retry: {
                 limit: 5,
@@ -278,9 +339,27 @@ async function postGenerateImageRequest(
             },
             headers: {
                 Authorization: `Bearer ${apiKey}`,
+                Accept: '*/*',
+                'Cache-Control': 'no-cache',
+                'Content-Type': multipart.contentType,
+                Pragma: 'no-cache',
             },
+            errorPrefix: 'NovelAI image generation failed',
         })
-        .arrayBuffer()
+    }
+
+    return postNovelAIArrayBuffer('https://image.novelai.net/ai/generate-image', {
+        json: body,
+        timeout: 120_000,
+        retry: {
+            limit: 5,
+            delay: (attempt) => 1000 * 2 ** (attempt - 1),
+        },
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+        },
+        errorPrefix: 'NovelAI image generation failed',
+    })
 }
 
 function extractImageFromZip(zipData: ArrayBuffer) {
@@ -330,7 +409,7 @@ export async function generateImage(
     const uploadRefs = getUploadRefs(params)
     const vibeTransfers = params.vibeTransfers ?? []
     const characterReferences = params.characterReferences ?? []
-    const shouldUseMultipart = vibeTransfers.length > 0 || characterReferences.length > 0
+    const shouldUseMultipart = true
     const startedAt = Date.now()
     log.debug(
         {
@@ -401,7 +480,7 @@ export async function generateImage(
 
 export async function validateApiKey(apiKey: string): Promise<boolean> {
     try {
-        const res = await fetch('https://api.novelai.net/user/subscription', {
+        const res = await fetch('https://image.novelai.net/user/subscription', {
             headers: { Authorization: `Bearer ${apiKey}` },
         })
         log.debug({ ok: res.ok, status: res.status }, 'NovelAI API key validation completed')
@@ -415,11 +494,28 @@ export async function validateApiKey(apiKey: string): Promise<boolean> {
     }
 }
 
+async function readNovelAIError(res: Response) {
+    const text = await res.text().catch(() => '')
+    if (!text) return `NovelAI account status failed (${res.status})`
+
+    try {
+        const data = JSON.parse(text) as { message?: unknown; error?: unknown }
+        const message = typeof data.message === 'string' ? data.message : data.error
+        if (typeof message === 'string') {
+            return `NovelAI account status failed (${res.status}): ${message}`
+        }
+    } catch {
+        // Fall through to the raw response text.
+    }
+
+    return `NovelAI account status failed (${res.status}): ${text.slice(0, 200)}`
+}
+
 export async function fetchAnlasStatus(apiKey: string): Promise<NovelAIAnlasStatus> {
-    const res = await fetch('https://api.novelai.net/user/data', {
+    const res = await fetch('https://image.novelai.net/user/data', {
         headers: { Authorization: `Bearer ${apiKey}` },
     })
-    if (!res.ok) throw new Error(`NovelAI account status failed (${res.status})`)
+    if (!res.ok) throw new Error(await readNovelAIError(res))
 
     const data = (await res.json()) as Partial<UserData>
     const unlimited = data.subscription?.perks?.unlimited ?? false

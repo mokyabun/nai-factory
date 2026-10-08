@@ -159,7 +159,7 @@ async function remove(projectId: number, id: number) {
 
     await db.delete(vibeTransfers).where(eq(vibeTransfers.id, id))
     await dataStorage.remove(existing.sourceImagePath)
-    await removeAssets([existing.sourceAssetId])
+    await removeAssets([existing.sourceAssetId, existing.encodedAssetId])
 
     log.debug({ projectId, vibeTransferId: id }, 'Vibe transfer deleted')
     return true

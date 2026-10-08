@@ -29,7 +29,7 @@ import {
     vibeTransfers,
 } from '@/db'
 import logger from '@/logger'
-import { type AssetKind, createAsset } from '@/services/app/assets'
+import { type AssetKind, createAsset, getAssetPath } from '@/services/app/assets'
 import { httpError, requireEntity, withNormalizedVariables } from '@/utils'
 
 const log = logger.child({ module: 'project-archive-service' })
@@ -54,7 +54,13 @@ type PendingAssetUpdate =
           kind: AssetKind
           path: string
       }
-    | { table: 'vibeTransfers'; id: number; field: 'sourceAssetId'; kind: AssetKind; path: string }
+    | {
+          table: 'vibeTransfers'
+          id: number
+          field: 'sourceAssetId' | 'encodedAssetId'
+          kind: AssetKind
+          path: string
+      }
 
 type ArchiveAssetFile = {
     asset: ProjectArchiveAsset
@@ -324,14 +330,21 @@ export async function createProjectArchive(projectId: number, body: ProjectArchi
             sourcePath: vibe.sourceImagePath,
         })
         if (sourceAsset) archiveFiles.push(sourceAsset)
+        const encodedAsset = await createArchiveAssetFile({
+            assetId: `vibe-encoded-${vibe.id}`,
+            kind: 'vibe-encoded',
+            ownerId: vibe.id,
+            sourcePath: await getAssetPath(vibe.encodedAssetId),
+        })
+        if (encodedAsset) archiveFiles.push(encodedAsset)
 
         archiveVibeTransfers.push({
             localId: archiveLocalId('vibe-transfer', vibe.id),
             displayOrder: vibe.displayOrder,
             sourceAssetId: sourceAsset?.asset.id,
+            encodedAssetId: encodedAsset?.asset.id,
             referenceStrength: vibe.referenceStrength,
             informationExtracted: vibe.informationExtracted,
-            encodedData: vibe.encodedData,
             encodedInformationExtracted: vibe.encodedInformationExtracted,
             createdAt: vibe.createdAt,
             updatedAt: vibe.updatedAt,
@@ -457,7 +470,7 @@ async function applyPendingAssetUpdates(updates: PendingAssetUpdate[]) {
                 .run()
         } else {
             db.update(vibeTransfers)
-                .set({ sourceAssetId: asset.id })
+                .set({ [update.field]: asset.id })
                 .where(eq(vibeTransfers.id, update.id))
                 .run()
         }
@@ -665,6 +678,7 @@ export async function importProjectArchive(file: ProjectArchiveImportBody['archi
         for (const archiveVibe of manifest.vibeTransfers) {
             const sourceAsset = readAsset(archiveVibe.sourceAssetId)
             if (!sourceAsset) continue
+            const encodedAsset = readAsset(archiveVibe.encodedAssetId)
 
             const vibe = db
                 .insert(vibeTransfers)
@@ -674,7 +688,6 @@ export async function importProjectArchive(file: ProjectArchiveImportBody['archi
                     sourceImagePath: 'pending-import',
                     referenceStrength: archiveVibe.referenceStrength,
                     informationExtracted: archiveVibe.informationExtracted,
-                    encodedData: archiveVibe.encodedData,
                     encodedInformationExtracted: archiveVibe.encodedInformationExtracted,
                     ...(archiveVibe.createdAt ? { createdAt: archiveVibe.createdAt } : {}),
                     ...(archiveVibe.updatedAt ? { updatedAt: archiveVibe.updatedAt } : {}),
@@ -700,6 +713,21 @@ export async function importProjectArchive(file: ProjectArchiveImportBody['archi
                 kind: 'vibe-source',
                 path: sourceImagePath,
             })
+            if (encodedAsset) {
+                const encodedPath = normalizedStoragePath(
+                    envConfig.NAI_FACTORY_VIBES_DIR,
+                    String(createdProject.id),
+                    `${vibe.id}-encoded${assetExtension(encodedAsset.asset)}`,
+                )
+                pendingWrites.push({ path: encodedPath, data: encodedAsset.data })
+                pendingAssetUpdates.push({
+                    table: 'vibeTransfers',
+                    id: vibe.id,
+                    field: 'encodedAssetId',
+                    kind: 'vibe-encoded',
+                    path: encodedPath,
+                })
+            }
         }
 
         return createdProject

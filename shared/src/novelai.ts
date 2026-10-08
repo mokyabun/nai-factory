@@ -197,6 +197,8 @@ export interface NovelAIVibeImage {
     cacheSecretKey: string
     uploadFieldName?: string
     filePath?: string
+    encodedBytes?: Uint8Array
+    informationExtracted?: number
     strength: number
 }
 
@@ -212,6 +214,8 @@ export interface NovelAICharacterReferenceImage {
 
 export interface EncodeVibeRequest {
     image: string
+    imageContentType?: string
+    imageFilename?: string
     information_extracted: number
     model: NovelAIModel
 }

@@ -1,18 +1,47 @@
+import { join } from 'node:path'
 import type { NovelAIModel, NovelAIVibeImage } from '@nai-factory/shared'
 import { asc, eq } from 'drizzle-orm'
+import sharp from 'sharp'
+import { envConfig } from '@/config'
 import * as dataStorage from '@/data'
 import { db, vibeTransfers } from '@/db'
 import logger from '@/logger'
-import { getAssetPath } from '@/services/app/assets'
+import { createAsset, getAssetPath, removeAssets } from '@/services/app/assets'
 import { nowIso } from '@/utils'
+import { encodeVibe } from './novelai'
 import { createUniqueReferenceCacheKey, isReferenceCacheFresh } from './reference-cache'
 
 const log = logger.child({ module: 'vibe-image' })
 
+function encodedVibePath(projectId: number, vibeTransferId: number) {
+    return join(
+        envConfig.NAI_FACTORY_VIBES_DIR,
+        String(projectId),
+        `${vibeTransferId}_encoded.vibe`,
+    ).replaceAll('\\', '/')
+}
+
+async function writeEncodedVibeAsset(
+    projectId: number,
+    vibeTransferId: number,
+    encodedBytes: Uint8Array,
+) {
+    const path = encodedVibePath(projectId, vibeTransferId)
+    await dataStorage.writeFile(path, encodedBytes)
+    return createAsset('vibe-encoded', path)
+}
+
+async function readEncodedVibeAsset(assetId: number | null) {
+    const path = await getAssetPath(assetId)
+    if (!path || !(await dataStorage.exists(path))) return null
+    return dataStorage.readFile(path)
+}
+
 export async function checkVibe(
     vibeTransferId: number,
-    _apiKey?: string,
-    _model?: NovelAIModel,
+    apiKey?: string,
+    model?: NovelAIModel,
+    uploadFieldName?: string,
 ): Promise<NovelAIVibeImage> {
     const [vibe] = await db.select().from(vibeTransfers).where(eq(vibeTransfers.id, vibeTransferId))
 
@@ -25,14 +54,51 @@ export async function checkVibe(
     }
 
     let cacheSecretKey = vibe.cacheSecretKey
-    let uploadFieldName: string | undefined
-    let filePath: string | undefined
+    const cacheFresh = isReferenceCacheFresh(vibe.cacheSecretKey, vibe.cacheCreatedAt)
+    const encodingMatches = vibe.encodedInformationExtracted === vibe.informationExtracted
+    const shouldUpload = !cacheFresh || !encodingMatches
+    let encodedBytes = encodingMatches ? await readEncodedVibeAsset(vibe.encodedAssetId) : null
+    let encodedInformationExtracted = vibe.encodedInformationExtracted
 
-    if (!isReferenceCacheFresh(vibe.cacheSecretKey, vibe.cacheCreatedAt)) {
+    if (
+        shouldUpload &&
+        (!encodedBytes || encodedInformationExtracted !== vibe.informationExtracted)
+    ) {
+        if (!apiKey || !model) throw new Error('Vibe encoding requires NovelAI API settings')
+
+        const pngData = await sharp(await dataStorage.readFile(sourceImagePath))
+            .png()
+            .toBuffer()
+        const encodedBase64 = await encodeVibe(apiKey, {
+            image: pngData.toString('base64'),
+            imageContentType: 'image/png',
+            information_extracted: vibe.informationExtracted,
+            model,
+        })
+        encodedBytes = Buffer.from(encodedBase64, 'base64')
+        encodedInformationExtracted = vibe.informationExtracted
+        const encodedAsset = await writeEncodedVibeAsset(vibe.projectId, vibe.id, encodedBytes)
+
+        await db
+            .update(vibeTransfers)
+            .set({
+                encodedAssetId: encodedAsset.id,
+                encodedInformationExtracted,
+                updatedAt: nowIso(),
+            })
+            .where(eq(vibeTransfers.id, vibeTransferId))
+        log.debug(
+            {
+                vibeTransferId,
+                model,
+                informationExtracted: vibe.informationExtracted,
+            },
+            'Vibe encoded',
+        )
+    }
+
+    if (shouldUpload) {
         cacheSecretKey = await createUniqueReferenceCacheKey()
-        uploadFieldName = 'ref_multiple_0'
-        filePath = sourceImagePath
-
         await db
             .update(vibeTransfers)
             .set({
@@ -41,18 +107,23 @@ export async function checkVibe(
                 updatedAt: nowIso(),
             })
             .where(eq(vibeTransfers.id, vibeTransferId))
-        log.debug({ vibeTransferId }, 'Vibe reference cache refreshed')
-    } else {
-        log.debug({ vibeTransferId }, 'Vibe reference cache hit')
+        log.debug(
+            {
+                vibeTransferId,
+                informationExtracted: vibe.informationExtracted,
+            },
+            'Vibe reference cache refreshed',
+        )
     }
 
-    if (!cacheSecretKey) throw new Error(`Vibe transfer ${vibeTransferId} has no cache key`)
+    if (!cacheSecretKey) throw new Error(`Vibe transfer ${vibe.id} has no cache key`)
 
     return {
         id: vibe.id,
         cacheSecretKey,
-        uploadFieldName,
-        filePath,
+        uploadFieldName: shouldUpload ? uploadFieldName : undefined,
+        encodedBytes: shouldUpload ? (encodedBytes ?? undefined) : undefined,
+        informationExtracted: encodedInformationExtracted ?? vibe.informationExtracted,
         strength: vibe.referenceStrength,
     }
 }
@@ -76,8 +147,7 @@ export async function checkVibesForProject(
     const results: NovelAIVibeImage[] = []
 
     for (const [index, vibe] of vibes.entries()) {
-        const result = await checkVibe(vibe.id, apiKey, model)
-        if (result.uploadFieldName) result.uploadFieldName = `ref_multiple_${index}`
+        const result = await checkVibe(vibe.id, apiKey, model, `ref_multiple_${index}`)
         results.push(result)
     }
 
@@ -95,16 +165,22 @@ export async function checkVibesForProject(
 }
 
 export async function invalidateVibe(vibeTransferId: number): Promise<void> {
+    const [existing] = await db
+        .select({ encodedAssetId: vibeTransfers.encodedAssetId })
+        .from(vibeTransfers)
+        .where(eq(vibeTransfers.id, vibeTransferId))
+
     await db
         .update(vibeTransfers)
         .set({
-            encodedData: null,
+            encodedAssetId: null,
             encodedInformationExtracted: null,
             cacheSecretKey: null,
             cacheCreatedAt: null,
             updatedAt: nowIso(),
         })
         .where(eq(vibeTransfers.id, vibeTransferId))
+    await removeAssets([existing?.encodedAssetId])
 
     log.debug({ vibeTransferId }, 'Vibe encoding invalidated')
 }

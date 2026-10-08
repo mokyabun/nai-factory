@@ -63,6 +63,7 @@ export const ProjectArchiveAssetKind = z.enum([
     'character-reference-thumbnail',
     'character-reference-processed',
     'vibe-source',
+    'vibe-encoded',
 ])
 
 export const ProjectArchiveAsset = z.object({
@@ -122,9 +123,9 @@ export const ProjectArchiveVibeTransfer = z.object({
     localId: z.string(),
     displayOrder: z.string(),
     sourceAssetId: z.string().optional(),
+    encodedAssetId: z.string().optional(),
     referenceStrength: z.number(),
     informationExtracted: z.number(),
-    encodedData: z.string().nullable().optional(),
     encodedInformationExtracted: z.number().nullable().optional(),
     createdAt: z.string().optional(),
     updatedAt: z.string().optional(),

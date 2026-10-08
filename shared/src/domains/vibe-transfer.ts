@@ -7,12 +7,12 @@ export const VibeTransfer = z.object({
 
     displayOrder: z.string(),
     sourceAssetId: z.number().nullable(),
+    encodedAssetId: z.number().nullable(),
     sourceImagePath: z.string(),
 
     referenceStrength: z.number(),
     informationExtracted: z.number(),
 
-    encodedData: z.string().nullable(),
     encodedInformationExtracted: z.number().nullable(),
 
     cacheSecretKey: z.string().nullable(),
