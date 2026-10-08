@@ -70,7 +70,7 @@ export interface ParsedSceneItem {
 const LIB_REF_RE = /<([^.>]+)\.([^>]+)>/g
 
 export function parseSdStudioFile(raw: unknown): ParsedScenePack {
-    const file = raw as SdStudioFile
+    const { file, sceneKeyOrder } = parseSdStudioInput(raw)
     if (!file.name || !file.scenes || typeof file.scenes !== 'object') {
         throw new Error('Invalid SD Studio file: missing name or scenes')
     }
@@ -86,7 +86,7 @@ export function parseSdStudioFile(raw: unknown): ParsedScenePack {
     }
 
     const scenes: ParsedSceneItem[] = []
-    for (const [key, scene] of Object.entries(file.scenes)) {
+    for (const [key, scene] of orderedSceneEntries(file.scenes, sceneKeyOrder)) {
         scenes.push(expandScene(scene.name || key, scene, pieceValues))
     }
 
@@ -101,6 +101,170 @@ export function parseSdStudioFile(raw: unknown): ParsedScenePack {
     }
 
     return { name: file.name, scenes, preset }
+}
+
+function parseSdStudioInput(raw: unknown) {
+    if (typeof raw === 'string') {
+        return {
+            file: JSON.parse(raw) as SdStudioFile,
+            sceneKeyOrder: extractSceneKeyOrder(raw),
+        }
+    }
+
+    return { file: raw as SdStudioFile, sceneKeyOrder: undefined }
+}
+
+function orderedSceneEntries(scenes: Record<string, SdScene>, sceneKeyOrder?: string[]) {
+    const entries = Object.entries(scenes)
+    if (!sceneKeyOrder) return entries
+
+    const used = new Set<string>()
+    const ordered: Array<[string, SdScene]> = []
+    for (const key of sceneKeyOrder) {
+        if (!Object.hasOwn(scenes, key)) continue
+        ordered.push([key, scenes[key] as SdScene])
+        used.add(key)
+    }
+
+    for (const entry of entries) {
+        if (!used.has(entry[0])) ordered.push(entry)
+    }
+
+    return ordered
+}
+
+function extractSceneKeyOrder(text: string) {
+    try {
+        let index = skipWhitespace(text, 0)
+        if (text[index] !== '{') return undefined
+        index += 1
+
+        while (index < text.length) {
+            index = skipWhitespace(text, index)
+            if (text[index] === '}') return undefined
+
+            const key = readJsonString(text, index)
+            index = skipWhitespace(text, key.end)
+            if (text[index] !== ':') return undefined
+            index = skipWhitespace(text, index + 1)
+
+            if (key.value === 'scenes') return readObjectKeys(text, index)
+
+            index = skipJsonValue(text, index)
+            index = skipWhitespace(text, index)
+            if (text[index] === ',') {
+                index += 1
+                continue
+            }
+            if (text[index] === '}') return undefined
+            return undefined
+        }
+    } catch {
+        return undefined
+    }
+}
+
+function readObjectKeys(text: string, start: number) {
+    let index = skipWhitespace(text, start)
+    if (text[index] !== '{') return undefined
+    index += 1
+
+    const keys: string[] = []
+    while (index < text.length) {
+        index = skipWhitespace(text, index)
+        if (text[index] === '}') return keys
+
+        const key = readJsonString(text, index)
+        keys.push(key.value)
+
+        index = skipWhitespace(text, key.end)
+        if (text[index] !== ':') return undefined
+        index = skipJsonValue(text, index + 1)
+        index = skipWhitespace(text, index)
+        if (text[index] === ',') {
+            index += 1
+            continue
+        }
+        if (text[index] === '}') return keys
+        return undefined
+    }
+}
+
+function skipWhitespace(text: string, start: number) {
+    let index = start
+    while (/\s/.test(text[index] ?? '')) index += 1
+    return index
+}
+
+function readJsonString(text: string, start: number) {
+    if (text[start] !== '"') throw new Error('Expected JSON string')
+    let index = start + 1
+    while (index < text.length) {
+        const char = text[index]
+        if (char === '\\') {
+            index += 2
+            continue
+        }
+        if (char === '"') {
+            return {
+                value: JSON.parse(text.slice(start, index + 1)) as string,
+                end: index + 1,
+            }
+        }
+        index += 1
+    }
+    throw new Error('Unterminated JSON string')
+}
+
+function skipJsonValue(text: string, start: number) {
+    let index = skipWhitespace(text, start)
+    const char = text[index]
+
+    if (char === '"') return readJsonString(text, index).end
+    if (char === '{') return skipJsonObject(text, index)
+    if (char === '[') return skipJsonArray(text, index)
+
+    while (index < text.length && !/[\s,}\]]/.test(text[index] ?? '')) index += 1
+    return index
+}
+
+function skipJsonObject(text: string, start: number) {
+    let index = start + 1
+    while (index < text.length) {
+        index = skipWhitespace(text, index)
+        if (text[index] === '}') return index + 1
+
+        const key = readJsonString(text, index)
+        index = skipWhitespace(text, key.end)
+        if (text[index] !== ':') throw new Error('Expected object colon')
+        index = skipJsonValue(text, index + 1)
+        index = skipWhitespace(text, index)
+        if (text[index] === ',') {
+            index += 1
+            continue
+        }
+        if (text[index] === '}') return index + 1
+        throw new Error('Expected object separator')
+    }
+    throw new Error('Unterminated JSON object')
+}
+
+function skipJsonArray(text: string, start: number) {
+    let index = start + 1
+    while (index < text.length) {
+        index = skipWhitespace(text, index)
+        if (text[index] === ']') return index + 1
+
+        index = skipJsonValue(text, index)
+        index = skipWhitespace(text, index)
+        if (text[index] === ',') {
+            index += 1
+            continue
+        }
+        if (text[index] === ']') return index + 1
+        throw new Error('Expected array separator')
+    }
+    throw new Error('Unterminated JSON array')
 }
 
 /**

@@ -76,7 +76,7 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
                 const sceneCount = scenesObj ? Object.keys(scenesObj).length : 0
                 const hasPreset = !!raw.selectedWorkflow && !!raw.presets
 
-                setParsed({ raw, name, sceneCount, hasPreset })
+                setParsed({ raw: text, name, sceneCount, hasPreset })
                 setProjectName(name)
             } catch {
                 setParseError('JSON 파일을 파싱할 수 없습니다.')
