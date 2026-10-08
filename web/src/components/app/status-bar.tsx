@@ -1,7 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader, Play, Square, Trash2 } from 'lucide-react'
-import { api } from '@/lib/api'
+import { api, type QueueStatus, type SceneSummary } from '@/lib/api'
+import {
+    requireApiResult,
+    restoreSnapshot,
+    restoreSnapshots,
+    snapshotQueries,
+    snapshotQuery,
+} from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
+
+const emptyStatus: QueueStatus = {
+    running: false,
+    processing: false,
+    pendingCount: 0,
+    estimatedSeconds: null,
+    currentSceneId: null,
+    currentJob: null,
+    avgDurationMs: null,
+    durationSampleSize: 0,
+    completedCount: 0,
+    failedCount: 0,
+    recent: [],
+}
 
 export function StatusBar() {
     const queryClient = useQueryClient()
@@ -10,37 +31,76 @@ export function StatusBar() {
         queryKey: qk.queueStatus(),
         queryFn: async () => {
             const { data } = await api.queue.status.get()
-            return (
-                data ?? {
-                    running: false,
-                    processing: false,
-                    pendingCount: 0,
-                    estimatedSeconds: null,
-                    currentSceneId: null as number | null,
-                    currentJob: null,
-                    avgDurationMs: null,
-                    durationSampleSize: 0,
-                    completedCount: 0,
-                    failedCount: 0,
-                    recent: [],
-                }
-            )
+            return data ?? emptyStatus
         },
     })
 
     const startQueue = useMutation({
-        mutationFn: () => api.queue.start.post(),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.queueStatus() }),
+        mutationFn: () => requireApiResult(api.queue.start.post()),
+        onMutate: async () => {
+            const previousStatus = await snapshotQuery<QueueStatus>(queryClient, qk.queueStatus())
+            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => ({
+                ...(status ?? emptyStatus),
+                running: true,
+            }))
+            return { previousStatus }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousStatus)
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.queueStatus() }),
     })
 
     const stopQueue = useMutation({
-        mutationFn: () => api.queue.stop.post(),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.queueStatus() }),
+        mutationFn: () => requireApiResult(api.queue.stop.post()),
+        onMutate: async () => {
+            const previousStatus = await snapshotQuery<QueueStatus>(queryClient, qk.queueStatus())
+            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => ({
+                ...(status ?? emptyStatus),
+                running: false,
+            }))
+            return { previousStatus }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousStatus)
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.queueStatus() }),
     })
 
     const clearAll = useMutation({
-        mutationFn: () => api.queue.delete(),
-        onSuccess: () => {
+        mutationFn: () => requireApiResult(api.queue.delete()),
+        onMutate: async () => {
+            const snapshots = await snapshotQueries(queryClient, {
+                predicate: (query) =>
+                    query.queryKey[0] === 'queue' ||
+                    (query.queryKey[0] === 'scenes' && typeof query.queryKey[1] === 'number'),
+            })
+            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => ({
+                ...(status ?? emptyStatus),
+                pendingCount: 0,
+                estimatedSeconds: null,
+            }))
+            queryClient.setQueriesData(
+                {
+                    predicate: (query) =>
+                        query.queryKey[0] === 'queue' && query.queryKey[1] === 'items',
+                },
+                [],
+            )
+            queryClient.setQueriesData<SceneSummary[]>(
+                { predicate: (query) => query.queryKey[0] === 'scenes' },
+                (scenes) =>
+                    scenes?.map((scene) => ({
+                        ...scene,
+                        queueCount: 0,
+                    })),
+            )
+            return { snapshots }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({
                 predicate: (query) =>
@@ -49,19 +109,7 @@ export function StatusBar() {
         },
     })
 
-    const status = statusQuery.data ?? {
-        running: false,
-        processing: false,
-        pendingCount: 0,
-        estimatedSeconds: null as number | null,
-        currentSceneId: null as number | null,
-        currentJob: null,
-        avgDurationMs: null,
-        durationSampleSize: 0,
-        completedCount: 0,
-        failedCount: 0,
-        recent: [],
-    }
+    const status = statusQuery.data ?? emptyStatus
 
     return (
         <div className="flex h-10 shrink-0 items-center border-t bg-primary text-xs text-primary-foreground">

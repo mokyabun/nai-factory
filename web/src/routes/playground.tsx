@@ -5,6 +5,7 @@ import { ImageIcon, Loader, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, imageResourceUrl } from '@/lib/api'
+import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 
 export const Route = createFileRoute('/playground')({ component: PlaygroundPage })
@@ -33,8 +34,25 @@ function PlaygroundPage() {
     }, [latestImage, selectedImageId])
 
     const deleteImage = useMutation({
-        mutationFn: (image: PlaygroundImage) => api.playground.images.delete({ id: image.id }),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.playgroundImages() }),
+        mutationFn: (image: PlaygroundImage) =>
+            requireApiResult(api.playground.images.delete({ id: image.id })),
+        onMutate: async (image) => {
+            const previousImages = await snapshotQuery<PlaygroundImage[]>(
+                queryClient,
+                qk.playgroundImages(),
+            )
+            queryClient.setQueryData<PlaygroundImage[]>(
+                qk.playgroundImages(),
+                (items) => items?.filter((item) => item.id !== image.id) ?? items,
+            )
+            setSelectedImageId((id) => (id === image.id ? null : id))
+            return { previousImages, selectedImageId }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousImages)
+            setSelectedImageId(context?.selectedImageId ?? null)
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.playgroundImages() }),
     })
 
     return (

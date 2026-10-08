@@ -11,7 +11,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
-import { api } from '@/lib/api'
+import { api, type SceneSummary } from '@/lib/api'
+import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
@@ -56,15 +57,64 @@ export function SceneJsonImportDialog({
         mutationFn: async () => {
             if (!data || projectId === null) throw new Error('가져올 수 없습니다.')
 
-            const { error } = await api.scenes['import-json'].post({
-                projectId,
-                data,
-                mode,
-            })
-            if (error) throw new Error('Scene JSON import failed')
+            const { data: result } = await requireApiResult(
+                api.scenes['import-json'].post({
+                    projectId,
+                    data,
+                    mode,
+                }),
+            )
+            return result
         },
-        onSuccess: async () => {
+        onMutate: async () => {
+            if (!data || projectId === null) return null
+            const previousScenes = await snapshotQuery<SceneSummary[]>(
+                queryClient,
+                qk.scenes(projectId),
+            )
+            const now = new Date().toISOString()
+            const optimisticScenes = sceneJsonItems(data).map((scene, index) => ({
+                id: -(Date.now() + index),
+                projectId,
+                displayOrder: `optimistic-${now}-${index}`,
+                name: scene.name,
+                variations: scene.variations.map((variation, variationIndex) => ({
+                    id: -(Date.now() + index * 100 + variationIndex),
+                    sceneId: -(Date.now() + index),
+                    displayOrder: String(variationIndex),
+                    variables: variation.variables,
+                    createdAt: now,
+                    updatedAt: now,
+                })),
+                createdAt: now,
+                updatedAt: now,
+                imageCount: 0,
+                queueCount: 0,
+                latestImages: [],
+            }))
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes(projectId), (scenes) =>
+                mode === 'replace' ? optimisticScenes : [...(scenes ?? []), ...optimisticScenes],
+            )
+            return { previousScenes }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousScenes)
+        },
+        onSuccess: async (result, _variables, context) => {
             if (projectId !== null) {
+                if (result?.scenes) {
+                    const scenes = result.scenes.map((scene) => ({
+                        ...scene,
+                        imageCount: 0,
+                        queueCount: 0,
+                        latestImages: [],
+                    }))
+                    const previousScenes = context?.previousScenes.data ?? []
+                    queryClient.setQueryData<SceneSummary[]>(
+                        qk.scenes(projectId),
+                        mode === 'replace' ? scenes : [...previousScenes, ...scenes],
+                    )
+                }
                 await queryClient.invalidateQueries({ queryKey: qk.scenes(projectId) })
             }
             onOpenChange(false)
@@ -147,4 +197,10 @@ function countSceneJsonItems(data: SceneJsonData) {
     if (Array.isArray(data)) return data.length
     if ('scenes' in data) return data.scenes.length
     return 1
+}
+
+function sceneJsonItems(data: SceneJsonData) {
+    if (Array.isArray(data)) return data
+    if ('scenes' in data) return data.scenes
+    return [data]
 }

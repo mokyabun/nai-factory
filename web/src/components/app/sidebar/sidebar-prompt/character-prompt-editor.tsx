@@ -16,7 +16,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { CharacterPrompt, PromptVariable } from '@nai-factory/shared'
+import type { CharacterPrompt, Project, PromptVariable } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, GripVertical, Plus, Trash2, X } from 'lucide-react'
 import { useMemo, useRef } from 'react'
@@ -24,6 +24,7 @@ import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
+import { type QuerySnapshot, requireApiResult, restoreSnapshot } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { createPromptCompletionSource } from '@/lib/tag-autocomplete'
 import { debounce } from '@/lib/utils'
@@ -51,7 +52,7 @@ function SortableItem({ id, cp, completionSource, onUpdate, onRemove }: Sortable
         <div ref={setNodeRef} style={style}>
             <Tabs
                 defaultValue="prompt"
-                className="flex h-[200px] flex-col overflow-hidden border scrollbar-thin"
+                className="flex h-[200px] shrink-0 flex-col overflow-hidden border scrollbar-thin"
             >
                 <TabsList className="bg-transparent w-full shrink-0 justify-between my-1 pr-2">
                     <div className="flex items-center">
@@ -135,22 +136,50 @@ export function CharacterPromptEditor({
     // Keep a ref to latest characterPrompts for use inside the debounced save
     const characterPromptsRef = useRef(characterPrompts)
     characterPromptsRef.current = characterPrompts
+    const rollbackProjectRef = useRef<QuerySnapshot<Project> | null>(null)
 
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
     )
 
+    function applyOptimisticPrompts(newPrompts: CharacterPrompt[]) {
+        if (!rollbackProjectRef.current) {
+            rollbackProjectRef.current = {
+                queryKey: qk.project(projectId),
+                data: queryClient.getQueryData<Project>(qk.project(projectId)),
+            }
+        }
+
+        characterPromptsRef.current = newPrompts
+        queryClient.setQueryData<Project | null>(qk.project(projectId), (project) =>
+            project ? { ...project, characterPrompts: newPrompts } : project,
+        )
+    }
+
     async function save(newPrompts: CharacterPrompt[]) {
-        await api.projects({ projectId }).patch({ characterPrompts: newPrompts })
-        queryClient.invalidateQueries({ queryKey: qk.project(projectId) })
+        applyOptimisticPrompts(newPrompts)
+
+        try {
+            const { data } = await requireApiResult(
+                api.projects({ projectId }).patch({ characterPrompts: newPrompts }),
+            )
+            if (data) queryClient.setQueryData(qk.project(projectId), data)
+            rollbackProjectRef.current = null
+        } catch {
+            restoreSnapshot(queryClient, rollbackProjectRef.current ?? undefined)
+            rollbackProjectRef.current = null
+        } finally {
+            queryClient.invalidateQueries({ queryKey: qk.project(projectId) })
+        }
     }
 
     const saveDebounced = useRef(debounce((newPrompts: CharacterPrompt[]) => save(newPrompts), 600))
 
     async function addCharacter() {
+        saveDebounced.current.cancel()
         await save([
-            ...characterPrompts,
+            ...characterPromptsRef.current,
             { enabled: true, center: { x: 0, y: 0 }, prompt: '', uc: '' },
         ])
     }
@@ -159,20 +188,21 @@ export function CharacterPromptEditor({
         const newPrompts = characterPromptsRef.current.map((cp, i) =>
             i === index ? { ...cp, ...updated } : cp,
         )
+        applyOptimisticPrompts(newPrompts)
         saveDebounced.current(newPrompts)
     }
 
     async function removeCharacter(index: number) {
         saveDebounced.current.cancel()
-        await save(characterPrompts.filter((_, i) => i !== index))
+        await save(characterPromptsRef.current.filter((_, i) => i !== index))
     }
 
     function handleDragEnd(event: DragEndEvent) {
         const { active, over } = event
         if (!over || active.id === over.id) return
-        const oldIndex = characterPrompts.findIndex((_, i) => i === active.id)
-        const newIndex = characterPrompts.findIndex((_, i) => i === over.id)
-        save(arrayMove(characterPrompts, oldIndex, newIndex))
+        const oldIndex = characterPromptsRef.current.findIndex((_, i) => i === active.id)
+        const newIndex = characterPromptsRef.current.findIndex((_, i) => i === over.id)
+        save(arrayMove(characterPromptsRef.current, oldIndex, newIndex))
     }
 
     return (

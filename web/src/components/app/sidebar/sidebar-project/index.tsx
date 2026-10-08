@@ -4,6 +4,7 @@ import { Provider, useAtom } from 'jotai'
 import * as Base from '@/components/ui/sidebar'
 import type { GroupWithProjects, ProjectGroupId, ProjectGroupItem } from '@/lib/api'
 import { api } from '@/lib/api'
+import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import {
     type ActiveRenameTarget,
@@ -43,44 +44,158 @@ function SidebarProjectContent() {
 
     const createGroup = useMutation({
         mutationFn: ({ name, parentGroupId }: { name: string; parentGroupId: number | null }) =>
-            api.groups.post({ name, parentGroupId }),
-        onSuccess: invalidateGroups,
+            requireApiResult(api.groups.post({ name, parentGroupId })),
+        onMutate: async ({ name, parentGroupId }) => {
+            const previousGroups = await snapshotQuery<ProjectGroupItem[]>(
+                queryClient,
+                qk.groupsWithProjects(),
+            )
+            const now = new Date().toISOString()
+            const tempGroup: GroupWithProjects = {
+                id: -Date.now(),
+                type: 'group',
+                parentGroupId,
+                name,
+                createdAt: now,
+                updatedAt: now,
+                projects: [],
+                groups: [],
+            }
+            queryClient.setQueryData<ProjectGroupItem[]>(qk.groupsWithProjects(), (items) =>
+                items ? addGroupToTree(items, parentGroupId, tempGroup) : items,
+            )
+            setProjectDialog(null)
+            return { previousGroups, tempId: tempGroup.id }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousGroups)
+        },
+        onSuccess: (res, _variables, context) => {
+            if (!res.data) return
+            const group: GroupWithProjects = {
+                ...res.data,
+                type: 'group',
+                projects: [],
+                groups: [],
+            }
+            queryClient.setQueryData<ProjectGroupItem[]>(qk.groupsWithProjects(), (items) =>
+                items ? replaceGroupInTree(items, context?.tempId ?? group.id, group) : items,
+            )
+        },
+        onSettled: invalidateGroups,
     })
 
     const deleteGroup = useMutation({
-        mutationFn: (id: number) => api.groups({ id }).delete(),
-        onSuccess: invalidateGroups,
+        mutationFn: (id: number) => requireApiResult(api.groups({ id }).delete()),
+        onMutate: async (id) => {
+            const previousGroups = await snapshotQuery<ProjectGroupItem[]>(
+                queryClient,
+                qk.groupsWithProjects(),
+            )
+            queryClient.setQueryData<ProjectGroupItem[]>(qk.groupsWithProjects(), (items) =>
+                items ? removeGroupFromItems(items, id) : items,
+            )
+            return { previousGroups }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousGroups)
+        },
+        onSettled: invalidateGroups,
     })
 
     const renameGroup = useMutation({
         mutationFn: ({ id, name }: { id: number; name: string }) =>
-            api.groups({ id }).patch({ name }),
-        onSuccess: invalidateGroups,
+            requireApiResult(api.groups({ id }).patch({ name })),
+        onMutate: async ({ id, name }) => {
+            const previousGroups = await snapshotQuery<ProjectGroupItem[]>(
+                queryClient,
+                qk.groupsWithProjects(),
+            )
+            queryClient.setQueryData<ProjectGroupItem[]>(qk.groupsWithProjects(), (items) =>
+                items ? renameGroupInTree(items, id, name) : items,
+            )
+            return { previousGroups }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousGroups)
+        },
+        onSettled: invalidateGroups,
     })
 
     const createProject = useMutation({
         mutationFn: ({ groupId, name }: { groupId: ProjectGroupId; name: string }) =>
-            api.projects.post({ groupId, name }),
-        onSuccess: (res) => {
-            invalidateGroups()
-            if (res.data) selectProject(res.data)
+            requireApiResult(api.projects.post({ groupId, name })),
+        onMutate: async ({ groupId, name }) => {
+            const previousGroups = await snapshotQuery<ProjectGroupItem[]>(
+                queryClient,
+                qk.groupsWithProjects(),
+            )
+            const tempId = -Date.now()
+            const tempProject: ProjectSummary = { id: tempId, groupId, name }
+            queryClient.setQueryData<ProjectGroupItem[]>(qk.groupsWithProjects(), (items) =>
+                items ? addProjectToTree(items, groupId, tempProject) : items,
+            )
+            setProjectDialog(null)
+            return { previousGroups, tempId }
         },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousGroups)
+        },
+        onSuccess: (res, _variables, context) => {
+            const project = res.data
+            if (!project) return
+            queryClient.setQueryData<ProjectGroupItem[]>(qk.groupsWithProjects(), (items) =>
+                items ? replaceProjectInTree(items, context?.tempId ?? project.id, project) : items,
+            )
+            queryClient.setQueryData(qk.project(project.id), project)
+            selectProject(project)
+        },
+        onSettled: invalidateGroups,
     })
 
     const deleteProject = useMutation({
-        mutationFn: (projectId: number) => api.projects({ projectId }).delete(),
-        onSuccess: invalidateGroups,
+        mutationFn: (projectId: number) => requireApiResult(api.projects({ projectId }).delete()),
+        onMutate: async (projectId) => {
+            const previousGroups = await snapshotQuery<ProjectGroupItem[]>(
+                queryClient,
+                qk.groupsWithProjects(),
+            )
+            queryClient.setQueryData<ProjectGroupItem[]>(qk.groupsWithProjects(), (items) =>
+                items ? removeProjectFromTree(items, projectId) : items,
+            )
+            return { previousGroups }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousGroups)
+        },
+        onSettled: invalidateGroups,
     })
 
     const renameProject = useMutation({
         mutationFn: ({ projectId, name }: { projectId: number; name: string }) =>
-            api.projects({ projectId }).patch({ name }),
-        onSuccess: invalidateGroups,
+            requireApiResult(api.projects({ projectId }).patch({ name })),
+        onMutate: async ({ projectId, name }) => {
+            const previousGroups = await snapshotQuery<ProjectGroupItem[]>(
+                queryClient,
+                qk.groupsWithProjects(),
+            )
+            queryClient.setQueryData<ProjectGroupItem[]>(qk.groupsWithProjects(), (items) =>
+                items ? renameProjectInTree(items, projectId, name) : items,
+            )
+            queryClient.setQueryData(qk.project(projectId), (project) =>
+                project ? { ...project, name } : project,
+            )
+            return { previousGroups }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousGroups)
+        },
+        onSettled: invalidateGroups,
     })
 
     const moveProject = useMutation({
         mutationFn: ({ projectId, groupId }: { projectId: number; groupId: ProjectGroupId }) =>
-            api.projects({ projectId }).patch({ groupId }),
+            requireApiResult(api.projects({ projectId }).patch({ groupId })),
         onMutate: async ({ projectId, groupId }) => {
             await queryClient.cancelQueries({ queryKey: qk.groupsWithProjects() })
             const previousGroups = queryClient.getQueryData<ProjectGroupItem[]>(
@@ -108,7 +223,7 @@ function SidebarProjectContent() {
         }: {
             groupId: number
             parentGroupId: ProjectGroupId
-        }) => api.groups({ id: groupId }).patch({ parentGroupId }),
+        }) => requireApiResult(api.groups({ id: groupId }).patch({ parentGroupId })),
         onMutate: async ({ groupId, parentGroupId }) => {
             await queryClient.cancelQueries({ queryKey: qk.groupsWithProjects() })
             const previousGroups = queryClient.getQueryData<ProjectGroupItem[]>(
@@ -130,11 +245,41 @@ function SidebarProjectContent() {
     })
 
     const duplicateProject = useMutation({
-        mutationFn: (projectId: number) => api.projects({ projectId }).duplicate.post(),
-        onSuccess: (res) => {
-            invalidateGroups()
-            if (res.data) selectProject(res.data)
+        mutationFn: (projectId: number) =>
+            requireApiResult(api.projects({ projectId }).duplicate.post()),
+        onMutate: async (projectId) => {
+            const previousGroups = await snapshotQuery<ProjectGroupItem[]>(
+                queryClient,
+                qk.groupsWithProjects(),
+            )
+            const sourceProject = findProjectInTree(previousGroups.data ?? [], projectId)
+            const tempId = -Date.now()
+            if (sourceProject) {
+                queryClient.setQueryData<ProjectGroupItem[]>(qk.groupsWithProjects(), (items) =>
+                    items
+                        ? addProjectToTree(items, sourceProject.groupId, {
+                              ...sourceProject,
+                              id: tempId,
+                              name: `${sourceProject.name} Copy`,
+                          })
+                        : items,
+                )
+            }
+            return { previousGroups, tempId }
         },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousGroups)
+        },
+        onSuccess: (res, _variables, context) => {
+            const project = res.data
+            if (!project) return
+            queryClient.setQueryData<ProjectGroupItem[]>(qk.groupsWithProjects(), (items) =>
+                items ? replaceProjectInTree(items, context?.tempId ?? project.id, project) : items,
+            )
+            queryClient.setQueryData(qk.project(project.id), project)
+            selectProject(project)
+        },
+        onSettled: invalidateGroups,
     })
 
     const [projectDialog, setProjectDialog] = useAtom(projectDialogAtom)
@@ -307,6 +452,191 @@ function collectGroupProjects(group: GroupWithProjects): ProjectSummary[] {
         ...group.projects,
         ...group.groups.flatMap((childGroup) => collectGroupProjects(childGroup)),
     ]
+}
+
+function addGroupToTree(
+    items: ProjectGroupItem[],
+    parentGroupId: ProjectGroupId,
+    group: GroupWithProjects,
+): ProjectGroupItem[] {
+    if (parentGroupId === null) {
+        const ungrouped = items.find((item) => item.type === 'ungrouped')
+        const rootGroups = items.filter((item): item is GroupWithProjects => item.type === 'group')
+        return ungrouped
+            ? [ungrouped, ...sortGroups([...rootGroups, group])]
+            : sortGroups([...rootGroups, group])
+    }
+
+    return items.map((item) =>
+        item.type === 'group'
+            ? addGroupToParent(item, parentGroupId, group, () => undefined)
+            : item,
+    )
+}
+
+function replaceGroupInTree(
+    items: ProjectGroupItem[],
+    groupId: number,
+    replacement: GroupWithProjects,
+): ProjectGroupItem[] {
+    return items.map((item) => {
+        if (item.type === 'ungrouped') return item
+        if (item.id === groupId) return replacement
+        return { ...item, groups: replaceGroupsInGroups(item.groups, groupId, replacement) }
+    })
+}
+
+function replaceGroupsInGroups(
+    groups: GroupWithProjects[],
+    groupId: number,
+    replacement: GroupWithProjects,
+): GroupWithProjects[] {
+    return groups.map((group) => {
+        if (group.id === groupId) return replacement
+        return { ...group, groups: replaceGroupsInGroups(group.groups, groupId, replacement) }
+    })
+}
+
+function renameGroupInTree(
+    items: ProjectGroupItem[],
+    groupId: number,
+    name: string,
+): ProjectGroupItem[] {
+    return items.map((item) => {
+        if (item.type === 'ungrouped') return item
+        return renameGroup(item, groupId, name)
+    })
+}
+
+function renameGroup(group: GroupWithProjects, groupId: number, name: string): GroupWithProjects {
+    if (group.id === groupId) return { ...group, name }
+    return {
+        ...group,
+        groups: group.groups.map((childGroup) => renameGroup(childGroup, groupId, name)),
+    }
+}
+
+function removeGroupFromItems(items: ProjectGroupItem[], groupId: number): ProjectGroupItem[] {
+    return items.flatMap((item): ProjectGroupItem[] => {
+        if (item.type === 'ungrouped') return [item]
+        if (item.id === groupId) return []
+        return [{ ...item, groups: removeGroupFromGroups(item.groups, groupId, () => undefined) }]
+    })
+}
+
+function addProjectToTree(
+    items: ProjectGroupItem[],
+    groupId: ProjectGroupId,
+    project: ProjectSummary,
+): ProjectGroupItem[] {
+    let inserted = false
+    const nextItems = items.map((item) => {
+        if (item.type === 'ungrouped') {
+            if (groupId !== null) return item
+            inserted = true
+            return { ...item, projects: sortProjects([...item.projects, project]) }
+        }
+
+        return addProjectToGroup(item, groupId, project, () => {
+            inserted = true
+        })
+    })
+
+    if (groupId === null && !inserted) {
+        return [
+            { type: 'ungrouped' as const, id: null, name: '그룹 없음', projects: [project] },
+            ...nextItems,
+        ]
+    }
+
+    return nextItems
+}
+
+function replaceProjectInTree(
+    items: ProjectGroupItem[],
+    projectId: number,
+    replacement: ProjectSummary,
+): ProjectGroupItem[] {
+    return items.map((item) => {
+        if (item.type === 'ungrouped') {
+            return {
+                ...item,
+                projects: sortProjects(
+                    item.projects.map((project) =>
+                        project.id === projectId ? replacement : project,
+                    ),
+                ),
+            }
+        }
+
+        return replaceProjectInGroup(item, projectId, replacement)
+    })
+}
+
+function replaceProjectInGroup(
+    group: GroupWithProjects,
+    projectId: number,
+    replacement: ProjectSummary,
+): GroupWithProjects {
+    return {
+        ...group,
+        projects: sortProjects(
+            group.projects.map((project) => (project.id === projectId ? replacement : project)),
+        ),
+        groups: group.groups.map((childGroup) =>
+            replaceProjectInGroup(childGroup, projectId, replacement),
+        ),
+    }
+}
+
+function removeProjectFromTree(items: ProjectGroupItem[], projectId: number): ProjectGroupItem[] {
+    return items.map((item) => {
+        if (item.type === 'ungrouped') {
+            return {
+                ...item,
+                projects: item.projects.filter((project) => project.id !== projectId),
+            }
+        }
+
+        return removeProjectFromGroup(item, projectId, () => undefined)
+    })
+}
+
+function renameProjectInTree(
+    items: ProjectGroupItem[],
+    projectId: number,
+    name: string,
+): ProjectGroupItem[] {
+    const project = findProjectInTree(items, projectId)
+    if (!project) return items
+    return replaceProjectInTree(items, projectId, { ...project, name })
+}
+
+function findProjectInTree(items: ProjectGroupItem[], projectId: number): ProjectSummary | null {
+    for (const item of items) {
+        const match = item.projects.find((project) => project.id === projectId)
+        if (match) return match
+        if (item.type === 'group') {
+            const childMatch = findProjectInGroups(item.groups, projectId)
+            if (childMatch) return childMatch
+        }
+    }
+
+    return null
+}
+
+function findProjectInGroups(
+    groups: GroupWithProjects[],
+    projectId: number,
+): ProjectSummary | null {
+    for (const group of groups) {
+        const match = group.projects.find((project) => project.id === projectId)
+        if (match) return match
+        const childMatch = findProjectInGroups(group.groups, projectId)
+        if (childMatch) return childMatch
+    }
+
+    return null
 }
 
 function moveProjectInGroupTree(

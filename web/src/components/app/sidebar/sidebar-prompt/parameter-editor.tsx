@@ -20,6 +20,7 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
 import { sidebarParameterParamsAtom } from './atom'
@@ -40,6 +41,10 @@ export function ParameterEditor({ project }: ParameterEditorProps) {
 
     const saveParamsRef = useRef(
         debounce(async (projectId: number, nextParams: ProjectParams) => {
+            const previousProject = await snapshotQuery<Project>(queryClient, qk.project(projectId))
+            queryClient.setQueryData<Project | null>(qk.project(projectId), (project) =>
+                project ? { ...project, parameters: nextParams } : project,
+            )
             const { data } = await api.projects({ projectId }).patch({ parameters: nextParams })
 
             if (latestProjectIdRef.current !== projectId) return
@@ -47,6 +52,7 @@ export function ParameterEditor({ project }: ParameterEditorProps) {
 
             dirtyRef.current = false
             if (data) queryClient.setQueryData(qk.project(projectId), data)
+            else restoreSnapshot(queryClient, previousProject)
         }, 600),
     )
 

@@ -1,4 +1,4 @@
-import type { SettingsPatchBody } from '@nai-factory/shared'
+import type { GlobalSettings, SettingsPatchBody } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Provider, useAtom, useAtomValue } from 'jotai'
 import { Bug, Eye, EyeOff, FolderInput, Plus, Save, Settings, X } from 'lucide-react'
@@ -17,6 +17,7 @@ import {
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
+import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { variableValidationMessage } from '@/lib/prompt-variables'
 import { qk } from '@/lib/queries'
 import { cn, debounce } from '@/lib/utils'
@@ -92,12 +93,23 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
     }, [settingsQuery.data, loaded, setDraft])
 
     const saveSettings = useMutation({
-        mutationFn: (patch: SettingsPatchBody) => api.settings.patch(patch),
+        mutationFn: (patch: SettingsPatchBody) => requireApiResult(api.settings.patch(patch)),
+        onMutate: async (patch) => {
+            const previousSettings = await snapshotQuery<GlobalSettings>(queryClient, qk.settings())
+            queryClient.setQueryData<GlobalSettings | null>(qk.settings(), (settings) =>
+                settings ? { ...settings, ...patch } : settings,
+            )
+            return { previousSettings }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousSettings)
+        },
         onSuccess: (res, patch) => {
             lastSavedJson.current = JSON.stringify(patch)
             if (res.data) queryClient.setQueryData(qk.settings(), res.data)
             queryClient.invalidateQueries({ queryKey: qk.novelAIStatus() })
         },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.settings() }),
     })
 
     const debouncedSaveSettings = useRef(

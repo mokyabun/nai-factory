@@ -5,6 +5,7 @@ import { AlignLeft } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { api } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
@@ -65,20 +66,31 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
 
     const savePromptRef = useRef(
         debounce(async (projectId: number, prompt: string, negativePrompt: string) => {
+            const previousProject = await snapshotQuery(queryClient, qk.project(projectId))
+            queryClient.setQueryData(qk.project(projectId), (project) =>
+                project ? { ...project, prompt, negativePrompt } : project,
+            )
             const { data } = await api.projects({ projectId }).patch({ prompt, negativePrompt })
 
             if (data) queryClient.setQueryData(qk.project(projectId), data)
+            else restoreSnapshot(queryClient, previousProject)
         }, 600),
     )
 
     const saveVariablesRef = useRef(
         debounce(async (projectId: number, vars: PromptVariable) => {
             if (variableValidationMessage(vars)) return
+            const variables = normalizeVariableDraft(vars)
+            const previousProject = await snapshotQuery(queryClient, qk.project(projectId))
+            queryClient.setQueryData(qk.project(projectId), (project) =>
+                project ? { ...project, variables } : project,
+            )
             const { data } = await api.projects({ projectId }).patch({
-                variables: normalizeVariableDraft(vars),
+                variables,
             })
 
             if (data) queryClient.setQueryData(qk.project(projectId), data)
+            else restoreSnapshot(queryClient, previousProject)
         }, 600),
     )
 

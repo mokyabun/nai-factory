@@ -3,7 +3,14 @@ import { BarChart3, Clock3, ListTodo, Loader, Play, Square, Trash2 } from 'lucid
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SidebarHeader } from '@/components/ui/sidebar'
-import { api, type QueueStatus } from '@/lib/api'
+import { api, type QueueStatus, type SceneSummary } from '@/lib/api'
+import {
+    requireApiResult,
+    restoreSnapshot,
+    restoreSnapshots,
+    snapshotQueries,
+    snapshotQuery,
+} from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 
 interface SidebarQueueProps {
@@ -64,18 +71,70 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
     }
 
     const startQueue = useMutation({
-        mutationFn: () => api.queue.start.post(),
-        onSuccess: invalidateQueue,
+        mutationFn: () => requireApiResult(api.queue.start.post()),
+        onMutate: async () => {
+            const previousStatus = await snapshotQuery<QueueStatus>(queryClient, qk.queueStatus())
+            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => ({
+                ...(status ?? emptyStatus),
+                running: true,
+            }))
+            return { previousStatus }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousStatus)
+        },
+        onSettled: invalidateQueue,
     })
 
     const stopQueue = useMutation({
-        mutationFn: () => api.queue.stop.post(),
-        onSuccess: invalidateQueue,
+        mutationFn: () => requireApiResult(api.queue.stop.post()),
+        onMutate: async () => {
+            const previousStatus = await snapshotQuery<QueueStatus>(queryClient, qk.queueStatus())
+            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => ({
+                ...(status ?? emptyStatus),
+                running: false,
+            }))
+            return { previousStatus }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousStatus)
+        },
+        onSettled: invalidateQueue,
     })
 
     const clearAll = useMutation({
-        mutationFn: () => api.queue.delete(),
-        onSuccess: invalidateQueue,
+        mutationFn: () => requireApiResult(api.queue.delete()),
+        onMutate: async () => {
+            const snapshots = await snapshotQueries(queryClient, {
+                predicate: (query) =>
+                    query.queryKey[0] === 'queue' || query.queryKey[0] === 'scenes',
+            })
+            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => ({
+                ...(status ?? emptyStatus),
+                pendingCount: 0,
+                estimatedSeconds: null,
+            }))
+            queryClient.setQueriesData(
+                {
+                    predicate: (query) =>
+                        query.queryKey[0] === 'queue' && query.queryKey[1] === 'items',
+                },
+                [],
+            )
+            queryClient.setQueriesData<SceneSummary[]>(
+                { predicate: (query) => query.queryKey[0] === 'scenes' },
+                (scenes) =>
+                    scenes?.map((scene) => ({
+                        ...scene,
+                        queueCount: 0,
+                    })),
+            )
+            return { snapshots }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+        },
+        onSettled: invalidateQueue,
     })
 
     const status = statusQuery.data ?? emptyStatus

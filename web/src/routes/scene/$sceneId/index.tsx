@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from 'react'
 import { VariationEditor } from '@/components/app/project/variation-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { api } from '@/lib/api'
+import { api, type SceneDetail, type SceneSummary } from '@/lib/api'
+import { requireApiResult, restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
 import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
@@ -51,9 +52,54 @@ function SceneEditPage() {
     }, [sceneQuery.data, loadedId])
 
     const patchScene = useMutation({
-        mutationFn: (patch: ScenePatchBody) => api.scenes({ id: scenId }).patch(patch),
+        mutationFn: (patch: ScenePatchBody) =>
+            requireApiResult(api.scenes({ id: scenId }).patch(patch)),
+        onMutate: async (patch) => {
+            const projectId = sceneQuery.data?.projectId
+            const snapshots = await snapshotQueries(queryClient, {
+                predicate: (query) =>
+                    (query.queryKey[0] === 'scene' && query.queryKey[1] === scenId) ||
+                    (projectId !== undefined &&
+                        query.queryKey[0] === 'scenes' &&
+                        query.queryKey[1] === projectId),
+            })
+            queryClient.setQueryData<SceneDetail | null>(qk.scene(scenId), (scene) =>
+                scene
+                    ? {
+                          ...scene,
+                          ...patch,
+                          variations: patch.variations
+                              ? patch.variations.map((variation, index) => ({
+                                    id: variation.id ?? -(index + 1),
+                                    sceneId: scenId,
+                                    displayOrder: variation.displayOrder ?? String(index),
+                                    variables: variation.variables,
+                                    createdAt: scene.createdAt,
+                                    updatedAt: new Date().toISOString(),
+                                }))
+                              : scene.variations,
+                      }
+                    : scene,
+            )
+            if (projectId !== undefined && patch.name) {
+                queryClient.setQueryData<SceneSummary[]>(qk.scenes(projectId), (scenes) =>
+                    scenes?.map((scene) =>
+                        scene.id === scenId ? { ...scene, name: patch.name as string } : scene,
+                    ),
+                )
+            }
+            queryClient.invalidateQueries({ queryKey: ['scene', scenId, 'preview-prompt'] })
+            return { snapshots }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+        },
         onSuccess: (res) => {
-            if (res.data) queryClient.setQueryData(qk.scene(scenId), res.data)
+            if (res.data) {
+                queryClient.setQueryData<SceneDetail | null>(qk.scene(scenId), (scene) =>
+                    scene ? { ...scene, ...res.data, images: scene.images } : scene,
+                )
+            }
             queryClient.invalidateQueries({ queryKey: qk.scenes(sceneQuery.data?.projectId ?? 0) })
             queryClient.invalidateQueries({ queryKey: ['scene', scenId, 'preview-prompt'] })
         },

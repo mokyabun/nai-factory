@@ -30,6 +30,7 @@ import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
+import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { VibeTransferEditor } from '../sidebar/sidebar-prompt/vibe-transfer-editor'
 import {
@@ -66,10 +67,27 @@ function ParametersPanelContent({ open, onOpenChange, project }: ParametersPanel
     }, [project.parameters, setDraftParams])
 
     const saveParams = useMutation({
-        mutationFn: () => api.projects({ projectId: project.id }).patch({ parameters: params }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: qk.project(project.id) })
+        mutationFn: () =>
+            requireApiResult(api.projects({ projectId: project.id }).patch({ parameters: params })),
+        onMutate: async () => {
+            const previousProject = await snapshotQuery<Project>(
+                queryClient,
+                qk.project(project.id),
+            )
+            queryClient.setQueryData<Project | null>(qk.project(project.id), (projectData) =>
+                projectData ? { ...projectData, parameters: params } : projectData,
+            )
             onOpenChange(false)
+            return { previousProject }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousProject)
+        },
+        onSuccess: (res) => {
+            if (res.data) queryClient.setQueryData(qk.project(project.id), res.data)
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: qk.project(project.id) })
         },
     })
 

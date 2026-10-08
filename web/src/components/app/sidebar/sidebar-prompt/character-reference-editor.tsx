@@ -25,6 +25,7 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { api, imageUrl } from '@/lib/api'
+import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
 import {
@@ -256,20 +257,82 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
 
     const uploadMutation = useMutation({
         mutationFn: (file: File) =>
-            api.projects({ projectId })['character-references'].upload.post({ image: file }),
-        onSuccess: () =>
-            queryClient.invalidateQueries({ queryKey: qk.characterReferences(projectId) }),
+            requireApiResult(
+                api.projects({ projectId })['character-references'].upload.post({ image: file }),
+            ),
+        onSuccess: (res) => {
+            if (res.data) {
+                queryClient.setQueryData<CharacterReference[]>(
+                    qk.characterReferences(projectId),
+                    (current) => [...(current ?? []), res.data as CharacterReference],
+                )
+                setItems((current) => [...current, res.data as CharacterReference])
+            }
+            queryClient.invalidateQueries({ queryKey: qk.characterReferences(projectId) })
+        },
     })
 
     const updateMutation = useMutation({
         mutationFn: ({ id, patch }: { id: number; patch: CharacterReferencePatchBody }) =>
-            api.projects({ projectId })['character-references']({ id }).patch(patch),
+            requireApiResult(
+                api.projects({ projectId })['character-references']({ id }).patch(patch),
+            ),
+        onMutate: async ({ id, patch }) => {
+            const previousItems = await snapshotQuery<CharacterReference[]>(
+                queryClient,
+                qk.characterReferences(projectId),
+            )
+            queryClient.setQueryData<CharacterReference[]>(
+                qk.characterReferences(projectId),
+                (current) =>
+                    current?.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+            )
+            setItems((current) =>
+                current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+            )
+            return { previousItems, previousLocalItems: items }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousItems)
+            if (context?.previousLocalItems) setItems(context.previousLocalItems)
+        },
+        onSuccess: (res) => {
+            if (!res.data) return
+            queryClient.setQueryData<CharacterReference[]>(
+                qk.characterReferences(projectId),
+                (current) =>
+                    current?.map((item) =>
+                        item.id === res.data?.id ? (res.data as CharacterReference) : item,
+                    ),
+            )
+            setItems((current) =>
+                current.map((item) =>
+                    item.id === res.data?.id ? (res.data as CharacterReference) : item,
+                ),
+            )
+        },
     })
 
     const deleteMutation = useMutation({
         mutationFn: (id: number) =>
-            api.projects({ projectId })['character-references']({ id }).delete(),
-        onSuccess: () =>
+            requireApiResult(api.projects({ projectId })['character-references']({ id }).delete()),
+        onMutate: async (id) => {
+            const previousItems = await snapshotQuery<CharacterReference[]>(
+                queryClient,
+                qk.characterReferences(projectId),
+            )
+            queryClient.setQueryData<CharacterReference[]>(
+                qk.characterReferences(projectId),
+                (current) => current?.filter((item) => item.id !== id),
+            )
+            setItems((current) => current.filter((item) => item.id !== id))
+            return { previousItems, previousLocalItems: items }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousItems)
+            if (context?.previousLocalItems) setItems(context.previousLocalItems)
+        },
+        onSettled: () =>
             queryClient.invalidateQueries({ queryKey: qk.characterReferences(projectId) }),
     })
 
@@ -283,11 +346,27 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
             prevId: number | null
             nextId: number | null
         }) =>
-            api.projects({ projectId })['character-references'].reorder.patch({
-                id,
-                prevId,
-                nextId,
-            }),
+            requireApiResult(
+                api.projects({ projectId })['character-references'].reorder.patch({
+                    id,
+                    prevId,
+                    nextId,
+                }),
+            ),
+        onMutate: async () => {
+            const previousItems = await snapshotQuery<CharacterReference[]>(
+                queryClient,
+                qk.characterReferences(projectId),
+            )
+            queryClient.setQueryData(qk.characterReferences(projectId), items)
+            return { previousItems, previousLocalItems: query.data ?? [] }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousItems)
+            if (context?.previousLocalItems) setItems(context.previousLocalItems)
+        },
+        onSettled: () =>
+            queryClient.invalidateQueries({ queryKey: qk.characterReferences(projectId) }),
     })
 
     function handleUpdate(id: number, patch: CharacterReferencePatchBody) {

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { api, type SceneSummary } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
@@ -95,12 +96,59 @@ export function ProjectFilesSettings({
         const parsed = SceneJsonData.safeParse(raw)
         if (!parsed.success) throw new Error('Scene JSON 파일이 아닙니다.')
 
-        const { error } = await api.scenes['import-json'].post({
+        const previousScenes = await snapshotQuery<SceneSummary[]>(
+            queryClient,
+            qk.scenes(project.id),
+        )
+        const now = new Date().toISOString()
+        const optimisticScenes = sceneJsonItems(parsed.data).map((scene, index) => ({
+            id: -(Date.now() + index),
+            projectId: project.id,
+            displayOrder: `optimistic-${now}-${index}`,
+            name: scene.name,
+            variations: scene.variations.map((variation, variationIndex) => ({
+                id: -(Date.now() + index * 100 + variationIndex),
+                sceneId: -(Date.now() + index),
+                displayOrder: String(variationIndex),
+                variables: variation.variables,
+                createdAt: now,
+                updatedAt: now,
+            })),
+            createdAt: now,
+            updatedAt: now,
+            imageCount: 0,
+            queueCount: 0,
+            latestImages: [],
+        }))
+        queryClient.setQueryData<SceneSummary[]>(qk.scenes(project.id), (current) =>
+            sceneJsonMode === 'replace'
+                ? optimisticScenes
+                : [...(current ?? []), ...optimisticScenes],
+        )
+
+        const { data: result, error } = await api.scenes['import-json'].post({
             projectId: project.id,
             data: parsed.data,
             mode: sceneJsonMode,
         })
-        if (error) throw new Error('Scene JSON import failed')
+        if (error) {
+            restoreSnapshot(queryClient, previousScenes)
+            throw new Error('Scene JSON import failed')
+        }
+        if (result?.scenes) {
+            const importedScenes = result.scenes.map((scene) => ({
+                ...scene,
+                imageCount: 0,
+                queueCount: 0,
+                latestImages: [],
+            }))
+            queryClient.setQueryData<SceneSummary[]>(
+                qk.scenes(project.id),
+                sceneJsonMode === 'replace'
+                    ? importedScenes
+                    : [...(previousScenes.data ?? []), ...importedScenes],
+            )
+        }
 
         await queryClient.invalidateQueries({ queryKey: qk.scenes(project.id) })
     }
@@ -389,4 +437,10 @@ function sanitizeFilename(value: string) {
         .replace(/^[.\s-]+|[.\s-]+$/g, '')
 
     return sanitized || 'asset'
+}
+
+function sceneJsonItems(data: SceneJsonData) {
+    if (Array.isArray(data)) return data
+    if ('scenes' in data) return data.scenes
+    return [data]
 }

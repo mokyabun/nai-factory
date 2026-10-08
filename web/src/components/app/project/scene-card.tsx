@@ -20,8 +20,9 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { SceneSummary } from '@/lib/api'
+import type { QueueStatus, SceneSummary } from '@/lib/api'
 import { api, imageResourceUrl } from '@/lib/api'
+import { requireApiResult, restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import { sceneCardDeleteOpenAtom, sceneCardThumbIndexAtom } from './atom'
@@ -115,8 +116,22 @@ function SceneCardContent({
     const currentThumbImg = cycleImages[currentThumbIndex] ?? null
 
     const deleteScene = useMutation({
-        mutationFn: () => api.scenes({ id: scene.id }).delete(),
-        onSuccess: () => {
+        mutationFn: () => requireApiResult(api.scenes({ id: scene.id }).delete()),
+        onMutate: async () => {
+            const snapshots = await snapshotQueries(queryClient, {
+                predicate: (query) =>
+                    query.queryKey[0] === 'queue' ||
+                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === scene.projectId),
+            })
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes(scene.projectId), (scenes) =>
+                scenes?.filter((item) => item.id !== scene.id),
+            )
+            return { snapshots }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
@@ -124,14 +139,72 @@ function SceneCardContent({
     })
 
     const duplicateScene = useMutation({
-        mutationFn: () => api.scenes({ id: scene.id }).duplicate.post(),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) }),
+        mutationFn: () => requireApiResult(api.scenes({ id: scene.id }).duplicate.post()),
+        onMutate: async () => {
+            const snapshots = await snapshotQueries(queryClient, {
+                queryKey: qk.scenes(scene.projectId),
+            })
+            const tempScene: SceneSummary = {
+                ...scene,
+                id: -Date.now(),
+                name: `${scene.name} Copy`,
+                imageCount: 0,
+                latestImages: [],
+                queueCount: 0,
+            }
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes(scene.projectId), (scenes) => {
+                if (!scenes) return scenes
+                const index = scenes.findIndex((item) => item.id === scene.id)
+                const next = [...scenes]
+                next.splice(index + 1, 0, tempScene)
+                return next
+            })
+            return { snapshots, tempId: tempScene.id }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+        },
+        onSuccess: (res, _variables, context) => {
+            if (res.data) {
+                const duplicated: SceneSummary = {
+                    ...res.data,
+                    imageCount: 0,
+                    latestImages: [],
+                    queueCount: 0,
+                }
+                queryClient.setQueryData<SceneSummary[]>(qk.scenes(scene.projectId), (scenes) =>
+                    scenes?.map((item) => (item.id === context?.tempId ? duplicated : item)),
+                )
+            }
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) }),
     })
 
     const enqueue = useMutation({
         mutationFn: (position: 'back' | 'front' = 'back') =>
-            api.queue.enqueue.post({ sceneId: scene.id, position }),
-        onSuccess: () => {
+            requireApiResult(api.queue.enqueue.post({ sceneId: scene.id, position })),
+        onMutate: async () => {
+            const snapshots = await snapshotQueries(queryClient, {
+                predicate: (query) =>
+                    query.queryKey[0] === 'queue' ||
+                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === scene.projectId),
+            })
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes(scene.projectId), (scenes) =>
+                scenes?.map((item) =>
+                    item.id === scene.id
+                        ? { ...item, queueCount: (item.queueCount ?? 0) + 1 }
+                        : item,
+                ),
+            )
+            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) =>
+                status ? { ...status, pendingCount: status.pendingCount + 1 } : status,
+            )
+            return { snapshots }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })
@@ -139,8 +212,30 @@ function SceneCardContent({
     })
 
     const clearQueue = useMutation({
-        mutationFn: () => api.queue.delete({ query: { sceneId: scene.id } }),
-        onSuccess: () => {
+        mutationFn: () => requireApiResult(api.queue.delete({ query: { sceneId: scene.id } })),
+        onMutate: async () => {
+            const snapshots = await snapshotQueries(queryClient, {
+                predicate: (query) =>
+                    query.queryKey[0] === 'queue' ||
+                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === scene.projectId),
+            })
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes(scene.projectId), (scenes) =>
+                scenes?.map((item) => (item.id === scene.id ? { ...item, queueCount: 0 } : item)),
+            )
+            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) =>
+                status
+                    ? {
+                          ...status,
+                          pendingCount: Math.max(0, status.pendingCount - (scene.queueCount ?? 0)),
+                      }
+                    : status,
+            )
+            return { snapshots }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(scene.projectId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(scene.projectId) })

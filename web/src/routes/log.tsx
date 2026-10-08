@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { api, type DebugRequestEntry } from '@/lib/api'
+import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 
 export const Route = createFileRoute('/log')({ component: LogPage })
@@ -19,8 +20,19 @@ function LogPage() {
         },
     })
     const clearRequests = useMutation({
-        mutationFn: () => api.debug.requests.delete(),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.debugRequests() }),
+        mutationFn: () => requireApiResult(api.debug.requests.delete()),
+        onMutate: async () => {
+            const previousRequests = await snapshotQuery<DebugRequestEntry[]>(
+                queryClient,
+                qk.debugRequests(),
+            )
+            queryClient.setQueryData(qk.debugRequests(), [])
+            return { previousRequests }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousRequests)
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.debugRequests() }),
     })
     const requests = requestsQuery.data ?? []
 

@@ -51,7 +51,14 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { api, type SceneSummary } from '@/lib/api'
+import { api, type QueueStatus, type SceneSummary } from '@/lib/api'
+import {
+    requireApiResult,
+    restoreSnapshot,
+    restoreSnapshots,
+    snapshotQueries,
+    snapshotQuery,
+} from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
 import {
@@ -142,8 +149,18 @@ function ProjectPageContent() {
 
     const saveProjectSettings = useRef(
         debounce(async (projectId: number, settings: ProjectSettingsPatch) => {
-            const { data } = await api.projects({ projectId }).patch({ settings })
-            if (data) queryClient.setQueryData(qk.project(projectId), data)
+            const previousProject = await snapshotQuery<Project>(queryClient, qk.project(projectId))
+            queryClient.setQueryData<Project | null>(qk.project(projectId), (project) =>
+                project ? { ...project, settings: { ...project.settings, ...settings } } : project,
+            )
+            try {
+                const { data } = await requireApiResult(
+                    api.projects({ projectId }).patch({ settings }),
+                )
+                if (data) queryClient.setQueryData(qk.project(projectId), data)
+            } catch {
+                restoreSnapshot(queryClient, previousProject)
+            }
         }, 600),
     )
 
@@ -182,10 +199,57 @@ function ProjectPageContent() {
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
     const createScene = useMutation({
-        mutationFn: (name: string) => api.scenes.post({ projectId: projId, name }),
-        onSuccess: () => {
+        mutationFn: (name: string) =>
+            requireApiResult(api.scenes.post({ projectId: projId, name })),
+        onMutate: async (name) => {
+            const snapshots = await snapshotQueries(queryClient, {
+                predicate: (query) =>
+                    query.queryKey[0] === 'scenes' && query.queryKey[1] === projId,
+            })
+            const now = new Date().toISOString()
+            const tempScene: SceneSummary = {
+                id: -Date.now(),
+                projectId: projId,
+                displayOrder: `optimistic-${now}`,
+                name,
+                variations: [],
+                createdAt: now,
+                updatedAt: now,
+                imageCount: 0,
+                queueCount: 0,
+                latestImages: [],
+            }
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes(projId), (scenes) => [
+                ...(scenes ?? []),
+                tempScene,
+            ])
+            setItems((current) => [...current, tempScene])
+            return { snapshots, tempId: tempScene.id }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+            if (context?.snapshots[0]?.data) setItems(context.snapshots[0].data as SceneSummary[])
+        },
+        onSuccess: (res, _name, context) => {
+            if (res.data) {
+                const sceneSummary: SceneSummary = {
+                    ...res.data,
+                    imageCount: 0,
+                    queueCount: 0,
+                    latestImages: [],
+                }
+                queryClient.setQueryData<SceneSummary[]>(qk.scenes(projId), (scenes) =>
+                    scenes?.map((scene) => (scene.id === context?.tempId ? sceneSummary : scene)),
+                )
+                setItems((current) =>
+                    current.map((scene) => (scene.id === context?.tempId ? sceneSummary : scene)),
+                )
+            }
             queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
             setProjectDialog(null)
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
         },
     })
 
@@ -198,59 +262,212 @@ function ProjectPageContent() {
             id: number
             prevId: number | null
             nextId: number | null
-        }) => api.scenes({ id }).order.patch({ prevId, nextId }),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.scenes(projId) }),
+        }) => requireApiResult(api.scenes({ id }).order.patch({ prevId, nextId })),
+        onMutate: async () => {
+            const snapshots = await snapshotQueries<SceneSummary[]>(queryClient, {
+                queryKey: qk.scenes(projId),
+            })
+            queryClient.setQueryData(qk.scenes(projId), items)
+            return { snapshots, previousItems: scenesQuery.data ?? [] }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+            if (context?.previousItems) setItems(context.previousItems)
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.scenes(projId) }),
     })
 
     const bulkEnqueue = useMutation({
         mutationFn: ({ sceneIds, position }: { sceneIds: number[]; position: 'front' | 'back' }) =>
-            api.queue['enqueue-bulk'].post({ sceneIds, position }),
-        onSuccess: () => {
+            requireApiResult(api.queue['enqueue-bulk'].post({ sceneIds, position })),
+        onMutate: async ({ sceneIds }) => {
+            const snapshots = await snapshotQueries(queryClient, {
+                predicate: (query) =>
+                    query.queryKey[0] === 'queue' ||
+                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === projId),
+            })
+            const sceneIdSet = new Set(sceneIds)
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes(projId), (scenes) =>
+                scenes?.map((scene) =>
+                    sceneIdSet.has(scene.id)
+                        ? { ...scene, queueCount: (scene.queueCount ?? 0) + 1 }
+                        : scene,
+                ),
+            )
+            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) =>
+                status
+                    ? { ...status, pendingCount: status.pendingCount + sceneIds.length }
+                    : status,
+            )
+            const previousSelectedIds = selectedIds
+            clearSelection()
+            return { snapshots, previousSelectedIds }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+            if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
-            clearSelection()
         },
     })
 
     const deleteSelectedScenes = useMutation({
         mutationFn: async (sceneIds: number[]) => {
             for (const id of sceneIds) {
-                await api.scenes({ id }).delete()
+                await requireApiResult(api.scenes({ id }).delete())
             }
         },
-        onSuccess: () => {
+        onMutate: async (sceneIds) => {
+            const snapshots = await snapshotQueries(queryClient, {
+                predicate: (query) =>
+                    query.queryKey[0] === 'queue' ||
+                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === projId),
+            })
+            const sceneIdSet = new Set(sceneIds)
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes(projId), (scenes) =>
+                scenes?.filter((scene) => !sceneIdSet.has(scene.id)),
+            )
+            setItems((current) => current.filter((scene) => !sceneIdSet.has(scene.id)))
+            const previousSelectedIds = selectedIds
+            clearSelection()
+            setProjectDialog(null)
+            return { snapshots, previousItems: items, previousSelectedIds }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+            if (context?.previousItems) setItems(context.previousItems)
+            if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
-            clearSelection()
-            setProjectDialog(null)
         },
     })
 
     const saveStash = useMutation({
-        mutationFn: (body: StashPostBody) => api.stash.post(body),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.stash() }),
+        mutationFn: (body: StashPostBody) => requireApiResult(api.stash.post(body)),
+        onMutate: async (body) => {
+            const snapshots = await snapshotQueries(queryClient, { queryKey: qk.stash() })
+            const now = new Date().toISOString()
+            const tempId = -Date.now()
+            const tempItem = { ...body, id: tempId, createdAt: now, updatedAt: now } as StashItem
+            queryClient.setQueryData<StashItem[]>(qk.stash(), (items) => [
+                tempItem,
+                ...(items ?? []),
+            ])
+            return { snapshots, tempId }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+        },
+        onSuccess: (res, _body, context) => {
+            if (res.data) {
+                queryClient.setQueryData<StashItem[]>(qk.stash(), (items) =>
+                    items?.map((item) =>
+                        item.id === context?.tempId ? (res.data as StashItem) : item,
+                    ),
+                )
+            }
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.stash() }),
     })
 
     const deleteStash = useMutation({
-        mutationFn: (id: number) => api.stash({ id }).delete(),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.stash() }),
+        mutationFn: (id: number) => requireApiResult(api.stash({ id }).delete()),
+        onMutate: async (id) => {
+            const snapshots = await snapshotQueries(queryClient, { queryKey: qk.stash() })
+            queryClient.setQueryData<StashItem[]>(qk.stash(), (items) =>
+                items?.filter((item) => item.id !== id),
+            )
+            return { snapshots }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.stash() }),
     })
 
     const applyStash = useMutation({
         mutationFn: ({ id, mode }: { id: number; mode?: 'append' | 'replace' }) =>
-            api.stash({ id }).apply.post({
-                projectId: projId,
-                mode,
-            }),
-        onSuccess: () => {
+            requireApiResult(
+                api.stash({ id }).apply.post({
+                    projectId: projId,
+                    mode,
+                }),
+            ),
+        onMutate: async ({ id, mode }) => {
+            const snapshots = await snapshotQueries(queryClient, {
+                predicate: (query) =>
+                    (query.queryKey[0] === 'project' && query.queryKey[1] === projId) ||
+                    (query.queryKey[0] === 'scenes' && query.queryKey[1] === projId) ||
+                    query.queryKey[0] === 'queue',
+            })
+            const stashItem = stashQuery.data?.find((item) => item.id === id)
+            if (stashItem?.type === 'prompt') {
+                queryClient.setQueryData<Project | null>(qk.project(projId), (project) =>
+                    project
+                        ? {
+                              ...project,
+                              prompt: stashItem.payload.prompt,
+                              negativePrompt: stashItem.payload.negativePrompt,
+                              variables: stashItem.payload.variables,
+                              characterPrompts: stashItem.payload.characterPrompts,
+                          }
+                        : project,
+                )
+            } else if (stashItem?.type === 'parameters') {
+                queryClient.setQueryData<Project | null>(qk.project(projId), (project) =>
+                    project ? { ...project, parameters: stashItem.payload } : project,
+                )
+            } else if (stashItem?.type === 'scene') {
+                const now = new Date().toISOString()
+                const optimisticScenes = stashItem.payload.scenes.map((scene, index) => ({
+                    id: -(Date.now() + index),
+                    projectId: projId,
+                    displayOrder: `optimistic-${now}-${index}`,
+                    name: scene.name,
+                    variations: scene.variations.map((variation, variationIndex) => ({
+                        id: -(Date.now() + index * 100 + variationIndex),
+                        sceneId: -(Date.now() + index),
+                        displayOrder: String(variationIndex),
+                        variables: variation.variables,
+                        createdAt: now,
+                        updatedAt: now,
+                    })),
+                    createdAt: now,
+                    updatedAt: now,
+                    imageCount: 0,
+                    queueCount: 0,
+                    latestImages: [],
+                }))
+                queryClient.setQueryData<SceneSummary[]>(qk.scenes(projId), (scenes) =>
+                    mode === 'replace'
+                        ? optimisticScenes
+                        : [...(scenes ?? []), ...optimisticScenes],
+                )
+                setItems((current) =>
+                    mode === 'replace' ? optimisticScenes : [...current, ...optimisticScenes],
+                )
+            }
+            const previousSelectedIds = selectedIds
+            clearSelection()
+            setProjectDialog(null)
+            return { snapshots, previousItems: items, previousSelectedIds }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+            if (context?.previousItems) setItems(context.previousItems)
+            if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: qk.project(projId) })
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(projId) })
             queryClient.invalidateQueries({ queryKey: qk.scenes(projId) })
-            clearSelection()
-            setProjectDialog(null)
         },
     })
 

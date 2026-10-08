@@ -15,7 +15,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { api } from '@/lib/api'
+import { api, type SceneSummary } from '@/lib/api'
+import { requireApiResult, restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import {
@@ -89,14 +90,56 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
     const importMutation = useMutation({
         mutationFn: async () => {
             if (!parsed || !projectId) throw new Error('Invalid state')
-            const { error } = await api['sd-studio'].import.post({
-                projectId,
-                data: parsed.raw,
-                options,
-            })
-            if (error) throw new Error(String(error.value))
+            const { data } = await requireApiResult(
+                api['sd-studio'].import.post({
+                    projectId,
+                    data: parsed.raw,
+                    options,
+                }),
+            )
+            return data
         },
-        onSuccess: () => {
+        onMutate: async () => {
+            if (!parsed || !projectId || !options.importScenes) return null
+            const previousScenes = await snapshotQuery<SceneSummary[]>(
+                queryClient,
+                qk.scenes(projectId),
+            )
+            const now = new Date().toISOString()
+            const optimisticScenes = Array.from({ length: parsed.sceneCount }, (_, index) => ({
+                id: -(Date.now() + index),
+                projectId,
+                displayOrder: `optimistic-${now}-${index}`,
+                name: `${parsed.name} ${index + 1}`,
+                variations: [],
+                createdAt: now,
+                updatedAt: now,
+                imageCount: 0,
+                queueCount: 0,
+                latestImages: [],
+            }))
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes(projectId), (scenes) => [
+                ...(scenes ?? []),
+                ...optimisticScenes,
+            ])
+            return { previousScenes }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousScenes)
+        },
+        onSuccess: (result, _variables, context) => {
+            if (projectId && result?.scenes) {
+                const scenes = result.scenes.map((scene) => ({
+                    ...scene,
+                    imageCount: 0,
+                    queueCount: 0,
+                    latestImages: [],
+                }))
+                queryClient.setQueryData<SceneSummary[]>(qk.scenes(projectId), [
+                    ...(context?.previousScenes.data ?? []),
+                    ...scenes,
+                ])
+            }
             queryClient.invalidateQueries({ queryKey: qk.scenes(projectId as number) })
             onOpenChange(false)
         },
@@ -106,24 +149,27 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
         mutationFn: async () => {
             if (!parsed || !projectName.trim()) throw new Error('Invalid state')
 
-            const { data: project, error: createError } = await api.projects.post({
-                groupId: null,
-                name: projectName.trim(),
-            })
-            if (createError || !project) throw new Error('프로젝트 생성 실패')
+            const { data: project } = await requireApiResult(
+                api.projects.post({
+                    groupId: null,
+                    name: projectName.trim(),
+                }),
+            )
+            if (!project) throw new Error('프로젝트 생성 실패')
 
-            const { error: importError } = await api['sd-studio'].import.post({
-                projectId: project.id,
-                data: parsed.raw,
-                options: {
-                    importPrompt: true,
-                    importNegativePrompt: true,
-                    importScenes: true,
-                    importCharacterPrompts: true,
-                    importParameters: true,
-                },
-            })
-            if (importError) throw new Error('가져오기 실패')
+            await requireApiResult(
+                api['sd-studio'].import.post({
+                    projectId: project.id,
+                    data: parsed.raw,
+                    options: {
+                        importPrompt: true,
+                        importNegativePrompt: true,
+                        importScenes: true,
+                        importCharacterPrompts: true,
+                        importParameters: true,
+                    },
+                }),
+            )
 
             return project.id
         },

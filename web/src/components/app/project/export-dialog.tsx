@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { api, imageUrl, type SceneSummary } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
 
@@ -60,10 +61,20 @@ export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsPr
 
     const saveTemplate = useRef(
         debounce(async (projectId: number, outputTemplate: string) => {
+            const previousProject = await snapshotQuery<Project>(queryClient, qk.project(projectId))
+            queryClient.setQueryData<Project | null>(qk.project(projectId), (project) =>
+                project
+                    ? {
+                          ...project,
+                          settings: { ...project.settings, outputTemplate },
+                      }
+                    : project,
+            )
             const { data } = await api.projects({ projectId }).patch({
                 settings: { outputTemplate },
             })
             if (data) queryClient.setQueryData(qk.project(projectId), data)
+            else restoreSnapshot(queryClient, previousProject)
         }, 350),
     )
     const updatePreviewTemplate = useRef(

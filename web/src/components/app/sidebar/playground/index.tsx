@@ -7,7 +7,14 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAtom } from 'jotai'
 import { useEffect, useRef } from 'react'
-import { api } from '@/lib/api'
+import { api, type QueueStatus } from '@/lib/api'
+import {
+    requireApiResult,
+    restoreSnapshot,
+    restoreSnapshots,
+    snapshotQueries,
+    snapshotQuery,
+} from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
 import { playgroundSettingsAtom } from './atom'
@@ -30,16 +37,20 @@ export function SidebarPlayground() {
 
     const saveSettingsRef = useRef(
         debounce(async (nextSettings: PlaygroundSettings) => {
+            const previousSettings = await snapshotQuery<PlaygroundSettings>(
+                queryClient,
+                qk.playgroundSettings(),
+            )
+            queryClient.setQueryData(qk.playgroundSettings(), nextSettings)
             const { data } = await api.playground.settings.patch({
                 prompt: nextSettings.prompt,
                 negativePrompt: nextSettings.negativePrompt,
                 parameters: nextSettings.parameters,
             })
 
-            if (
-                JSON.stringify(latestSettingsRef.current) !== JSON.stringify(nextSettings) ||
-                !data
-            ) {
+            if (JSON.stringify(latestSettingsRef.current) !== JSON.stringify(nextSettings)) return
+            if (!data) {
+                restoreSnapshot(queryClient, previousSettings)
                 return
             }
 
@@ -61,13 +72,27 @@ export function SidebarPlayground() {
 
     const enqueue = useMutation({
         mutationFn: (position: EnqueuePosition) =>
-            api.playground.enqueue.post({
-                prompt: settings.prompt,
-                negativePrompt: settings.negativePrompt,
-                parameters: settings.parameters,
-                position,
-            }),
-        onSuccess: () => {
+            requireApiResult(
+                api.playground.enqueue.post({
+                    prompt: settings.prompt,
+                    negativePrompt: settings.negativePrompt,
+                    parameters: settings.parameters,
+                    position,
+                }),
+            ),
+        onMutate: async () => {
+            const snapshots = await snapshotQueries(queryClient, {
+                predicate: (query) => query.queryKey[0] === 'queue',
+            })
+            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) =>
+                status ? { ...status, pendingCount: status.pendingCount + 1 } : status,
+            )
+            return { snapshots }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshots(queryClient, context?.snapshots)
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
             queryClient.invalidateQueries({ queryKey: qk.queue(null) })
         },
