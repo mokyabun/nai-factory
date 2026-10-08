@@ -1,3 +1,9 @@
+import type {
+    QueueHistoryEntry,
+    QueueJobType,
+    QueuePauseReason,
+    QueueStatus,
+} from '@nai-factory/shared'
 import { asc, count, eq, inArray, max, min } from 'drizzle-orm'
 
 import { db, playgroundQueueItems, queueItems, scenes, sceneVariations } from '@/db'
@@ -5,33 +11,17 @@ import logger from '@/logger'
 
 import { realtimeEvents } from './events'
 import { PromptRenderError } from './prompt'
-import { runJob, runPlaygroundJob } from './queue-runner'
+import { type JobProgress, runJob, runPlaygroundJob } from './queue-runner'
+import { deriveQueueState, estimateRemainingMs, RollingSamples } from './queue-status'
 
 export type EnqueuePosition = 'back' | 'front'
 
 const DURATION_BUFFER_SIZE = 100
 const HISTORY_BUFFER_SIZE = 100
 
-type QueueHistoryEntry = {
-    id: number
-    jobId: number
-    type: 'scene' | 'playground'
-    projectId: number | null
-    sceneId: number | null
-    sceneVariationId: number | null
-    sceneName: string
-    prompt: string | null
-    status: 'completed' | 'failed'
-    startedAt: string
-    durationMs: number
-    completedAt: string
-    error: string | null
-    failureCategory: string | null
-}
-
 type PendingQueueJob = {
     id: number
-    type: 'scene' | 'playground'
+    type: QueueJobType
     projectId: number | null
     sceneId: number | null
     sceneVariationId: number | null
@@ -43,6 +33,9 @@ type PendingQueueJob = {
 type CurrentJob = PendingQueueJob & {
     startedAt: string
     startedAtMs: number
+    imageCount: number | null
+    savedImageCount: number
+    imageStartedAtMs: number | null
 }
 
 type PlaygroundJobDraft = {
@@ -66,11 +59,16 @@ function failureCategory(error: unknown) {
 
 class QueueManager {
     private readonly log = logger.child({ module: 'queue' })
-    private readonly recentDurations: number[] = []
+    private readonly imageDurations = new RollingSamples(DURATION_BUFFER_SIZE)
+    private readonly jobDurations: Record<QueueJobType, RollingSamples> = {
+        scene: new RollingSamples(DURATION_BUFFER_SIZE),
+        playground: new RollingSamples(DURATION_BUFFER_SIZE),
+    }
     private readonly recentHistory: QueueHistoryEntry[] = []
 
     private processing = false
     private running = false
+    private pauseReason: QueuePauseReason | null = null
     private currentJob: CurrentJob | null = null
     private nextHistoryId = 1
     private completedCount = 0
@@ -156,7 +154,9 @@ class QueueManager {
         }
 
         this.running = true
+        this.pauseReason = null
         this.log.info({ event: 'queue.started' }, 'Queue started')
+        publishQueueChanged()
 
         if (!this.processing) void this.processQueue()
     }
@@ -167,8 +167,11 @@ class QueueManager {
             return
         }
 
+        // The running job is not interrupted; the processor halts once it finishes.
         this.running = false
+        this.pauseReason = 'user'
         this.log.info({ event: 'queue.stopped' }, 'Queue stopped')
+        publishQueueChanged()
     }
 
     async cancel(jobIds: number[]) {
@@ -178,39 +181,73 @@ class QueueManager {
         this.log.debug({ jobIds }, 'Jobs cancelled')
     }
 
-    async status() {
-        const { jobCount } = await this.fetchQueueStats()
-        const avgDurationMs = this.avgDurationMs()
-        const estimatedSeconds =
-            avgDurationMs !== null ? Math.round((avgDurationMs * jobCount) / 1000) : null
-
-        return {
+    async status(): Promise<QueueStatus> {
+        const counts = await this.fetchQueueStats()
+        const pendingCount = counts.scene + counts.playground
+        const now = Date.now()
+        const current = this.currentJob
+        const avgImageMs = this.imageDurations.average()
+        const state = deriveQueueState({
             running: this.running,
             processing: this.processing,
-            pendingCount: jobCount,
-            estimatedSeconds,
-            currentSceneId: this.currentJob?.sceneId ?? null,
-            currentJob: this.currentJob
+            pendingCount,
+        })
+        // A drained queue forgets why it last paused, so newly queued jobs do not inherit it.
+        if (state === 'idle') this.pauseReason = null
+
+        const remainingMs =
+            pendingCount > 0 || current
+                ? estimateRemainingMs({
+                      now,
+                      waiting: {
+                          // The running job keeps its row until it completes.
+                          scene: Math.max(0, counts.scene - (current?.type === 'scene' ? 1 : 0)),
+                          playground: Math.max(
+                              0,
+                              counts.playground - (current?.type === 'playground' ? 1 : 0),
+                          ),
+                      },
+                      avgImageMs,
+                      avgJobMs: {
+                          scene: this.jobDurations.scene.average(),
+                          playground: this.jobDurations.playground.average(),
+                      },
+                      current,
+                  })
+                : null
+
+        return {
+            state,
+            pauseReason: state === 'paused' || state === 'pausing' ? this.pauseReason : null,
+            running: this.running,
+            processing: this.processing,
+            pendingCount,
+            estimatedSeconds: remainingMs !== null ? Math.round(remainingMs / 1000) : null,
+            currentSceneId: current?.sceneId ?? null,
+            currentJob: current
                 ? {
-                      id: this.currentJob.id,
-                      type: this.currentJob.type,
-                      projectId: this.currentJob.projectId,
-                      sceneId: this.currentJob.sceneId,
-                      sceneVariationId: this.currentJob.sceneVariationId,
-                      sceneName: this.currentJob.sceneName,
-                      prompt: this.currentJob.prompt,
-                      startedAt: this.currentJob.startedAt,
-                      elapsedSeconds: Math.max(
-                          0,
-                          Math.floor((Date.now() - this.currentJob.startedAtMs) / 1000),
-                      ),
+                      id: current.id,
+                      type: current.type,
+                      projectId: current.projectId,
+                      sceneId: current.sceneId,
+                      sceneVariationId: current.sceneVariationId,
+                      sceneName: current.sceneName,
+                      prompt: current.prompt,
+                      startedAt: current.startedAt,
+                      imageCount: current.imageCount,
+                      savedImageCount: current.savedImageCount,
+                      imageStartedAt:
+                          current.imageStartedAtMs !== null
+                              ? new Date(current.imageStartedAtMs).toISOString()
+                              : null,
                   }
                 : null,
-            avgDurationMs,
-            durationSampleSize: this.recentDurations.length,
+            avgDurationMs: avgImageMs,
+            durationSampleSize: this.imageDurations.size,
             completedCount: this.completedCount,
             failedCount: this.failedCount,
             recent: this.recentHistory,
+            serverTime: new Date(now).toISOString(),
         }
     }
 
@@ -226,7 +263,7 @@ class QueueManager {
                 .then((rows) => rows[0]),
         ])
 
-        return { jobCount: (sceneRow?.jobCount ?? 0) + (playgroundRow?.jobCount ?? 0) }
+        return { scene: sceneRow?.jobCount ?? 0, playground: playgroundRow?.jobCount ?? 0 }
     }
 
     private async nextSortIndex(position: EnqueuePosition, count: number) {
@@ -333,7 +370,14 @@ class QueueManager {
     private async runCurrentJob(job: PendingQueueJob): Promise<void> {
         const startedAtMs = Date.now()
         const startedAt = new Date(startedAtMs).toISOString()
-        this.currentJob = { ...job, startedAt, startedAtMs }
+        this.currentJob = {
+            ...job,
+            startedAt,
+            startedAtMs,
+            imageCount: null,
+            savedImageCount: 0,
+            imageStartedAtMs: null,
+        }
         publishQueueChanged()
         this.log.info(
             {
@@ -349,21 +393,42 @@ class QueueManager {
 
         try {
             const runner = job.type === 'playground' ? runPlaygroundJob(job.id) : runJob(job.id)
-            for await (const variationDurationMs of runner) {
-                this.recordDurationMs(variationDurationMs)
-            }
+            for await (const progress of runner) this.applyProgress(progress)
             this.recordCompletedJob(job, startedAt, Date.now() - startedAtMs)
         } catch (error) {
             this.recordFailedJob(job, startedAt, Date.now() - startedAtMs, error)
             this.running = false
+            this.pauseReason = 'failure'
         } finally {
             this.currentJob = null
             publishQueueChanged()
         }
     }
 
+    private applyProgress(progress: JobProgress) {
+        const current = this.currentJob
+        if (!current) return
+
+        switch (progress.type) {
+            case 'planned':
+                current.imageCount = progress.imageCount
+                break
+            case 'image.started':
+                current.imageStartedAtMs = Date.now()
+                break
+            case 'image.saved':
+                current.savedImageCount += 1
+                current.imageStartedAtMs = null
+                this.imageDurations.push(progress.durationMs)
+                break
+        }
+
+        publishQueueChanged()
+    }
+
     private recordCompletedJob(job: PendingQueueJob, startedAt: string, durationMs: number) {
         this.completedCount += 1
+        this.jobDurations[job.type].push(durationMs)
         this.recordHistory({
             jobId: job.id,
             type: job.type,
@@ -420,12 +485,6 @@ class QueueManager {
         })
     }
 
-    private recordDurationMs(milliseconds: number) {
-        this.recentDurations.push(milliseconds)
-
-        if (this.recentDurations.length > DURATION_BUFFER_SIZE) this.recentDurations.shift()
-    }
-
     private recordHistory(entry: Omit<QueueHistoryEntry, 'id' | 'completedAt'>) {
         this.recentHistory.unshift({
             id: this.nextHistoryId++,
@@ -434,12 +493,6 @@ class QueueManager {
         })
 
         if (this.recentHistory.length > HISTORY_BUFFER_SIZE) this.recentHistory.pop()
-    }
-
-    private avgDurationMs() {
-        if (this.recentDurations.length === 0) return null
-
-        return this.recentDurations.reduce((a, b) => a + b, 0) / this.recentDurations.length
     }
 }
 

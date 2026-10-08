@@ -1,35 +1,29 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Clock3, ListTodo, Loader, Play, Square, Trash2 } from 'lucide-react'
 
+import {
+    ImageProgressBar,
+    imageTimingLabel,
+    jobImageLabel,
+    jobTargetLabel,
+} from '@/components/app/generation/generation-progress'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SidebarHeader } from '@/components/ui/sidebar'
-import { api, type QueueStatus, type SceneSummary } from '@/lib/api'
-import {
-    requireApiResult,
-    restoreSnapshot,
-    restoreSnapshots,
-    snapshotQueries,
-    snapshotQuery,
-} from '@/lib/optimistic'
+import { useGenerationStatus, useQueueActions } from '@/hooks/use-queue'
+import { api, type QueueState, type QueueStatus } from '@/lib/api'
+import { formatSeconds } from '@/lib/generation-progress'
 import { qk } from '@/lib/queries'
 
 interface SidebarQueueProps {
     projectId?: number | null
 }
 
-const emptyStatus: QueueStatus = {
-    running: false,
-    processing: false,
-    pendingCount: 0,
-    estimatedSeconds: null,
-    currentSceneId: null,
-    currentJob: null,
-    avgDurationMs: null,
-    durationSampleSize: 0,
-    completedCount: 0,
-    failedCount: 0,
-    recent: [],
+const stateLabels: Record<QueueState, string> = {
+    running: '생성 중',
+    pausing: '정지 대기',
+    paused: '일시정지',
+    idle: '대기',
 }
 
 function formatDuration(milliseconds: number | null) {
@@ -39,22 +33,9 @@ function formatDuration(milliseconds: number | null) {
     return `${seconds}s`
 }
 
-function formatSeconds(seconds: number | null) {
-    if (seconds === null) return '-'
-    if (seconds >= 60) return `${Math.ceil(seconds / 60)}분`
-    return `${seconds}초`
-}
-
 export function SidebarQueue({ projectId }: SidebarQueueProps) {
-    const queryClient = useQueryClient()
-
-    const statusQuery = useQuery({
-        queryKey: qk.queueStatus(),
-        queryFn: async () => {
-            const { data } = await api.queue.status.get()
-            return data ?? emptyStatus
-        },
-    })
+    const { status, job, progress, jobElapsedMs, remainingSeconds } = useGenerationStatus()
+    const { start, stop, clearAll } = useQueueActions()
 
     const itemsQuery = useQuery({
         queryKey: qk.queue(projectId),
@@ -66,79 +47,6 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
         },
     })
 
-    const invalidateQueue = () => {
-        void queryClient.invalidateQueries({ queryKey: qk.queueStatus() })
-        void queryClient.invalidateQueries({ queryKey: qk.queue(projectId) })
-    }
-
-    const startQueue = useMutation({
-        mutationFn: () => requireApiResult(api.queue.start.post()),
-        onMutate: async () => {
-            const previousStatus = await snapshotQuery<QueueStatus>(queryClient, qk.queueStatus())
-            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => ({
-                ...(status ?? emptyStatus),
-                running: true,
-            }))
-            return { previousStatus }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshot(queryClient, context?.previousStatus)
-        },
-        onSettled: invalidateQueue,
-    })
-
-    const stopQueue = useMutation({
-        mutationFn: () => requireApiResult(api.queue.stop.post()),
-        onMutate: async () => {
-            const previousStatus = await snapshotQuery<QueueStatus>(queryClient, qk.queueStatus())
-            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => ({
-                ...(status ?? emptyStatus),
-                running: false,
-            }))
-            return { previousStatus }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshot(queryClient, context?.previousStatus)
-        },
-        onSettled: invalidateQueue,
-    })
-
-    const clearAll = useMutation({
-        mutationFn: () => requireApiResult(api.queue.delete()),
-        onMutate: async () => {
-            const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) =>
-                    query.queryKey[0] === 'queue' || query.queryKey[0] === 'scenes',
-            })
-            queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) => ({
-                ...(status ?? emptyStatus),
-                pendingCount: 0,
-                estimatedSeconds: null,
-            }))
-            queryClient.setQueriesData(
-                {
-                    predicate: (query) =>
-                        query.queryKey[0] === 'queue' && query.queryKey[1] === 'items',
-                },
-                [],
-            )
-            queryClient.setQueriesData<SceneSummary[]>(
-                { predicate: (query) => query.queryKey[0] === 'scenes' },
-                (scenes) =>
-                    scenes?.map((scene) => ({
-                        ...scene,
-                        queueCount: 0,
-                    })),
-            )
-            return { snapshots }
-        },
-        onError: (_error, _variables, context) => {
-            restoreSnapshots(queryClient, context?.snapshots)
-        },
-        onSettled: invalidateQueue,
-    })
-
-    const status = statusQuery.data ?? emptyStatus
     const items = itemsQuery.data ?? []
 
     return (
@@ -147,12 +55,14 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                 <div className="flex min-w-0 items-center gap-2 px-1 py-1">
                     <ListTodo className="h-4 w-4 shrink-0" />
                     <span className="min-w-0 flex-1 truncate text-md font-bold">Queue</span>
-                    {status.running ? (
+                    {status.state === 'running' ? (
                         <Button
                             size="sm"
                             variant="ghost"
                             className="h-8 gap-1.5"
-                            onClick={() => stopQueue.mutate()}
+                            onClick={() => stop.mutate()}
+                            disabled={stop.isPending}
+                            title="현재 작업을 마친 뒤 정지합니다"
                         >
                             <Square className="h-3.5 w-3.5" />
                             정지
@@ -162,10 +72,11 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                             size="sm"
                             variant="ghost"
                             className="h-8 gap-1.5"
-                            onClick={() => startQueue.mutate()}
+                            onClick={() => start.mutate()}
+                            disabled={start.isPending || status.pendingCount === 0}
                         >
                             <Play className="h-3.5 w-3.5" />
-                            시작
+                            {status.state === 'idle' ? '시작' : '재개'}
                         </Button>
                     )}
                 </div>
@@ -173,10 +84,13 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
 
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2 scrollbar-none">
                 <div className="grid grid-cols-2 gap-2">
-                    <Metric label="남음" value={`${status.pendingCount}`} />
-                    <Metric label="예상" value={formatSeconds(status.estimatedSeconds)} />
+                    <Metric label="남은 작업" value={`${status.pendingCount}`} />
                     <Metric
-                        label={`평균 ${status.durationSampleSize}`}
+                        label="예상"
+                        value={remainingSeconds !== null ? formatSeconds(remainingSeconds) : '-'}
+                    />
+                    <Metric
+                        label={`이미지당 평균 (${status.durationSampleSize})`}
                         value={formatDuration(status.avgDurationMs)}
                     />
                     <Metric
@@ -191,30 +105,56 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
                     <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 text-xs font-medium">
                             {status.processing ? (
-                                <Loader className="h-3.5 w-3.5 animate-spin" />
+                                <Loader className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
                             ) : (
                                 <Clock3 className="h-3.5 w-3.5" />
                             )}
                             처리 중
                         </div>
-                        <Badge variant={status.running ? 'secondary' : 'outline'}>
-                            {status.running ? 'running' : 'stopped'}
+                        <Badge
+                            variant={
+                                status.pauseReason === 'failure'
+                                    ? 'destructive'
+                                    : status.state === 'running'
+                                      ? 'secondary'
+                                      : 'outline'
+                            }
+                        >
+                            {status.pauseReason === 'failure'
+                                ? '실패로 정지'
+                                : stateLabels[status.state]}
                         </Badge>
                     </div>
-                    {status.currentJob ? (
-                        <div className="flex flex-col gap-1 text-xs">
-                            <div className="truncate font-medium">
-                                {status.currentJob.type === 'playground'
-                                    ? 'Playground'
-                                    : status.currentJob.sceneName}
+                    {job ? (
+                        <div className="flex flex-col gap-1.5 text-xs">
+                            <div className="truncate font-medium">{jobTargetLabel(job)}</div>
+                            <div className="truncate text-muted-foreground">
+                                #{job.id} ·{' '}
+                                {job.type === 'playground'
+                                    ? (job.prompt ?? 'prompt')
+                                    : `variation ${job.sceneVariationId}`}
                             </div>
-                            <div className="text-muted-foreground">
-                                #{status.currentJob.id} ·{' '}
-                                {status.currentJob.type === 'playground'
-                                    ? (status.currentJob.prompt ?? 'prompt')
-                                    : `variation ${status.currentJob.sceneVariationId}`}{' '}
-                                · {status.currentJob.elapsedSeconds}s
+                            <ImageProgressBar
+                                progress={progress}
+                                className="h-1 rounded-full bg-muted"
+                            />
+                            <div className="flex items-center justify-between gap-2 text-muted-foreground tabular-nums">
+                                <span>
+                                    {[jobImageLabel(job), imageTimingLabel(progress)]
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                </span>
+                                {jobElapsedMs !== null && (
+                                    <span className="shrink-0">
+                                        작업 {formatSeconds(jobElapsedMs / 1000)}
+                                    </span>
+                                )}
                             </div>
+                            {status.state === 'pausing' && (
+                                <div className="text-muted-foreground">
+                                    이 작업이 끝나면 정지합니다
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="text-xs text-muted-foreground">대기 중</div>

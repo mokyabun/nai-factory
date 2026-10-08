@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAtom } from 'jotai'
 import { useEffect, useRef } from 'react'
 
+import { useQueueStatus } from '@/hooks/use-queue'
 import { api, type QueueStatus } from '@/lib/api'
 import {
     requireApiResult,
@@ -22,6 +23,11 @@ import { debounce } from '@/lib/utils'
 import { playgroundSettingsAtom } from './atom'
 import { PlaygroundEditor } from './playground-editor'
 import { PlaygroundHeader } from './playground-header'
+
+type EnqueueRequest = {
+    position: EnqueuePosition
+    startNow: boolean
+}
 
 export function SidebarPlayground() {
     const queryClient = useQueryClient()
@@ -74,22 +80,48 @@ export function SidebarPlayground() {
         return () => cleanupSaveSettings.flush()
     }, [])
 
+    const { status: queueStatus } = useQueueStatus()
+
     const enqueue = useMutation({
-        mutationFn: (position: EnqueuePosition) =>
-            requireApiResult(
-                api.playground.enqueue.post({
-                    prompt: settings.prompt,
-                    negativePrompt: settings.negativePrompt,
-                    parameters: settings.parameters,
-                    position,
-                }),
-            ),
-        onMutate: async () => {
+        mutationFn: async ({ position, startNow }: EnqueueRequest) => {
+            try {
+                await requireApiResult(
+                    api.playground.enqueue.post({
+                        prompt: settings.prompt,
+                        negativePrompt: settings.negativePrompt,
+                        parameters: settings.parameters,
+                        position,
+                    }),
+                )
+            } catch (error) {
+                throw new Error('대기열에 추가하지 못했습니다', { cause: error })
+            }
+            if (!startNow) return
+
+            try {
+                await requireApiResult(api.queue.start.post())
+            } catch (error) {
+                throw new Error('대기열에는 추가했지만 생성을 시작하지 못했습니다', {
+                    cause: error,
+                })
+            }
+        },
+        onMutate: async ({ startNow }) => {
             const snapshots = await snapshotQueries(queryClient, {
                 predicate: (query) => query.queryKey[0] === 'queue',
             })
             queryClient.setQueryData<QueueStatus>(qk.queueStatus(), (status) =>
-                status ? { ...status, pendingCount: status.pendingCount + 1 } : status,
+                status
+                    ? {
+                          ...status,
+                          pendingCount: status.pendingCount + 1,
+                          ...(startNow && {
+                              running: true,
+                              pauseReason: null,
+                              state: 'running' as const,
+                          }),
+                      }
+                    : status,
             )
             return { snapshots }
         },
@@ -126,9 +158,21 @@ export function SidebarPlayground() {
     return (
         <div className="flex h-full min-h-0 flex-col bg-sidebar">
             <PlaygroundHeader
-                isEnqueueDisabled={!settings.prompt.trim() || enqueue.isPending}
-                isEnqueuePending={enqueue.isPending}
-                onEnqueue={(position) => enqueue.mutate(position)}
+                isDisabled={!settings.prompt.trim() || enqueue.isPending}
+                pendingAction={
+                    enqueue.isPending ? (enqueue.variables.startNow ? 'generate' : 'enqueue') : null
+                }
+                errorMessage={enqueue.error?.message ?? null}
+                // Starting a paused queue also resumes the jobs already waiting in it.
+                resumedJobCount={
+                    queueStatus.state === 'paused'
+                        ? queueStatus.pendingCount
+                        : queueStatus.state === 'pausing'
+                          ? Math.max(0, queueStatus.pendingCount - 1)
+                          : 0
+                }
+                onGenerate={() => enqueue.mutate({ position: 'front', startNow: true })}
+                onEnqueue={() => enqueue.mutate({ position: 'back', startNow: false })}
             />
             <PlaygroundEditor
                 settings={settings}

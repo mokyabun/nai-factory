@@ -26,6 +26,12 @@ import * as settingsService from './settings'
 
 const log = logger.child({ module: 'queue-runner' })
 
+/** Progress reported by job runners while a queue job executes. */
+export type JobProgress =
+    | { type: 'planned'; imageCount: number }
+    | { type: 'image.started' }
+    | { type: 'image.saved'; durationMs: number }
+
 function randomSeed() {
     return Math.floor(Math.random() * 1_000_000_000)
 }
@@ -281,7 +287,7 @@ async function markUploadedReferenceCaches(params: SimpleNovelAIParameters) {
     }
 }
 
-export async function* runJob(jobId: number) {
+export async function* runJob(jobId: number): AsyncGenerator<JobProgress> {
     const { job, project, scene, variation, globalSettings } = await loadJobContext(jobId)
     const startedAt = Date.now()
     log.debug(
@@ -329,6 +335,7 @@ export async function* runJob(jobId: number) {
     ])
     const compiledPrompts = compilePrompts(sourcePrompt, compiledVars)
     log.debug({ jobId, promptCount: compiledPrompts.length }, 'Prompts compiled')
+    yield { type: 'planned', imageCount: compiledPrompts.length }
 
     for (const [index, prompt] of compiledPrompts.entries()) {
         const params: SimpleNovelAIParameters = {
@@ -340,7 +347,8 @@ export async function* runJob(jobId: number) {
 
             vibeTransfers,
             characterReferences,
-            seed: project.parameters.seed ?? randomSeed(),
+            // 0 means random, matching the editor and Playground; metadata then records the real seed.
+            seed: project.parameters.seed || randomSeed(),
         }
 
         log.debug(
@@ -353,10 +361,18 @@ export async function* runJob(jobId: number) {
             'Generating image',
         )
 
+        yield { type: 'image.started' }
         const variationStart = Date.now()
         await generateAndSaveImage(job, project, scene, params, globalSettings)
         await markUploadedReferenceCaches(params)
         const variationDuration = Date.now() - variationStart
+        // Announce each saved image so results appear before the whole job finishes, and remain
+        // visible even if a later prompt in this job fails.
+        realtimeEvents.publish({
+            type: 'scene.images.changed',
+            projectId: project.id,
+            sceneId: scene.id,
+        })
         log.debug(
             {
                 jobId,
@@ -367,10 +383,11 @@ export async function* runJob(jobId: number) {
             'Image generation completed',
         )
 
-        yield variationDuration
+        yield { type: 'image.saved', durationMs: variationDuration }
     }
 
     await db.delete(queueItems).where(eq(queueItems.id, jobId))
+    // Scene summaries carry queue counts, so refresh them once the job leaves the queue.
     realtimeEvents.publish({
         type: 'scene.images.changed',
         projectId: project.id,
@@ -379,7 +396,7 @@ export async function* runJob(jobId: number) {
     log.debug({ jobId, durationMs: Date.now() - startedAt }, 'Job runner completed')
 }
 
-export async function* runPlaygroundJob(jobId: number) {
+export async function* runPlaygroundJob(jobId: number): AsyncGenerator<JobProgress> {
     const [job] = await db
         .select()
         .from(playgroundQueueItems)
@@ -405,14 +422,16 @@ export async function* runPlaygroundJob(jobId: number) {
         seed: job.parameters.seed || randomSeed(),
     }
 
+    yield { type: 'planned', imageCount: 1 }
+    yield { type: 'image.started' }
     const variationStart = Date.now()
     log.debug({ jobId, seed: params.seed }, 'Generating playground image')
     await generateAndSavePlaygroundImage(job, params, globalSettings)
     const durationMs = Date.now() - variationStart
     log.debug({ jobId, durationMs }, 'Playground image generation completed')
-    yield durationMs
+    realtimeEvents.publish({ type: 'playground.images.changed' })
+    yield { type: 'image.saved', durationMs }
 
     await db.delete(playgroundQueueItems).where(eq(playgroundQueueItems.id, jobId))
-    realtimeEvents.publish({ type: 'playground.images.changed' })
     log.debug({ jobId, durationMs: Date.now() - startedAt }, 'Playground job runner completed')
 }

@@ -52,6 +52,7 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useQueueStatus } from '@/hooks/use-queue'
 import { api, type QueueStatus, type SceneSummary } from '@/lib/api'
 import {
     requireApiResult,
@@ -120,13 +121,7 @@ function ProjectPageContent() {
         },
     })
 
-    const queueStatusQuery = useQuery({
-        queryKey: qk.queueStatus(),
-        queryFn: async () => {
-            const { data } = await api.queue.status.get()
-            return data
-        },
-    })
+    const { status: queueStatus } = useQueueStatus()
 
     const stashQuery = useQuery({
         queryKey: qk.stash(),
@@ -609,7 +604,7 @@ function ProjectPageContent() {
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [items, setSelectedIds])
-    const currentSceneId = queueStatusQuery.data?.currentSceneId ?? null
+    const currentSceneId = queueStatus.currentSceneId
 
     return (
         <div className="flex h-full flex-col gap-4">

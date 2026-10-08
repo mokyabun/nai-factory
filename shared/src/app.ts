@@ -78,8 +78,6 @@ export function normalizePromptVariables(value: unknown): PromptVariable {
     return []
 }
 
-export type QueueStatus = 'pending' | 'processing' | 'completed' | 'failed'
-
 export interface Prompt {
     prompt: string
     negativePrompt: string

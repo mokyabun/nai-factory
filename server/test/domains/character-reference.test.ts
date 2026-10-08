@@ -181,7 +181,7 @@ describe('V5 project generation', () => {
             )
             try {
                 // eslint-disable-next-line typescript/await-thenable -- Bun async resolves/rejects matchers are awaited even though their types return void.
-                await expect(runJob(job.id).next()).rejects.toThrow('V5 request captured')
+                await expect(Array.fromAsync(runJob(job.id))).rejects.toThrow('V5 request captured')
                 expect(vibesSpy).not.toHaveBeenCalled()
                 expect(referencesSpy).not.toHaveBeenCalled()
                 expect(generateSpy.mock.calls[0]?.[1]).toMatchObject({

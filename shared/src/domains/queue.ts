@@ -56,3 +56,70 @@ export type QueueClearQuery = z.infer<typeof QueueClearQuery>
 export type QueueEnqueueBody = z.infer<typeof QueueEnqueueBody>
 export type QueueEnqueueAllBody = z.infer<typeof QueueEnqueueAllBody>
 export type QueueEnqueueBulkBody = z.infer<typeof QueueEnqueueBulkBody>
+
+export type QueueJobType = 'scene' | 'playground'
+
+/**
+ * - `running`: jobs are being processed.
+ * - `pausing`: a stop was requested; the current job finishes before the queue halts.
+ * - `paused`: halted with jobs still waiting (by the user or after a failure).
+ * - `idle`: nothing is waiting.
+ */
+export type QueueState = 'idle' | 'running' | 'pausing' | 'paused'
+
+export type QueuePauseReason = 'user' | 'failure'
+
+export type QueueStatusJob = {
+    id: number
+    type: QueueJobType
+    projectId: number | null
+    sceneId: number | null
+    sceneVariationId: number | null
+    sceneName: string
+    prompt: string | null
+    startedAt: string
+    /** Images this job will generate; null until its prompts are compiled. */
+    imageCount: number | null
+    /** Images saved so far by this job. */
+    savedImageCount: number
+    /** When the image currently being generated was requested; null while preparing. */
+    imageStartedAt: string | null
+}
+
+export type QueueHistoryEntry = {
+    id: number
+    jobId: number
+    type: QueueJobType
+    projectId: number | null
+    sceneId: number | null
+    sceneVariationId: number | null
+    sceneName: string
+    prompt: string | null
+    status: 'completed' | 'failed'
+    startedAt: string
+    durationMs: number
+    completedAt: string
+    error: string | null
+    failureCategory: string | null
+}
+
+export type QueueStatus = {
+    state: QueueState
+    pauseReason: QueuePauseReason | null
+    running: boolean
+    processing: boolean
+    /** Queued jobs, including the one currently running. */
+    pendingCount: number
+    /** Estimated time until every queued job finishes; null without duration samples. */
+    estimatedSeconds: number | null
+    currentSceneId: number | null
+    currentJob: QueueStatusJob | null
+    /** Average duration of a single image generation. */
+    avgDurationMs: number | null
+    durationSampleSize: number
+    completedCount: number
+    failedCount: number
+    recent: QueueHistoryEntry[]
+    /** Server clock when the status was produced, for correcting client clock skew. */
+    serverTime: string
+}

@@ -7,10 +7,10 @@ import { useEffect, useLayoutEffect, useState } from 'react'
 
 import { SceneJsonImportDialog } from '@/components/app/dialogs/scene-json-import-dialog'
 import { SdStudioImportDialog } from '@/components/app/dialogs/sd-studio-import-dialog'
+import { GenerationDock } from '@/components/app/generation/generation-dock'
 import { Header } from '@/components/app/header'
 import { QueueFailureAlerts } from '@/components/app/queue-failure-alerts'
 import { Sidebar } from '@/components/app/sidebar'
-import { StatusBar } from '@/components/app/status-bar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { useActiveProjectId } from '@/hooks/use-active-project-id'
 import { useJsonDrop } from '@/hooks/use-json-drop'
@@ -137,7 +137,7 @@ export function AppShell({ children }: AppShellProps) {
                     <SidebarInset className="flex flex-col overflow-hidden">
                         <Header />
                         <main className="flex flex-1 flex-col overflow-auto p-4">{children}</main>
-                        <StatusBar />
+                        <GenerationDock />
                     </SidebarInset>
                 </SidebarProvider>
                 <QueueFailureAlerts />

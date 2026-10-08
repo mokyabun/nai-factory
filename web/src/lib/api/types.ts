@@ -1,6 +1,13 @@
 import type { GroupListItem, Image, Project, QueueItem, Scene } from '@nai-factory/shared'
 import type { Options } from 'ky'
 
+export type {
+    QueueHistoryEntry,
+    QueueState,
+    QueueStatus,
+    QueueStatusJob,
+} from '@nai-factory/shared'
+
 export type ApiError = {
     status: number
     value: unknown
@@ -41,52 +48,9 @@ export type SceneDetail = Scene & {
     images: Image[]
 }
 
-export type QueueStatus = {
-    running: boolean
-    processing: boolean
-    pendingCount: number
-    estimatedSeconds: number | null
-    currentSceneId: number | null
-    currentJob: QueueStatusJob | null
-    avgDurationMs: number | null
-    durationSampleSize: number
-    completedCount: number
-    failedCount: number
-    recent: QueueHistoryEntry[]
-}
-
 export type QueueEnqueueResult = {
     queued: number
     items: QueueItem[]
-}
-
-export type QueueStatusJob = {
-    id: number
-    type: 'scene' | 'playground'
-    projectId: number | null
-    sceneId: number | null
-    sceneVariationId: number | null
-    sceneName: string
-    prompt: string | null
-    startedAt: string
-    elapsedSeconds: number
-}
-
-export type QueueHistoryEntry = {
-    id: number
-    jobId: number
-    type: 'scene' | 'playground'
-    projectId: number | null
-    sceneId: number | null
-    sceneVariationId: number | null
-    sceneName: string
-    prompt: string | null
-    status: 'completed' | 'failed'
-    startedAt: string
-    durationMs: number
-    completedAt: string
-    error: string | null
-    failureCategory: string | null
 }
 
 export type DebugRequestEntry = {

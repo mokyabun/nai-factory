@@ -6,6 +6,7 @@ import { Check, Copy, Image, ListPlus, Loader, MoreHorizontal, Pencil, Trash2 } 
 import { useEffect } from 'react'
 
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
+import { ImageProgressBar } from '@/components/app/generation/generation-progress'
 import { Button } from '@/components/ui/button'
 import {
     ContextMenu,
@@ -21,8 +22,10 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useGenerationStatus } from '@/hooks/use-queue'
 import type { QueueStatus, SceneSummary } from '@/lib/api'
 import { api, imageResourceUrl } from '@/lib/api'
+import { formatSeconds } from '@/lib/generation-progress'
 import { requireApiResult, restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
@@ -365,10 +368,15 @@ function SceneCardContent({
                         {/* Bottom overlay */}
                         <div className="absolute right-0 bottom-0 left-0 flex items-end justify-between gap-1 bg-gradient-to-t from-black/65 to-transparent px-1.5 pt-8 pb-1.5">
                             <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                                {inQueue && (
-                                    <span className="rounded bg-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-primary-foreground shadow">
-                                        큐 {queueCount}
-                                    </span>
+                                {(inQueue || isProcessing) && (
+                                    <div className="flex flex-wrap items-center gap-1">
+                                        {isProcessing && <SceneCardGeneratingBadge />}
+                                        {inQueue && (
+                                            <span className="rounded bg-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-primary-foreground shadow">
+                                                큐 {queueCount}
+                                            </span>
+                                        )}
+                                    </div>
                                 )}
                                 <span className="max-w-full truncate text-[10px] font-medium text-white/90">
                                     {scene.name}
@@ -397,17 +405,8 @@ function SceneCardContent({
                             </span>
                         </div>
 
-                        {/* Processing overlay */}
-                        {isProcessing && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-primary/20 backdrop-blur-[2px]">
-                                <div className="flex flex-col items-center gap-1.5">
-                                    <Loader className="h-7 w-7 animate-spin text-white drop-shadow" />
-                                    <span className="text-[10px] font-semibold text-white drop-shadow">
-                                        생성 중
-                                    </span>
-                                </div>
-                            </div>
-                        )}
+                        {/* Keep the image visible while generating; progress runs along the bottom edge. */}
+                        {isProcessing && <SceneCardGenerationBar />}
                     </button>
 
                     {/* Actions */}
@@ -491,5 +490,28 @@ function SceneCardContent({
                 onConfirm={() => deleteScene.mutate()}
             />
         </>
+    )
+}
+
+/** Rendered only on the card being generated, so just that card ticks with the clock. */
+function SceneCardGeneratingBadge() {
+    const { progress } = useGenerationStatus()
+
+    return (
+        <span className="flex items-center gap-1 rounded bg-background/90 px-1.5 py-0.5 text-[10px] leading-none font-semibold text-foreground tabular-nums shadow">
+            <Loader className="h-2.5 w-2.5 animate-spin motion-reduce:animate-none" />
+            생성 중{progress ? ` · ${formatSeconds(progress.elapsedMs / 1000)}` : ''}
+        </span>
+    )
+}
+
+function SceneCardGenerationBar() {
+    const { progress } = useGenerationStatus()
+
+    return (
+        <ImageProgressBar
+            progress={progress}
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-black/30"
+        />
     )
 }

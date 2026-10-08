@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { useSetAtom } from 'jotai'
 import { AlertCircle, ListTodo, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -6,8 +5,8 @@ import { useEffect, useRef, useState } from 'react'
 import { activeSidebarPanelAtom } from '@/components/app/sidebar/atom'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { api, type QueueHistoryEntry } from '@/lib/api'
-import { qk } from '@/lib/queries'
+import { useQueueStatus } from '@/hooks/use-queue'
+import type { QueueHistoryEntry } from '@/lib/api'
 
 type FailureNotice = Pick<
     QueueHistoryEntry,
@@ -23,16 +22,10 @@ export function QueueFailureAlerts() {
     const seenIds = useRef(new Set<number>())
     const [notices, setNotices] = useState<FailureNotice[]>([])
 
-    const statusQuery = useQuery({
-        queryKey: qk.queueStatus(),
-        queryFn: async () => {
-            const { data } = await api.queue.status.get()
-            return data ?? null
-        },
-    })
+    const { status } = useQueueStatus()
 
     useEffect(() => {
-        const recent = statusQuery.data?.recent ?? []
+        const recent = status.recent
         const freshFailures = recent.filter((entry) => {
             if (entry.status !== 'failed') return false
             if (seenIds.current.has(entry.id)) return false
@@ -56,7 +49,7 @@ export function QueueFailureAlerts() {
                 ...current,
             ].slice(0, MAX_VISIBLE_ALERTS),
         )
-    }, [statusQuery.data?.recent])
+    }, [status.recent])
 
     useEffect(() => {
         if (notices.length === 0) return

@@ -9,25 +9,20 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as PlaygroundRouteImport } from './routes/playground'
-import { Route as LogRouteImport } from './routes/log'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SceneSceneIdRouteImport } from './routes/scene/$sceneId'
+import { Route as LogRouteImport } from './routes/log'
+import { Route as PlaygroundRouteImport } from './routes/playground'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProjectProjectIdRouteImport } from './routes/project/$projectId'
-import { Route as SceneSceneIdIndexRouteImport } from './routes/scene/$sceneId/index'
+import { Route as SceneSceneIdRouteImport } from './routes/scene/$sceneId'
 import { Route as ProjectProjectIdIndexRouteImport } from './routes/project/$projectId/index'
+import { Route as SceneSceneIdIndexRouteImport } from './routes/scene/$sceneId/index'
 import { Route as SceneSceneIdImagesIndexRouteImport } from './routes/scene/$sceneId/images/index'
 import { Route as SceneSceneIdImagesImageIdRouteImport } from './routes/scene/$sceneId/images/$imageId'
 
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PlaygroundRoute = PlaygroundRouteImport.update({
-  id: '/playground',
-  path: '/playground',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LogRoute = LogRouteImport.update({
@@ -35,14 +30,14 @@ const LogRoute = LogRouteImport.update({
   path: '/log',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const PlaygroundRoute = PlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SceneSceneIdRoute = SceneSceneIdRouteImport.update({
-  id: '/scene/$sceneId',
-  path: '/scene/$sceneId',
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectProjectIdRoute = ProjectProjectIdRouteImport.update({
@@ -50,15 +45,20 @@ const ProjectProjectIdRoute = ProjectProjectIdRouteImport.update({
   path: '/project/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SceneSceneIdIndexRoute = SceneSceneIdIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => SceneSceneIdRoute,
+const SceneSceneIdRoute = SceneSceneIdRouteImport.update({
+  id: '/scene/$sceneId',
+  path: '/scene/$sceneId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectProjectIdIndexRoute = ProjectProjectIdIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ProjectProjectIdRoute,
+} as any)
+const SceneSceneIdIndexRoute = SceneSceneIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SceneSceneIdRoute,
 } as any)
 const SceneSceneIdImagesIndexRoute = SceneSceneIdImagesIndexRouteImport.update({
   id: '/images/',
@@ -155,18 +155,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/playground': {
-      id: '/playground'
-      path: '/playground'
-      fullPath: '/playground'
-      preLoaderRoute: typeof PlaygroundRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/log': {
@@ -176,18 +169,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LogRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/scene/$sceneId': {
-      id: '/scene/$sceneId'
-      path: '/scene/$sceneId'
-      fullPath: '/scene/$sceneId'
-      preLoaderRoute: typeof SceneSceneIdRouteImport
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/project/$projectId': {
@@ -197,12 +190,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/scene/$sceneId/': {
-      id: '/scene/$sceneId/'
-      path: '/'
-      fullPath: '/scene/$sceneId/'
-      preLoaderRoute: typeof SceneSceneIdIndexRouteImport
-      parentRoute: typeof SceneSceneIdRoute
+    '/scene/$sceneId': {
+      id: '/scene/$sceneId'
+      path: '/scene/$sceneId'
+      fullPath: '/scene/$sceneId'
+      preLoaderRoute: typeof SceneSceneIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/project/$projectId/': {
       id: '/project/$projectId/'
@@ -210,6 +203,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/project/$projectId/'
       preLoaderRoute: typeof ProjectProjectIdIndexRouteImport
       parentRoute: typeof ProjectProjectIdRoute
+    }
+    '/scene/$sceneId/': {
+      id: '/scene/$sceneId/'
+      path: '/'
+      fullPath: '/scene/$sceneId/'
+      preLoaderRoute: typeof SceneSceneIdIndexRouteImport
+      parentRoute: typeof SceneSceneIdRoute
     }
     '/scene/$sceneId/images/': {
       id: '/scene/$sceneId/images/'
