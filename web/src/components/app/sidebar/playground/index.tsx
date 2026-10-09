@@ -9,8 +9,8 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 
+import { useQueueStatus } from '@/features/queue/use-queue'
 import { useAutosave } from '@/hooks/use-autosave'
-import { useQueueStatus } from '@/hooks/use-queue'
 import { call, contract } from '@/lib/api'
 import { restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
 import { qk, queries } from '@/lib/queries'

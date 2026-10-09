@@ -10,11 +10,11 @@ import { type ProjectPageDialog, SceneToolbar } from '@/components/app/project/s
 import { StashDialog } from '@/components/app/project/stash-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { StatusMessage } from '@/components/status-message'
+import { useQueueStatus } from '@/features/queue/use-queue'
 import { useLocalOrder } from '@/hooks/use-local-order'
 import { useProjectSceneActions } from '@/hooks/use-project-scene-actions'
 import { useProjectSettings } from '@/hooks/use-project-settings'
 import { useProjectStash } from '@/hooks/use-project-stash'
-import { useQueueStatus } from '@/hooks/use-queue'
 import { useSceneSelection } from '@/hooks/use-scene-selection'
 import { queries } from '@/lib/queries'
 

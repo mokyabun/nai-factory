@@ -1,7 +1,8 @@
 import type { QueueCurrentJob } from '@nai-factory/shared'
 
-import { formatSeconds, type ImageProgress } from '@/lib/generation-progress'
 import { cn } from '@/lib/utils'
+
+import { formatSeconds, type ImageProgress } from './generation-timing'
 
 export function jobTargetLabel(job: QueueCurrentJob) {
     return job.label

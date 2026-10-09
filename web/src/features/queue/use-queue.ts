@@ -3,9 +3,10 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tansta
 import { useEffect, useState } from 'react'
 
 import { call, contract } from '@/lib/api'
-import { imageProgress, remainingSeconds, toServerNow } from '@/lib/generation-progress'
 import { restoreSnapshot, restoreSnapshots, snapshotQueries, snapshotQuery } from '@/lib/optimistic'
 import { matchesKey, qk, queries } from '@/lib/queries'
+
+import { imageProgress, remainingSeconds, toServerNow } from './generation-timing'
 
 export const emptyQueueStatus: QueueStatus = {
     state: 'idle',

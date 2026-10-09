@@ -1,15 +1,14 @@
 import type { QueueStatus } from '@nai-factory/shared'
 import { AlertCircle, Loader, Pause, Play, Square, Trash2 } from 'lucide-react'
 
-import { useGenerationStatus, useQueueActions } from '@/hooks/use-queue'
-import { formatSeconds } from '@/lib/generation-progress'
-
 import {
     ImageProgressBar,
     imageTimingLabel,
     jobImageLabel,
     jobTargetLabel,
 } from './generation-progress'
+import { formatSeconds } from './generation-timing'
+import { useGenerationStatus, useQueueActions } from './use-queue'
 
 function StateLabel({ status }: { status: QueueStatus }) {
     switch (status.state) {

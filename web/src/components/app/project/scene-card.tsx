@@ -3,7 +3,6 @@ import { useNavigate } from '@tanstack/react-router'
 import { Check, Copy, Image, ListPlus, Loader, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import { ImageProgressBar } from '@/components/app/generation/generation-progress'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,10 +19,11 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useGenerationStatus } from '@/hooks/use-queue'
+import { ImageProgressBar } from '@/features/queue/generation-progress'
+import { formatSeconds } from '@/features/queue/generation-timing'
+import { useGenerationStatus } from '@/features/queue/use-queue'
 import { useSceneMutations } from '@/hooks/use-scene-mutations'
 import { assetUrl } from '@/lib/api'
-import { formatSeconds } from '@/lib/generation-progress'
 import { cn } from '@/lib/utils'
 
 interface SceneCardProps {

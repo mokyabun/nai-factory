@@ -12,18 +12,19 @@ import {
     X,
 } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { SidebarHeader } from '@/components/ui/sidebar'
+import { queries } from '@/lib/queries'
+
 import {
     ImageProgressBar,
     imageTimingLabel,
     jobImageLabel,
     jobTargetLabel,
-} from '@/components/app/generation/generation-progress'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { SidebarHeader } from '@/components/ui/sidebar'
-import { useGenerationStatus, useJobHistory, useQueueActions } from '@/hooks/use-queue'
-import { formatSeconds } from '@/lib/generation-progress'
-import { queries } from '@/lib/queries'
+} from './generation-progress'
+import { formatSeconds } from './generation-timing'
+import { useGenerationStatus, useJobHistory, useQueueActions } from './use-queue'
 
 interface SidebarQueueProps {
     projectId?: number | null

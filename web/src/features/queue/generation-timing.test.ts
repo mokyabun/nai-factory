@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatSeconds, imageProgress, remainingSeconds, toServerNow } from './generation-progress'
+import { formatSeconds, imageProgress, remainingSeconds, toServerNow } from './generation-timing'
 
 const t = (seconds: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, seconds)).toISOString()
 const ms = (seconds: number) => Date.parse(t(seconds))

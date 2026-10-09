@@ -3,9 +3,9 @@ import type { Query } from '@tanstack/react-query'
 import { QueryClient } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
 
+import { emptyQueueStatus } from '@/features/queue/use-queue'
 import { qk } from '@/lib/queries'
 
-import { emptyQueueStatus } from './use-queue'
 import { handleRealtimeEvent, syncActiveRealtimeQueries } from './use-realtime-invalidation'
 
 function mockQuery(queryKey: readonly unknown[], active = true) {

@@ -4,7 +4,8 @@ import { useEffect, useEffectEvent, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { useSidebar } from '@/components/ui/sidebar'
-import { useJobHistory } from '@/hooks/use-queue'
+
+import { useJobHistory } from './use-queue'
 
 /** Shows a toast for every job that fails while the app is open. */
 export function QueueFailureAlerts() {

@@ -49,7 +49,7 @@ const SidebarPrompt = lazyWithPreload<{ projectId: number | null }>(() =>
     })),
 )
 const SidebarQueue = lazyWithPreload<{ projectId?: number | null }>(() =>
-    import('./sidebar-queue').then((mod) => ({
+    import('@/features/queue/queue-panel').then((mod) => ({
         default: mod.SidebarQueue as ComponentType<{ projectId?: number | null }>,
     })),
 )
