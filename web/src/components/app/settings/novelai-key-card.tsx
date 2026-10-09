@@ -11,14 +11,13 @@ import { qk } from '@/lib/queries'
 
 interface NovelAIKeyCardProps {
     settings: SettingsView | undefined
-    compact: boolean
 }
 
 /**
  * The key is write-only: the server verifies and stores it, and only ever returns a masked
  * hint such as `****abcd`.
  */
-export function NovelAIKeyCard({ settings, compact }: NovelAIKeyCardProps) {
+export function NovelAIKeyCard({ settings }: NovelAIKeyCardProps) {
     const queryClient = useQueryClient()
     const [editing, setEditing] = useState(false)
     const [value, setValue] = useState('')
@@ -43,7 +42,7 @@ export function NovelAIKeyCard({ settings, compact }: NovelAIKeyCardProps) {
     const showInput = !hasApiKey || editing
 
     return (
-        <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
+        <Card className="shrink-0">
             <CardHeader>
                 <CardTitle className="text-base">NovelAI API Key</CardTitle>
                 <CardDescription>

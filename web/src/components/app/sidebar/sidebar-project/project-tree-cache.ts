@@ -44,7 +44,7 @@ export function replaceGroupInTree(
     })
 }
 
-export function replaceGroupsInGroups(
+function replaceGroupsInGroups(
     groups: GroupNode[],
     groupId: number,
     replacement: GroupNode,
@@ -66,7 +66,7 @@ export function renameGroupInTree(
     })
 }
 
-export function renameGroup(group: GroupNode, groupId: number, name: string): GroupNode {
+function renameGroup(group: GroupNode, groupId: number, name: string): GroupNode {
     if (group.id === groupId) return { ...group, name }
     return {
         ...group,
@@ -131,7 +131,7 @@ export function replaceProjectInTree(
     })
 }
 
-export function replaceProjectInGroup(
+function replaceProjectInGroup(
     group: GroupNode,
     projectId: number,
     replacement: ProjectSummary,
@@ -186,7 +186,7 @@ export function findProjectInTree(
     return null
 }
 
-export function findProjectInGroups(groups: GroupNode[], projectId: number): ProjectSummary | null {
+function findProjectInGroups(groups: GroupNode[], projectId: number): ProjectSummary | null {
     for (const group of groups) {
         const match = group.projects.find((project) => project.id === projectId)
         if (match) return match
@@ -248,7 +248,7 @@ export function moveProjectInGroupTree(
     return movedItems.filter((item) => item.type !== 'ungrouped' || item.projects.length > 0)
 }
 
-export function removeProjectFromGroup(
+function removeProjectFromGroup(
     group: GroupNode,
     projectId: number,
     onRemove: (project: ProjectSummary) => void,
@@ -266,7 +266,7 @@ export function removeProjectFromGroup(
     }
 }
 
-export function addProjectToGroup(
+function addProjectToGroup(
     group: GroupNode,
     groupId: ProjectGroupId,
     project: ProjectSummary,
@@ -315,7 +315,7 @@ export function moveGroupInGroupTree(
     return ungrouped ? [ungrouped, ...nextRootGroups] : nextRootGroups
 }
 
-export function removeGroupFromGroups(
+function removeGroupFromGroups(
     groups: GroupNode[],
     groupId: number,
     onRemove: (group: GroupNode) => void,
@@ -335,7 +335,7 @@ export function removeGroupFromGroups(
     })
 }
 
-export function addGroupToParent(
+function addGroupToParent(
     group: GroupNode,
     parentId: ProjectGroupId,
     groupToAdd: GroupNode,
@@ -354,11 +354,11 @@ export function addGroupToParent(
     }
 }
 
-export function sortProjects(projects: ProjectSummary[]) {
+function sortProjects(projects: ProjectSummary[]) {
     return [...projects].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id)
 }
 
-export function sortGroups(groups: GroupNode[]) {
+function sortGroups(groups: GroupNode[]) {
     return [...groups].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id)
 }
 

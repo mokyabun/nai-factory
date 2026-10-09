@@ -7,7 +7,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /** Merges patches the way the server does: nested objects merge, everything else replaces. */
-export function mergePatch<T>(base: T | null, patch: T): T {
+function mergePatch<T>(base: T | null, patch: T): T {
     if (!isPlainObject(base) || !isPlainObject(patch)) return patch
     const result: Record<string, unknown> = { ...base }
     for (const [key, value] of Object.entries(patch)) {

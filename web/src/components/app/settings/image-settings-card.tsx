@@ -18,17 +18,16 @@ const IMAGE_FORMATS = [
 ]
 
 interface ImageSettingsCardProps {
-    compact: boolean
     draft: SettingsDraft
     onChange: (update: Partial<SettingsDraft>) => void
 }
 
-export function ImageSettingsCard({ compact, draft, onChange }: ImageSettingsCardProps) {
+export function ImageSettingsCard({ draft, onChange }: ImageSettingsCardProps) {
     const { sourceFormat, sourceQuality, thumbFormat, thumbQuality, thumbSize } = draft
     const updateSettingsDraft = onChange
 
     return (
-        <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
+        <Card className="shrink-0">
             <CardHeader>
                 <CardTitle className="text-base">이미지 저장 설정</CardTitle>
             </CardHeader>

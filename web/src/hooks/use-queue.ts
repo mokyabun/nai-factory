@@ -42,7 +42,7 @@ export function useJobHistory() {
 }
 
 /** Server-clock time that ticks every second while `active`, for elapsed-time displays. */
-export function useServerNow(status: QueueStatus, receivedAt: number, active: boolean) {
+function useServerNow(status: QueueStatus, receivedAt: number, active: boolean) {
     const [localNow, setLocalNow] = useState(() => Date.now())
 
     useEffect(() => {
@@ -73,7 +73,7 @@ export function useGenerationStatus() {
     }
 }
 
-export function invalidateQueue(queryClient: QueryClient) {
+function invalidateQueue(queryClient: QueryClient) {
     void queryClient.invalidateQueries({ queryKey: qk.jobs.all() })
 }
 

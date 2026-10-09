@@ -1,11 +1,11 @@
 import type { Job } from '@nai-factory/shared'
-import { useSetAtom } from 'jotai'
+import { useNavigate } from '@tanstack/react-router'
 import { AlertCircle, ListTodo, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { activeSidebarPanelAtom } from '@/components/app/sidebar/atom'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { useSidebar } from '@/components/ui/sidebar'
 import { useJobHistory } from '@/hooks/use-queue'
 
 type FailureNotice = Pick<Job, 'id' | 'label' | 'kind' | 'prompt' | 'error'>
@@ -13,7 +13,8 @@ type FailureNotice = Pick<Job, 'id' | 'label' | 'kind' | 'prompt' | 'error'>
 const MAX_VISIBLE_ALERTS = 3
 
 export function QueueFailureAlerts() {
-    const setActivePanel = useSetAtom(activeSidebarPanelAtom)
+    const navigate = useNavigate()
+    const { isMobile, setOpen, setOpenMobile } = useSidebar()
     // eslint-disable-next-line react/purity -- Capture the mount timestamp once to filter older failure events.
     const mountedAt = useRef(Date.now())
     const seenIds = useRef(new Set<number>())
@@ -54,6 +55,13 @@ export function QueueFailureAlerts() {
 
         return () => window.clearTimeout(timer)
     }, [notices])
+
+    // The sidebar follows `?sidebar=`, so the panel switches without leaving the current page.
+    function showQueue() {
+        void navigate({ to: '.', search: (prev) => ({ ...prev, sidebar: 'queue' }) })
+        if (isMobile) setOpenMobile(true)
+        else setOpen(true)
+    }
 
     if (notices.length === 0) return null
 
@@ -97,7 +105,7 @@ export function QueueFailureAlerts() {
                                 variant="outline"
                                 size="sm"
                                 className="w-fit gap-1.5"
-                                onClick={() => setActivePanel('queue')}
+                                onClick={showQueue}
                             >
                                 <ListTodo className="h-3.5 w-3.5" />
                                 Queue 보기

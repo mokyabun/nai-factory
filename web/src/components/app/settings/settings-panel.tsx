@@ -15,13 +15,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import { SidebarHeader } from '@/components/ui/sidebar'
 import { Switch } from '@/components/ui/switch'
 import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
 import { call, contract, errorMessage } from '@/lib/api'
 import { variableValidationMessage } from '@/lib/prompt-variables'
 import { qk } from '@/lib/queries'
-import { cn } from '@/lib/utils'
 
 import {
     addGlobalVar,
@@ -39,20 +37,15 @@ import { ImageSettingsCard } from './image-settings-card'
 import { NovelAIKeyCard } from './novelai-key-card'
 import { SettingField } from './setting-field'
 
-interface SettingsPanelProps {
-    variant?: 'page' | 'sidebar'
-}
-
-export function SettingsPanel({ variant = 'page' }: SettingsPanelProps) {
+export function SettingsPanel() {
     return (
         <Provider>
-            <SettingsPanelContent variant={variant} />
+            <SettingsPanelContent />
         </Provider>
     )
 }
 
-function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
-    const compact = variant === 'sidebar'
+function SettingsPanelContent() {
     const queryClient = useQueryClient()
     const [draft, setDraft] = useAtom(settingsDraftAtom)
     const settingsPatch = useAtomValue(settingsPatchAtom)
@@ -114,65 +107,33 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
         setDraft((current) => removeGlobalVar(current, index))
     }
 
-    const saveButton = (
-        <Button
-            className="gap-1.5"
-            disabled={saveSettings.isPending || !!variableValidationMessage(globalVars)}
-            onClick={() => pendingSave.flush()}
-            size={compact ? 'sm' : 'default'}
-        >
-            <Save className="h-4 w-4" />
-            {saveSettings.isPending ? '저장 중...' : '자동 저장'}
-        </Button>
-    )
-
     return (
-        <div
-            className={cn(
-                'flex h-full min-h-0 flex-col',
-                compact ? 'overflow-hidden bg-sidebar' : 'mx-auto w-full max-w-5xl gap-4 p-2',
-            )}
-        >
-            {compact ? (
-                <SidebarHeader className="border-b">
-                    <div className="flex min-w-0 items-center gap-2 px-1 py-1">
-                        <Settings className="h-4 w-4 shrink-0" />
-                        <span className="min-w-0 flex-1 truncate text-md font-bold">설정</span>
-                        {saveButton}
-                    </div>
-                </SidebarHeader>
-            ) : (
-                <div className="flex items-center justify-between">
-                    <div className="flex min-w-0 items-center gap-2">
-                        <Settings className="h-4 w-4 shrink-0" />
-                        <h1 className="truncate text-xl font-bold">설정</h1>
-                    </div>
-                    {saveButton}
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-4 p-2">
+            <div className="flex items-center justify-between">
+                <div className="flex min-w-0 items-center gap-2">
+                    <Settings className="h-4 w-4 shrink-0" />
+                    <h1 className="truncate text-xl font-bold">설정</h1>
                 </div>
-            )}
+                <Button
+                    className="gap-1.5"
+                    disabled={saveSettings.isPending || !!variableValidationMessage(globalVars)}
+                    onClick={() => pendingSave.flush()}
+                >
+                    <Save className="h-4 w-4" />
+                    {saveSettings.isPending ? '저장 중...' : '자동 저장'}
+                </Button>
+            </div>
 
             {saveSettings.error && (
                 <p className="px-2 text-xs text-destructive">{errorMessage(saveSettings.error)}</p>
             )}
             {settingsQuery.isPending ? (
-                <div
-                    className={cn(
-                        'text-center text-sm text-muted-foreground',
-                        compact && 'flex flex-1 items-center justify-center p-4 text-xs',
-                    )}
-                >
-                    불러오는 중...
-                </div>
+                <div className="text-center text-sm text-muted-foreground">불러오는 중...</div>
             ) : (
-                <div
-                    className={cn(
-                        'flex min-h-0 flex-1 flex-col overflow-y-auto',
-                        compact ? 'gap-3 p-2' : 'gap-4 pb-4',
-                    )}
-                >
-                    <NovelAIKeyCard settings={settingsQuery.data} compact={compact} />
+                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4">
+                    <NovelAIKeyCard settings={settingsQuery.data} />
 
-                    <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
+                    <Card className="shrink-0">
                         <CardHeader>
                             <CardTitle className="text-base">NovelAI 모드</CardTitle>
                         </CardHeader>
@@ -199,7 +160,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
+                    <Card className="shrink-0">
                         <CardHeader>
                             <CardTitle className="text-base">전역 변수</CardTitle>
                             <CardDescription>
@@ -212,19 +173,9 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                     <div
                                         // draft settings rows can share empty keys until edited.
                                         key={i}
-                                        className={cn(
-                                            'flex gap-2',
-                                            compact
-                                                ? 'flex-col rounded border bg-background/40 p-2'
-                                                : 'items-center',
-                                        )}
+                                        className="flex items-center gap-2"
                                     >
-                                        <div
-                                            className={cn(
-                                                'flex gap-2',
-                                                compact ? 'items-center' : 'flex-1 items-center',
-                                            )}
-                                        >
+                                        <div className="flex flex-1 items-center gap-2">
                                             <Input
                                                 className="flex-1 font-mono"
                                                 value={key}
@@ -236,11 +187,9 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                                                     })
                                                 }
                                             />
-                                            {!compact && (
-                                                <span className="text-xs text-muted-foreground">
-                                                    =
-                                                </span>
-                                            )}
+                                            <span className="text-xs text-muted-foreground">
+                                                =
+                                            </span>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
@@ -279,12 +228,12 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                     </Card>
 
                     <ImageSettingsCard
-                        compact={compact}
+                       
                         draft={draft}
                         onChange={updateSettingsDraft}
                     />
 
-                    <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
+                    <Card className="shrink-0">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <FolderInput className="h-4 w-4" />
@@ -303,7 +252,7 @@ function SettingsPanelContent({ variant = 'page' }: SettingsPanelProps) {
                         </CardContent>
                     </Card>
 
-                    <Card className="shrink-0" size={compact ? 'sm' : 'default'}>
+                    <Card className="shrink-0">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Bug className="h-4 w-4" />

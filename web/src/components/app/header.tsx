@@ -1,6 +1,6 @@
 import type { NovelAIAccountStatus } from '@nai-factory/shared'
 import { useQuery } from '@tanstack/react-query'
-import { useRouterState } from '@tanstack/react-router'
+import { Link, type LinkOptions, useRouterState } from '@tanstack/react-router'
 import { Fragment } from 'react'
 
 import {
@@ -8,6 +8,7 @@ import {
     BreadcrumbItem,
     BreadcrumbLink,
     BreadcrumbList,
+    BreadcrumbPage,
     BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Separator } from '@/components/ui/separator'
@@ -49,6 +50,7 @@ export function Header() {
         pathname,
         projectName: projectQuery.data?.name ?? null,
         sceneName: sceneQuery.data?.name ?? null,
+        sceneProjectId,
         sceneProjectName: sceneProjectQuery.data?.name ?? null,
     })
 
@@ -61,7 +63,15 @@ export function Header() {
                     {parts.map((part, index) => (
                         <Fragment key={part.key}>
                             <BreadcrumbItem>
-                                <BreadcrumbLink href="#">{part.label}</BreadcrumbLink>
+                                {part.link && part.key !== pathname ? (
+                                    <BreadcrumbLink render={<Link {...part.link} />}>
+                                        {part.label}
+                                    </BreadcrumbLink>
+                                ) : index === parts.length - 1 ? (
+                                    <BreadcrumbPage>{part.label}</BreadcrumbPage>
+                                ) : (
+                                    <span>{part.label}</span>
+                                )}
                             </BreadcrumbItem>
                             {index < parts.length - 1 && <BreadcrumbSeparator />}
                         </Fragment>
@@ -73,17 +83,26 @@ export function Header() {
     )
 }
 
+type BreadcrumbPart = {
+    /** The path the part stands for; a part whose path is the current page is not linked. */
+    key: string
+    label: string
+    link?: LinkOptions
+}
+
 function createBreadcrumbParts({
     pathname,
     projectName,
     sceneName,
+    sceneProjectId,
     sceneProjectName,
 }: {
     pathname: string
     projectName: string | null
     sceneName: string | null
+    sceneProjectId: number | null
     sceneProjectName: string | null
-}) {
+}): BreadcrumbPart[] {
     if (pathname === '/') return [{ key: '/', label: 'Home' }]
 
     const segments = pathname.slice(1).split('/')
@@ -92,24 +111,45 @@ function createBreadcrumbParts({
     if (root === 'project' && id) {
         return [
             { key: '/project', label: 'Project' },
-            { key: `/project/${id}`, label: projectName ?? `Project ${id}` },
+            {
+                key: `/project/${id}`,
+                label: projectName ?? `Project ${id}`,
+                link: { to: '/project/$projectId', params: { projectId: id } },
+            },
         ]
     }
 
     if (root === 'scene' && id) {
-        const parts = [
-            { key: '/project', label: sceneProjectName ?? 'Project' },
-            { key: `/scene/${id}`, label: sceneName ?? `Scene ${id}` },
+        const parts: BreadcrumbPart[] = [
+            sceneProjectId === null
+                ? { key: '/project', label: 'Project' }
+                : {
+                      key: `/project/${sceneProjectId}`,
+                      label: sceneProjectName ?? 'Project',
+                      link: {
+                          to: '/project/$projectId',
+                          params: { projectId: String(sceneProjectId) },
+                      },
+                  },
+            {
+                key: `/scene/${id}`,
+                label: sceneName ?? `Scene ${id}`,
+                link: { to: '/scene/$sceneId', params: { sceneId: id } },
+            },
         ]
 
         if (child === 'images') {
-            parts.push({ key: `/scene/${id}/images`, label: 'Images' })
+            parts.push({
+                key: `/scene/${id}/images`,
+                label: 'Images',
+                link: { to: '/scene/$sceneId/images', params: { sceneId: id } },
+            })
         }
 
         return parts
     }
 
-    return segments.reduce<Array<{ key: string; label: string }>>((items, part) => {
+    return segments.reduce<BreadcrumbPart[]>((items, part) => {
         const parentKey = items.at(-1)?.key ?? ''
 
         items.push({

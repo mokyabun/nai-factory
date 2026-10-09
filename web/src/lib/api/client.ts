@@ -43,7 +43,7 @@ export function onApiError(listener: (error: ApiError) => void) {
     }
 }
 
-export function toQueryString(query: unknown) {
+function toQueryString(query: unknown) {
     if (!query || typeof query !== 'object') return ''
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(query as Record<string, unknown>)) {

@@ -141,8 +141,8 @@ export function AppShell({ children }: AppShellProps) {
                         <main className="flex flex-1 flex-col overflow-auto p-4">{children}</main>
                         <GenerationDock />
                     </SidebarInset>
+                    <QueueFailureAlerts />
                 </SidebarProvider>
-                <QueueFailureAlerts />
             </div>
 
             <AccessTokenDialog />

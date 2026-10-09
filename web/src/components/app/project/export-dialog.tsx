@@ -51,7 +51,7 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
     )
 }
 
-export function OutputImagesSettings({ project, scenes }: OutputImagesSettingsProps) {
+function OutputImagesSettings({ project, scenes }: OutputImagesSettingsProps) {
     const queryClient = useQueryClient()
     const projectId = project?.id ?? null
     const [template, setTemplate] = useState(DEFAULT_PROJECT_SETTINGS.outputTemplate)

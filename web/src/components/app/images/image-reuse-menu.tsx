@@ -1,9 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useSetAtom } from 'jotai'
 import { AlertCircle, Check, Copy, FlaskConical, Recycle, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
-import { activeSidebarPanelAtom } from '@/components/app/sidebar/atom'
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -33,7 +31,6 @@ interface ImageReuseMenuProps {
 
 export function ImageReuseMenu({ metadata, source, triggerClassName }: ImageReuseMenuProps) {
     const navigate = useNavigate()
-    const setActivePanel = useSetAtom(activeSidebarPanelAtom)
     const { toPlayground, toProject } = useApplyGenerationSettings()
     const settings = useMemo(() => readGenerationSettings(metadata), [metadata])
     const unsupported = playgroundUnsupportedNotice(settings)
@@ -60,10 +57,7 @@ export function ImageReuseMenu({ metadata, source, triggerClassName }: ImageReus
         const applied = toPlayground.mutateAsync({ settings: nextSettings, seedMode })
         report(applied, 'Playground에 불러왔습니다')
         if (source.type === 'scene') {
-            void applied.then(() => {
-                setActivePanel('playground')
-                void navigate({ to: '/playground' })
-            })
+            void applied.then(() => navigate({ to: '/playground' }))
         }
     }
 
