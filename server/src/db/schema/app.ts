@@ -1,4 +1,5 @@
 import type {
+    CharacterPrompt,
     DebugRequestStatus,
     DebugSettings,
     ImageSettings,
@@ -19,6 +20,10 @@ export const playgroundState = sqliteTable(
         id: integer('id').primaryKey(),
         prompt: text('prompt').notNull(),
         negativePrompt: text('negative_prompt').notNull(),
+        characterPrompts: text('character_prompts', { mode: 'json' })
+            .notNull()
+            .$type<CharacterPrompt[]>()
+            .default([]),
         parameters: text('parameters', { mode: 'json' }).notNull().$type<Parameters>(),
         updatedAt: updatedAt(),
     },

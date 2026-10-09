@@ -64,23 +64,32 @@ export function buildArchive(ctx: AppContext, projectId: number, body: ArchiveEx
         ctx.db,
         sceneRows.map((scene) => scene.id),
     )
-    const archiveScenes = sceneRows.map((scene) => ({
-        name: scene.name,
-        position: scene.position,
-        variations: variations
-            .filter((variation) => variation.sceneId === scene.id)
-            .map((variation) => ({ position: variation.position, variables: variation.variables })),
-        images: include.images
-            ? images.rowsByScene(ctx.db, scene.id).map((image) => ({
-                  position: image.position,
-                  assetId: requireRef(image.assetId),
-                  thumbAssetId: requireRef(image.thumbAssetId),
-                  seed: image.seed,
-                  metadata: image.metadata,
-                  createdAt: image.createdAt.toISOString(),
-              }))
-            : [],
-    }))
+    const archiveScenes = sceneRows.map((scene) => {
+        const sceneVariations = variations.filter((variation) => variation.sceneId === scene.id)
+        const variationIndex = new Map(sceneVariations.map((variation, i) => [variation.id, i]))
+        return {
+            name: scene.name,
+            position: scene.position,
+            variations: sceneVariations.map((variation) => ({
+                position: variation.position,
+                variables: variation.variables,
+            })),
+            images: include.images
+                ? images.rowsByScene(ctx.db, scene.id).map((image) => ({
+                      position: image.position,
+                      variation:
+                          image.variationId === null
+                              ? null
+                              : (variationIndex.get(image.variationId) ?? null),
+                      assetId: requireRef(image.assetId),
+                      thumbAssetId: requireRef(image.thumbAssetId),
+                      seed: image.seed,
+                      metadata: image.metadata,
+                      createdAt: image.createdAt.toISOString(),
+                  }))
+                : [],
+        }
+    })
 
     const characterReferences = include.characterReferences
         ? references.charRefRows(ctx.db, projectId).map((row) => ({
@@ -285,10 +294,18 @@ export async function importArchive(ctx: AppContext, file: Blob) {
                 })
 
                 for (const archiveScene of manifest.scenes) {
-                    const scene = scenes.insertImported(tx, created.id, archiveScene)
+                    const { scene, variations } = scenes.insertImported(
+                        tx,
+                        created.id,
+                        archiveScene,
+                    )
                     for (const image of archiveScene.images) {
                         images.insertRow(tx, {
                             sceneId: scene.id,
+                            variationId:
+                                image.variation === null
+                                    ? null
+                                    : (variations[image.variation]?.id ?? null),
                             position: image.position,
                             assetId: requireAsset(image.assetId, ['image']),
                             thumbAssetId: requireAsset(image.thumbAssetId, ['image_thumb']),

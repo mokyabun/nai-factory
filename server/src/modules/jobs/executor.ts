@@ -289,6 +289,7 @@ export async function runSceneJob(
                 const thumb = assets.insertPrepared(tx, prepared.thumb)
                 images.insertGenerated(tx, {
                     sceneId: scene.id,
+                    variationId: job.variationId,
                     assetId: source.id,
                     thumbAssetId: thumb.id,
                     seed: input.parameters.seed,

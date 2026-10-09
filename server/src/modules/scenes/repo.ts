@@ -7,6 +7,7 @@ export type VariationRow = typeof sceneVariations.$inferSelect
 
 export type LatestImageRow = {
     id: number
+    variationId: number | null
     position: string
     assetId: number
     thumbAssetId: number
@@ -30,7 +31,7 @@ const summaryColumns = {
     )`,
     latestImages: sql<string>`(
         SELECT json_group_array(json_object(
-            'id', i.id, 'position', i.position, 'assetId', i.asset_id,
+            'id', i.id, 'variationId', i.variation_id, 'position', i.position, 'assetId', i.asset_id,
             'thumbAssetId', i.thumb_asset_id, 'createdAt', i.created_at
         ))
         FROM (

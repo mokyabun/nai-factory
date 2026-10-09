@@ -15,6 +15,7 @@ export interface ReorderImageVariables extends OrderPatch {
 function toSceneImage(img: Image): ImageThumb {
     return {
         id: img.id,
+        variationId: img.variationId,
         position: img.position,
         assetId: img.assetId,
         thumbAssetId: img.thumbAssetId,

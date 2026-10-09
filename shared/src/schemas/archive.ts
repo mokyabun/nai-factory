@@ -45,6 +45,8 @@ export type ArchiveAsset = z.infer<typeof ArchiveAsset>
 
 export const ArchiveImage = z.object({
     position: z.string(),
+    /** Index into the scene's `variations`; archives from 0.3.0 do not record it. */
+    variation: z.number().int().nonnegative().nullable().default(null),
     assetId: z.string(),
     thumbAssetId: z.string(),
     seed: z.number().nullable(),

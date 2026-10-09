@@ -26,6 +26,16 @@ async function projectWithImages() {
         params: { id: projectId },
         body: { image: await pngFile() },
     })
+    await t.call(contract.projects.update, {
+        params: { id: projectId },
+        body: {
+            characterPrompts: [
+                { enabled: true, center: { x: 0.1, y: 0.5 }, prompt: 'left', uc: '' },
+                { enabled: true, center: { x: 0.9, y: 0.5 }, prompt: 'right', uc: '' },
+            ],
+            settings: { defaultImageCount: 3 },
+        },
+    })
     await t.call(contract.jobs.enqueueScenes, { body: { sceneIds: [scene.id] } })
     await runQueue(t)
     return { projectId, scene }
@@ -54,6 +64,35 @@ describe('project archive', () => {
         expect(vibes).toHaveLength(1)
         const images = await t.call(contract.images.list, { query: { sceneId: scenes[0]!.id } })
         expect((await t.request(`/api/assets/${images[0]!.assetId}`)).status).toBe(200)
+
+        const project = await t.call(contract.projects.get, { params: { id: imported.id } })
+        expect(project.characterPrompts.map((character) => character.center)).toEqual([
+            { x: 0.1, y: 0.5 },
+            { x: 0.9, y: 0.5 },
+        ])
+        expect(project.settings.defaultImageCount).toBe(3)
+
+        for (const variation of scenes[0]!.variations) {
+            const byVariation = await t.call(contract.images.list, {
+                query: { sceneId: scenes[0]!.id, variationId: variation.id },
+            })
+            expect(byVariation.map((image) => image.variationId)).toEqual([variation.id])
+        }
+    })
+
+    it('records the variation of generated images', async () => {
+        const { scene } = await projectWithImages()
+        const images = await t.call(contract.images.list, { query: { sceneId: scene.id } })
+        const byId = (a: number | null, b: number | null) => (a ?? 0) - (b ?? 0)
+        expect(images.map((image) => image.variationId).sort(byId)).toEqual(
+            scene.variations.map((variation) => variation.id).sort(byId),
+        )
+        const [first] = scene.variations
+        const filtered = await t.call(contract.images.list, {
+            query: { sceneId: scene.id, variationId: first!.id },
+        })
+        expect(filtered).toHaveLength(1)
+        expect(filtered[0]?.metadata.variationId).toBe(first!.id)
     })
 
     it('rejects corrupt files and unsafe entry names', async () => {

@@ -1,6 +1,9 @@
 import * as z from 'zod'
 
-export const ImageListQuery = z.object({ sceneId: z.coerce.number().int().positive() })
+export const ImageListQuery = z.object({
+    sceneId: z.coerce.number().int().positive(),
+    variationId: z.coerce.number().int().positive().optional(),
+})
 export type ImageListQuery = z.infer<typeof ImageListQuery>
 
 export const MAX_IMAGES_PER_DELETE = 10_000

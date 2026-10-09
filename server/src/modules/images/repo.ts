@@ -1,14 +1,19 @@
-import { asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, inArray } from 'drizzle-orm'
 
 import { type DbOrTx, images, scenes } from '@/db'
 
 export type ImageRow = typeof images.$inferSelect
 
-export function listByScene(db: DbOrTx, sceneId: number) {
+export function listByScene(db: DbOrTx, sceneId: number, variationId?: number) {
     return db
         .select()
         .from(images)
-        .where(eq(images.sceneId, sceneId))
+        .where(
+            and(
+                eq(images.sceneId, sceneId),
+                variationId === undefined ? undefined : eq(images.variationId, variationId),
+            ),
+        )
         .orderBy(asc(images.position), asc(images.id))
         .all()
 }

@@ -69,6 +69,7 @@ function toSummary(row: repo.SceneSummaryRow, variations: SceneVariation[]): Sce
         queueCount: row.queueCount,
         latestImages: latest.map((image) => ({
             id: image.id,
+            variationId: image.variationId,
             position: image.position,
             assetId: image.assetId,
             thumbAssetId: image.thumbAssetId,
@@ -289,11 +290,12 @@ export function insertImported(
     },
 ) {
     const row = repo.insert(tx, { projectId, name: scene.name, position: scene.position })
-    repo.insertVariations(
+    const variations = repo.insertVariations(
         tx,
         scene.variations.map((variation) => ({ sceneId: row.id, ...variation })),
     )
-    return row
+    // RETURNING order is unspecified; ids follow insertion order.
+    return { scene: row, variations: variations.sort((a, b) => a.id - b.id) }
 }
 
 export function duplicate(ctx: AppContext, id: number) {

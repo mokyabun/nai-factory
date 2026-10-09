@@ -14,6 +14,7 @@ export function toEntity(row: repo.ImageRow): Image {
     return {
         id: row.id,
         sceneId: row.sceneId,
+        variationId: row.variationId,
         position: row.position,
         assetId: row.assetId,
         thumbAssetId: row.thumbAssetId,
@@ -27,9 +28,9 @@ export function rowsByScene(db: DbOrTx, sceneId: number) {
     return repo.listByScene(db, sceneId)
 }
 
-export function list(ctx: AppContext, sceneId: number) {
+export function list(ctx: AppContext, sceneId: number, variationId?: number) {
     scenes.requireRow(ctx.db, sceneId)
-    return repo.listByScene(ctx.db, sceneId).map(toEntity)
+    return repo.listByScene(ctx.db, sceneId, variationId).map(toEntity)
 }
 
 /** Records a generated image at the front of its scene. Runs inside the caller's transaction. */
@@ -37,6 +38,7 @@ export function insertGenerated(
     tx: DbOrTx,
     input: {
         sceneId: number
+        variationId: number | null
         assetId: number
         thumbAssetId: number
         seed: number | null
