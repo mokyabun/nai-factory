@@ -2,12 +2,13 @@ import type { PlaygroundState, Project } from '@nai-factory/shared'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { call, contract } from '@/lib/api'
+import { qk, queries } from '@/lib/queries'
+
 import {
     applyGenerationParameters,
     type GenerationSettings,
     type SeedMode,
-} from '@/lib/generation-settings'
-import { qk, queries } from '@/lib/queries'
+} from './generation-settings'
 
 type ApplyRequest = {
     settings: GenerationSettings

@@ -1,0 +1,193 @@
+import type { Image } from '@nai-factory/shared'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Info } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
+import { Button } from '@/components/ui/button'
+import { assetUrl } from '@/lib/api'
+import { queries } from '@/lib/queries'
+import { comparePosition } from '@/lib/reorder'
+
+import { ImageMetadataSheet } from './image-metadata-sheet'
+import { ImageReuseMenu } from './image-reuse-menu'
+import { ImageSurface } from './image-surface'
+
+export function ImageViewerPage({ sceneId, imageId }: { sceneId: number; imageId: number }) {
+    const navigate = useNavigate()
+    const [metadataOpen, setMetadataOpen] = useState(false)
+
+    const imagesQuery = useQuery(queries.images.list(sceneId))
+
+    const images = useMemo(
+        () => [...(imagesQuery.data ?? [])].sort(comparePosition),
+        [imagesQuery.data],
+    )
+    const currentIndex = images.findIndex((i) => i.id === imageId)
+    const current = images[currentIndex] ?? null
+
+    const goTo = useCallback(
+        (img: Image) => {
+            void navigate({
+                to: '/scene/$sceneId/images/$imageId',
+                params: { sceneId: String(sceneId), imageId: String(img.id) },
+                replace: true,
+            })
+        },
+        [navigate, sceneId],
+    )
+
+    const goPrev = useCallback(() => {
+        if (currentIndex > 0) goTo(images[currentIndex - 1])
+    }, [currentIndex, images, goTo])
+
+    const goNext = useCallback(() => {
+        if (currentIndex < images.length - 1) goTo(images[currentIndex + 1])
+    }, [currentIndex, images, goTo])
+
+    // Keyboard navigation
+    useEffect(() => {
+        function onKey(e: KeyboardEvent) {
+            // Keys inside an open menu belong to the menu (arrow navigation, Esc to close it).
+            if (e.target instanceof Element && e.target.closest('[role="menu"]')) return
+            if (metadataOpen && e.key === 'Escape') {
+                setMetadataOpen(false)
+                return
+            }
+            if (e.key === 'ArrowLeft') goPrev()
+            else if (e.key === 'ArrowRight') goNext()
+            else if (e.key === 'Escape')
+                void navigate({
+                    to: '/scene/$sceneId/images',
+                    params: { sceneId: String(sceneId) },
+                    replace: true,
+                })
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [goPrev, goNext, navigate, sceneId, metadataOpen])
+
+    return (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/95">
+            {/* Top bar */}
+            <div className="flex items-center justify-between px-4 py-3">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-white/70 hover:bg-white/10 hover:text-white"
+                    onClick={() =>
+                        navigate({
+                            to: '/scene/$sceneId/images',
+                            params: { sceneId: String(sceneId) },
+                            replace: true,
+                        })
+                    }
+                    aria-label="이미지 목록으로 돌아가기"
+                >
+                    <ArrowLeft className="h-5 w-5" />
+                </Button>
+
+                <span className="text-sm text-white/60">
+                    {currentIndex + 1} / {images.length}
+                </span>
+
+                <div className="flex items-center gap-1">
+                    {current && (
+                        <ImageReuseMenu
+                            metadata={current.metadata}
+                            source={
+                                typeof current.metadata.projectId === 'number'
+                                    ? { type: 'scene', projectId: current.metadata.projectId }
+                                    : { type: 'playground' }
+                            }
+                            triggerClassName="text-white/70 hover:bg-white/10 hover:text-white"
+                        />
+                    )}
+                    {current && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-white/70 hover:bg-white/10 hover:text-white"
+                            onClick={() => setMetadataOpen(true)}
+                            aria-label="메타데이터 보기"
+                        >
+                            <Info className="h-5 w-5" />
+                        </Button>
+                    )}
+                    {current && (
+                        <a
+                            href={assetUrl(current.assetId)}
+                            download
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                        >
+                            <Download className="h-5 w-5" />
+                        </a>
+                    )}
+                </div>
+            </div>
+
+            {/* Image */}
+            <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+                {current ? (
+                    <ImageSurface image={current} tone="dark" />
+                ) : (
+                    <span className="text-sm text-white/40">이미지를 찾을 수 없습니다.</span>
+                )}
+
+                {currentIndex > 0 && (
+                    <button
+                        type="button"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                        onClick={goPrev}
+                        aria-label="이전 이미지"
+                    >
+                        <ChevronLeft className="h-6 w-6" />
+                    </button>
+                )}
+                {currentIndex < images.length - 1 && (
+                    <button
+                        type="button"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                        onClick={goNext}
+                        aria-label="다음 이미지"
+                    >
+                        <ChevronRight className="h-6 w-6" />
+                    </button>
+                )}
+            </div>
+
+            {/* Thumbnail strip */}
+            {images.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto px-4 py-3">
+                    {images.map((img, i) => (
+                        <button
+                            aria-label="이미지 보기"
+                            key={img.id}
+                            type="button"
+                            onClick={() => goTo(img)}
+                            className={`relative h-14 w-10 shrink-0 overflow-hidden rounded transition-opacity ${
+                                i === currentIndex
+                                    ? 'ring-2 ring-white opacity-100'
+                                    : 'opacity-50 hover:opacity-80'
+                            }`}
+                        >
+                            <img
+                                src={assetUrl(img.thumbAssetId)}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                            />
+                        </button>
+                    ))}
+                </div>
+            )}
+            <ImageMetadataSheet
+                label={current ? `Image #${current.id}` : null}
+                metadata={current?.metadata ?? {}}
+                open={metadataOpen}
+                onOpenChange={setMetadataOpen}
+            />
+        </div>
+    )
+}

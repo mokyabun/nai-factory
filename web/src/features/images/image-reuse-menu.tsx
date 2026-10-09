@@ -12,15 +12,16 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useApplyGenerationSettings } from '@/hooks/use-apply-generation-settings'
 import { errorMessage } from '@/lib/api'
+import { cn } from '@/lib/utils'
+
 import {
     type GenerationSettings,
     playgroundUnsupportedNotice,
     readGenerationSettings,
     type SeedMode,
-} from '@/lib/generation-settings'
-import { cn } from '@/lib/utils'
+} from './generation-settings'
+import { useApplyGenerationSettings } from './use-apply-generation-settings'
 
 interface ImageReuseMenuProps {
     metadata: Record<string, unknown>
