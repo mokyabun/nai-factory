@@ -41,7 +41,7 @@
                 "web/src/features/project-tree/create-project-dialog.tsx",
                 "web/src/features/project-tree/create-group-dialog.tsx",
                 "web/src/features/project/create-scene-dialog.tsx",
-                "web/src/components/app/dialogs/sd-studio-import-dialog.tsx",
+                "web/src/features/import/sd-studio-import-dialog.tsx",
                 "web/src/features/project-tree/rename-input.tsx"
             ],
             "rules": {
