@@ -9,7 +9,7 @@ import {
 import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import type { Image } from '@nai-factory/shared'
 import { useQuery } from '@tanstack/react-query'
-import { Outlet, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Check, Trash2, X } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 
@@ -187,8 +187,6 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                     </DndContext>
                 )}
             </div>
-
-            <Outlet />
 
             <ConfirmDeleteDialog
                 open={deleteTarget !== null}
