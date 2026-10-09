@@ -1,4 +1,4 @@
-import type { GroupNode, GroupTreeItem, ProjectSummary } from '@nai-factory/shared'
+import type { GroupNode, ProjectSummary } from '@nai-factory/shared'
 
 export type { ProjectSummary }
 
@@ -30,26 +30,6 @@ export interface ProjectTreeActions {
     moveProject: (project: ProjectSummary, groupId: ProjectGroupId) => void
     moveGroup: (group: GroupNode, parentId: ProjectGroupId) => void
     deleteProject: (project: ProjectSummary) => void
-}
-
-export interface ProjectTreeProps {
-    groups: GroupTreeItem[]
-    isLoading: boolean
-    currentProjectId: number | null
-    rename: RenameState
-    actions: ProjectTreeActions
-    onRenameValueChange: (value: string) => void
-    onCommitRename: (target: ActiveRenameTarget) => void
-    onCancelRename: () => void
-}
-
-export interface ProjectGroupProps extends Omit<ProjectTreeProps, 'groups' | 'isLoading'> {
-    group: GroupNode
-    depth?: number
-}
-
-export interface RootProjectsProps extends Omit<ProjectTreeProps, 'groups' | 'isLoading'> {
-    projects: ProjectSummary[]
 }
 
 export function isSameRenameTarget(current: ActiveRenameTarget | null, target: ActiveRenameTarget) {

@@ -1,5 +1,6 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
+import type { GroupNode } from '@nai-factory/shared'
 import { ChevronRight, Folder } from 'lucide-react'
 import { useCallback } from 'react'
 
@@ -10,9 +11,25 @@ import { cn } from '@/lib/utils'
 
 import { GroupContextMenuContent, GroupMenu } from './group-menu'
 import { ProjectRow } from './project-row'
-import { isSameRenameTarget, type ProjectGroupProps } from './project-tree-model'
+import {
+    isSameRenameTarget,
+    type ActiveRenameTarget,
+    type ProjectTreeActions,
+    type RenameState,
+} from './project-tree-model'
 import { RenameInput } from './rename-input'
 import { useCollapsedGroups } from './use-collapsed-groups'
+
+export interface ProjectGroupProps {
+    group: GroupNode
+    depth?: number
+    currentProjectId: number | null
+    rename: RenameState
+    actions: ProjectTreeActions
+    onRenameValueChange: (value: string) => void
+    onCommitRename: (target: ActiveRenameTarget) => void
+    onCancelRename: () => void
+}
 
 export function ProjectGroup({
     group,

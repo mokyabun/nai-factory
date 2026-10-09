@@ -3,10 +3,14 @@ import { useDroppable } from '@dnd-kit/core'
 import * as Base from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 
+import type { ProjectGroupProps } from './project-group'
 import { ProjectRow } from './project-row'
-import type { ProjectGroupId } from './project-tree-model'
-import type { RootProjectsProps } from './project-tree-model'
+import type { ProjectGroupId, ProjectSummary } from './project-tree-model'
 import { isSameRenameTarget } from './project-tree-model'
+
+interface RootProjectsProps extends Omit<ProjectGroupProps, 'group' | 'depth'> {
+    projects: ProjectSummary[]
+}
 
 export function RootProjects({
     projects,

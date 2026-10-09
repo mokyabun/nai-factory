@@ -7,7 +7,7 @@ import {
     useSensor,
     useSensors,
 } from '@dnd-kit/core'
-import type { GroupNode } from '@nai-factory/shared'
+import type { GroupNode, GroupTreeItem } from '@nai-factory/shared'
 import { Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
@@ -20,9 +20,14 @@ import {
 import * as Base from '@/components/ui/sidebar'
 
 import { GroupDragPreview, ProjectDragPreview } from './drag-previews'
-import { ProjectGroup } from './project-group'
-import type { ProjectGroupId, ProjectSummary, ProjectTreeProps } from './project-tree-model'
+import { ProjectGroup, type ProjectGroupProps } from './project-group'
+import type { ProjectGroupId, ProjectSummary } from './project-tree-model'
 import { RootProjects } from './root-projects'
+
+interface ProjectTreeProps extends Omit<ProjectGroupProps, 'group' | 'depth'> {
+    groups: GroupTreeItem[]
+    isLoading: boolean
+}
 
 export function ProjectTree({
     groups,
