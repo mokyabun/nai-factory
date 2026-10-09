@@ -165,11 +165,17 @@ data/
   thumbs/          thumbnails
   playground/      playground images and thumbnails
   refs/            vibe transfer and character reference images
+  backups/         database copies taken before each upgrade that runs migrations
+  trash/           files the database does not know about, kept for 30 days
 ```
 
 The database stores paths relative to the data folder, so the folder can be moved or mounted
-anywhere. To back up, stop the server and copy the whole folder. Files that no database row
-references are removed automatically (at startup and once a day).
+anywhere. To back up, stop the server and copy the whole folder. Before applying new
+migrations, the server copies the database to `backups/` (images are not copied); delete old
+copies when you no longer need them. At startup and once a day,
+files the database does not know about are moved to `trash/<UTC time>/` with their original
+paths; moving that folder's contents back into the data folder restores them. Trash folders
+are deleted after 30 days.
 
 Data folders from versions before 0.3.0 are not supported: the server refuses to start and asks
 for a new folder.

@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-Database migrations run at startup and upgrade 0.3.0 data folders in place.
+Database migrations run at startup and upgrade 0.3.0 data folders in place. Before applying
+them, the server copies the database to `backups/<name>-<UTC time>.db` next to it.
 
 - Character prompts can be placed on NovelAI's 5×5 grid. Each character card has a position
   button in its bottom-right corner that turns "캐릭터 위치 사용" on or off (it moved there from
@@ -22,6 +23,13 @@ Database migrations run at startup and upgrade 0.3.0 data folders in place.
   an index into the scene's variations; archives from 0.3.0 still import.
 - Playground supports character prompts, and "재사용" restores them from scene and Playground
   images.
+- Files the database does not know about are moved to `trash/<UTC time>/` instead of being
+  deleted, and removed after 30 days. Swapping or restoring the database no longer deletes the
+  images it does not list.
+- Stopping the server (SIGTERM, Ctrl+C, `docker stop`) no longer waits for open browser tabs
+  to disconnect.
+- Docker images are tagged `1.2.3`, `1.2`, `1` and `latest` for releases and `main` for the main
+  branch; `latest` no longer follows main and the `v`-prefixed tags are gone.
 
 ## 0.3.0
 
