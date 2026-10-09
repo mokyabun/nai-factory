@@ -10,8 +10,9 @@ import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import type { ProjectSettings, SceneSummary } from '@nai-factory/shared'
 import type { PointerEvent } from 'react'
 
-import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
 import { type OrderPatch, reorderById } from '@/lib/reorder'
+
+import { SortableSceneItem } from './sortable-scene-item'
 
 interface SceneGridProps {
     items: SceneSummary[]

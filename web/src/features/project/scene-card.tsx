@@ -22,9 +22,10 @@ import {
 import { ImageProgressBar } from '@/features/queue/generation-progress'
 import { formatSeconds } from '@/features/queue/generation-timing'
 import { useGenerationStatus } from '@/features/queue/use-queue'
-import { useSceneMutations } from '@/hooks/use-scene-mutations'
 import { assetUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
+
+import { useSceneMutations } from './use-scene-mutations'
 
 interface SceneCardProps {
     scene: SceneSummary

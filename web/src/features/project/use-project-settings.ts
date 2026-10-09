@@ -2,10 +2,9 @@ import type { Project, ProjectSettings, ProjectSettingsPatch } from '@nai-factor
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 
+import { useAutosave } from '@/hooks/use-autosave'
 import { call, contract } from '@/lib/api'
 import { qk } from '@/lib/queries'
-
-import { useAutosave } from './use-autosave'
 
 /** Display settings of a project page, shown at once and saved after a pause. */
 export function useProjectSettings(projectId: number, project: Project | undefined) {

@@ -13,7 +13,8 @@ import { optimisticSceneSummaries } from '@/lib/optimistic-scenes'
 import { qk } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
-import { ArchiveOption, sanitizeFilename, sceneJsonItems } from './project-files-parts'
+import { ArchiveOption } from './archive-option'
+import { sanitizeFilename, sceneJsonItems } from './project-files'
 
 interface ProjectFilesSettingsProps {
     onImported: () => void

@@ -40,7 +40,7 @@
             "files": [
                 "web/src/components/app/dialogs/create-project-dialog.tsx",
                 "web/src/components/app/dialogs/create-group-dialog.tsx",
-                "web/src/components/app/dialogs/create-scene-dialog.tsx",
+                "web/src/features/project/create-scene-dialog.tsx",
                 "web/src/components/app/dialogs/sd-studio-import-dialog.tsx",
                 "web/src/components/app/sidebar/sidebar-project/project-tree-parts.tsx"
             ],

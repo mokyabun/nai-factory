@@ -1,6 +1,5 @@
 import type { Project, ProjectSettings, SceneSummary } from '@nai-factory/shared'
 
-import { ProjectFilesSettings } from '@/components/app/project/project-files-dialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,6 +11,8 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
+import { ProjectFilesSettings } from './project-files-settings'
 
 const SCENE_CARD_SIZE_OPTIONS: Array<{ value: ProjectSettings['sceneCardSize']; label: string }> = [
     { value: 'sm', label: 'SM' },
