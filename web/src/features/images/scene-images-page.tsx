@@ -216,7 +216,9 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                 onOpenChange={(open) => !open && setDeleteSelectedOpen(false)}
                 title="선택 이미지 삭제"
                 description={`선택한 이미지 ${selectedCount}장을 삭제합니다. 되돌릴 수 없습니다.`}
-                onConfirm={() => deleteImages.mutateAsync(selectedImageIds)}
+                onConfirm={async () => {
+                    await deleteImages.mutateAsync(selectedImageIds)
+                }}
             />
         </>
     )

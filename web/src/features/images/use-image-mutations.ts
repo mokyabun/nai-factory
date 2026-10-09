@@ -38,11 +38,8 @@ export function useImageMutations({
     const queryClient = useQueryClient()
 
     const deleteImages = useMutation({
-        mutationFn: async (imageIds: number[]) => {
-            for (const id of imageIds) {
-                await call(contract.images.delete, { params: { id } })
-            }
-        },
+        mutationFn: (imageIds: number[]) =>
+            call(contract.images.deleteMany, { body: { ids: imageIds } }),
         onMutate: async (imageIds) => {
             const imageIdSet = new Set(imageIds)
             const snapshots = await snapshotQueries(queryClient, {

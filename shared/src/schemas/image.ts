@@ -25,3 +25,6 @@ export const ImageThumb = Image.pick({
     createdAt: true,
 })
 export type ImageThumb = z.infer<typeof ImageThumb>
+
+export const ImageDeleteManyResult = z.object({ deleted: z.number() })
+export type ImageDeleteManyResult = z.infer<typeof ImageDeleteManyResult>

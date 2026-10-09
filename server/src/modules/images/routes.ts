@@ -11,4 +11,5 @@ export function registerImageRoutes(app: Hono<AppEnv>, ctx: AppContext) {
     route(app, api.list, ({ query }) => service.list(ctx, query.sceneId))
     route(app, api.move, ({ params, body }) => service.move(ctx, params.id, body))
     route(app, api.delete, ({ params }) => service.remove(ctx, params.id))
+    route(app, api.deleteMany, ({ body }) => service.removeMany(ctx, body.ids))
 }

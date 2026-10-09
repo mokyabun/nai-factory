@@ -1,7 +1,7 @@
 import * as z from 'zod'
 
 import { IdParams, MoveBody } from '../inputs/common'
-import { ImageListQuery } from '../inputs/images'
+import { ImageDeleteManyBody, ImageListQuery } from '../inputs/images'
 import {
     SceneCreateBody,
     SceneJsonExportBody,
@@ -10,7 +10,7 @@ import {
     ScenePatch,
     ScenePreviewQuery,
 } from '../inputs/scenes'
-import { Image } from '../schemas/image'
+import { Image, ImageDeleteManyResult } from '../schemas/image'
 import {
     Scene,
     SceneImportResult,
@@ -100,4 +100,11 @@ export const images = {
         response: Image,
     }),
     delete: endpoint({ method: 'DELETE', path: '/images/:id', params: IdParams, response: null }),
+    /** Ids that no longer exist are skipped. */
+    deleteMany: endpoint({
+        method: 'POST',
+        path: '/images/delete',
+        body: ImageDeleteManyBody,
+        response: ImageDeleteManyResult,
+    }),
 }

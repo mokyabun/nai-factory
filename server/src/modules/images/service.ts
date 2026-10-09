@@ -76,15 +76,28 @@ export function move(ctx: AppContext, id: number, body: MoveBody) {
 }
 
 export async function remove(ctx: AppContext, id: number) {
-    const { removedPaths, sceneId, projectId } = ctx.db.transaction((tx) => {
-        const { image, projectId } = requireEntity(repo.getWithProject(tx, id), 'Image')
-        repo.remove(tx, id)
+    requireEntity(repo.getById(ctx.db, id), 'Image')
+    await removeMany(ctx, [id])
+}
+
+export async function removeMany(ctx: AppContext, ids: number[]) {
+    const { found, removedPaths } = ctx.db.transaction((tx) => {
+        const found = repo.listWithProject(tx, ids)
+        repo.remove(
+            tx,
+            found.map(({ image }) => image.id),
+        )
         return {
-            removedPaths: assets.deleteUnreferenced(tx, [image.assetId, image.thumbAssetId]),
-            sceneId: image.sceneId,
-            projectId,
+            found,
+            removedPaths: assets.deleteUnreferenced(
+                tx,
+                found.flatMap(({ image }) => [image.assetId, image.thumbAssetId]),
+            ),
         }
     })
     await assets.removeFiles(ctx, removedPaths)
-    publishChanged(ctx, projectId, sceneId)
+
+    const changedScenes = new Map(found.map(({ image, projectId }) => [image.sceneId, projectId]))
+    for (const [sceneId, projectId] of changedScenes) publishChanged(ctx, projectId, sceneId)
+    return { deleted: found.length }
 }

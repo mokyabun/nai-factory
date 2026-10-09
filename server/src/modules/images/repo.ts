@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, inArray } from 'drizzle-orm'
 
 import { type DbOrTx, images, scenes } from '@/db'
 
@@ -22,6 +22,15 @@ export function getWithProject(db: DbOrTx, id: number) {
             .where(eq(images.id, id))
             .get() ?? null
     )
+}
+
+export function listWithProject(db: DbOrTx, ids: number[]) {
+    return db
+        .select({ image: images, projectId: scenes.projectId })
+        .from(images)
+        .innerJoin(scenes, eq(images.sceneId, scenes.id))
+        .where(inArray(images.id, ids))
+        .all()
 }
 
 export function getById(db: DbOrTx, id: number) {
@@ -48,6 +57,6 @@ export function setPosition(db: DbOrTx, id: number, position: string) {
     db.update(images).set({ position }).where(eq(images.id, id)).run()
 }
 
-export function remove(db: DbOrTx, id: number) {
-    db.delete(images).where(eq(images.id, id)).run()
+export function remove(db: DbOrTx, ids: number[]) {
+    db.delete(images).where(inArray(images.id, ids)).run()
 }

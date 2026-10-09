@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { utimes, writeFile, mkdir } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 
-import { assetPath, contract } from '@nai-factory/shared'
+import { assetPath, contract, type RealtimeEvent } from '@nai-factory/shared'
 
 import { assets as assetsTable } from '@/db'
 import * as assets from '@/modules/assets/service'
@@ -81,6 +81,35 @@ describe('deletion and GC', () => {
         await t.call(contract.scenes.delete, { params: { id: scene.id } })
         expect(assets.get(t.ctx, image!.assetId)).toBeNull()
         expect(existsSync(t.ctx.paths.resolve(row.relPath))).toBe(false)
+    })
+
+    it('deletes many images in one request and skips missing ids', async () => {
+        const { projectId, scene } = await createScene(t, { poses: ['a', 'b', 'c'] })
+        await t.call(contract.jobs.enqueueScenes, { body: { sceneIds: [scene.id] } })
+        await runQueue(t)
+        const images = await t.call(contract.images.list, { query: { sceneId: scene.id } })
+        expect(images).toHaveLength(3)
+        const [kept, ...removed] = images
+        const removedPaths = removed.map((image) => assets.get(t.ctx, image.assetId)!.relPath)
+
+        const events: RealtimeEvent[] = []
+        const unsubscribe = t.ctx.events.subscribe(({ event }) => events.push(event))
+        const result = await t.call(contract.images.deleteMany, {
+            body: { ids: [...removed.map((image) => image.id), 999_999] },
+        })
+        await Bun.sleep(0)
+        unsubscribe()
+
+        expect(result).toEqual({ deleted: 2 })
+        const remaining = await t.call(contract.images.list, { query: { sceneId: scene.id } })
+        expect(remaining.map((image) => image.id)).toEqual([kept!.id])
+        for (const image of removed) expect(assets.get(t.ctx, image.thumbAssetId)).toBeNull()
+        for (const relPath of removedPaths) {
+            expect(existsSync(t.ctx.paths.resolve(relPath))).toBe(false)
+        }
+        expect(events.filter((event) => event.type === 'scene.images.changed')).toEqual([
+            { type: 'scene.images.changed', projectId, sceneId: scene.id },
+        ])
     })
 
     it('collects unreferenced rows and stray files but keeps referenced ones', async () => {
