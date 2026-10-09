@@ -12,7 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
 import { useCallback, useRef } from 'react'
 
-import { StatusMessage } from '@/components/app/status-message'
+import { StatusMessage } from '@/components/status-message'
 import { Button } from '@/components/ui/button'
 import { useLocalOrder } from '@/hooks/use-local-order'
 import { call, contract } from '@/lib/api'

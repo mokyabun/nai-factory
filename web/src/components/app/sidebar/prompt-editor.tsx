@@ -1,7 +1,7 @@
 import type { PromptVariable } from '@nai-factory/shared'
 import { useMemo } from 'react'
 
-import { CodeEditor } from '@/components/app/code-editor/code-editor'
+import { CodeEditor } from '@/components/code-editor/code-editor'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { createPromptCompletionSource } from '@/lib/tag-autocomplete'
 import { cn } from '@/lib/utils'

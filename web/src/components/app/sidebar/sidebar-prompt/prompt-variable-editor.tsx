@@ -1,7 +1,7 @@
 import type { PromptVariable } from '@nai-factory/shared'
 import { Plus, X } from 'lucide-react'
 
-import { CodeEditor } from '@/components/app/code-editor/code-editor'
+import { CodeEditor } from '@/components/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { variableValidationMessage } from '@/lib/prompt-variables'

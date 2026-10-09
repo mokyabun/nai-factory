@@ -1,8 +1,8 @@
 import type { GroupNode } from '@nai-factory/shared'
 
-import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateGroupDialog } from '@/components/app/dialogs/create-group-dialog'
 import { CreateProjectDialog } from '@/components/app/dialogs/create-project-dialog'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
 import type { DeleteTarget, ProjectDialog } from './project-tree-types'
 

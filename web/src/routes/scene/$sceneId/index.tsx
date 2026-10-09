@@ -11,7 +11,7 @@ import { AlertCircle, ArrowLeft, Plus } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { VariationEditor } from '@/components/app/project/variation-editor'
-import { StatusMessage } from '@/components/app/status-message'
+import { StatusMessage } from '@/components/status-message'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useDebouncedPatch } from '@/hooks/use-debounced-patch'

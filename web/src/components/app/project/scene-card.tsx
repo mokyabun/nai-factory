@@ -3,8 +3,8 @@ import { useNavigate } from '@tanstack/react-router'
 import { Check, Copy, Image, ListPlus, Loader, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { ImageProgressBar } from '@/components/app/generation/generation-progress'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import {
     ContextMenu,

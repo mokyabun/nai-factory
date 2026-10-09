@@ -4,7 +4,7 @@ import type { CharacterReference, CharacterReferencePatch } from '@nai-factory/s
 import { GripVertical, Trash2 } from 'lucide-react'
 import { useCallback } from 'react'
 
-import { formatRatio, LabeledSlider, SelectField, ToggleRow } from '@/components/app/form-fields'
+import { formatRatio, LabeledSlider, SelectField, ToggleRow } from '@/components/form-fields'
 import { Button } from '@/components/ui/button'
 import { useAutosave } from '@/hooks/use-autosave'
 import { assetUrl } from '@/lib/api'

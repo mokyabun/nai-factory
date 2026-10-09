@@ -10,7 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlignLeft } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 
-import { StatusMessage } from '@/components/app/status-message'
+import { StatusMessage } from '@/components/status-message'
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { useAutosave } from '@/hooks/use-autosave'
 import { call, contract } from '@/lib/api'

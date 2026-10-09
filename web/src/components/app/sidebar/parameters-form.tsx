@@ -6,7 +6,7 @@ import {
     type Parameters,
 } from '@nai-factory/shared'
 
-import { LabeledSlider, NumberField, SelectField, ToggleRow } from '@/components/app/form-fields'
+import { LabeledSlider, NumberField, SelectField, ToggleRow } from '@/components/form-fields'
 
 interface ParametersFormProps {
     parameters: Parameters

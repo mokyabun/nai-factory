@@ -4,7 +4,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Bug, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
-import { StatusMessage } from '@/components/app/status-message'
+import { StatusMessage } from '@/components/status-message'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { call, contract } from '@/lib/api'

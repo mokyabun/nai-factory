@@ -2,7 +2,7 @@ import type { Project, SceneSummary, StashCreateBody, StashItem } from '@nai-fac
 import { FileText, Layers, Save, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
-import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'

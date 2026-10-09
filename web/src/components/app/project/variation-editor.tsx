@@ -16,7 +16,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { PromptVariable, VariationDraft } from '@nai-factory/shared'
 import { GripVertical, Plus, Trash2, X } from 'lucide-react'
 
-import { CodeEditor } from '@/components/app/code-editor/code-editor'
+import { CodeEditor } from '@/components/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { tempId } from '@/lib/optimistic'
