@@ -35,7 +35,7 @@ import {
     type SettingsDraft,
 } from './settings-draft'
 
-export function SettingsPanel() {
+export function SettingsPage() {
     const settingsQuery = useQuery(queries.settings.get())
 
     if (!settingsQuery.data) {

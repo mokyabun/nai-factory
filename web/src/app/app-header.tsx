@@ -16,7 +16,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar'
 import { useRouteIds } from '@/hooks/use-active-project-id'
 import { queries } from '@/lib/queries'
 
-export function Header() {
+export function AppHeader() {
     const pathname = useRouterState({ select: (s) => s.location.pathname })
     const { projectId, sceneId } = useRouteIds()
 

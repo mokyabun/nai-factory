@@ -10,7 +10,7 @@ import { qk } from '@/lib/queries'
 
 import { SceneJsonImportDialog } from './scene-json-import-dialog'
 import { SdStudioImportDialog } from './sd-studio-import-dialog'
-import { useJsonDrop } from './use-file-drop'
+import { useFileDrop } from './use-file-drop'
 
 // Reused so the loading toast of a `.naif` import turns into its result.
 const IMPORT_TOAST_ID = 'file-import'
@@ -24,7 +24,7 @@ interface FileImportProps {
 export function FileImport({ projectId, className, children }: FileImportProps) {
     const queryClient = useQueryClient()
     const navigate = useNavigate()
-    const { isDragOver, pendingFile, dragHandlers, clearPendingFile } = useJsonDrop()
+    const { isDragOver, pendingFile, dragHandlers, clearPendingFile } = useFileDrop()
     const [importDialogOpen, setImportDialogOpen] = useState(false)
     const [sceneJsonImportOpen, setSceneJsonImportOpen] = useState(false)
     const [pendingSceneJsonData, setPendingSceneJsonData] = useState<SceneJsonDataType | null>(null)

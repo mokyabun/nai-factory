@@ -9,11 +9,11 @@ import { queries } from '@/lib/queries'
 
 import { ProjectTree } from './project-tree'
 import { collectGroupProjects } from './project-tree-cache'
-import { ProjectDialogs } from './project-tree-dialogs'
+import { ProjectTreeDialogs } from './project-tree-dialogs'
 import type { ActiveRenameTarget, ProjectDialog, ProjectSummary } from './project-tree-model'
 import { useProjectTree } from './use-project-tree'
 
-export function SidebarProject() {
+export function ProjectTreePanel() {
     const navigate = useNavigate()
     const router = useRouter()
     const queryClient = useQueryClient()
@@ -166,7 +166,7 @@ export function SidebarProject() {
                 />
             </Base.SidebarContent>
 
-            <ProjectDialogs
+            <ProjectTreeDialogs
                 projectDialog={projectDialog}
                 onOpenChange={(open) => {
                     if (!open) setProjectDialog(null)

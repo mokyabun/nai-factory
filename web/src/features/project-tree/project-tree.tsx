@@ -127,9 +127,9 @@ export function ProjectTree({
                         >
                             <Base.SidebarMenu>
                                 {isLoading ? (
-                                    <SidebarMessage>불러오는 중...</SidebarMessage>
+                                    <TreeMessage>불러오는 중...</TreeMessage>
                                 ) : groupItems.length === 0 && ungroupedProjects.length === 0 ? (
-                                    <SidebarMessage>프로젝트가 없습니다</SidebarMessage>
+                                    <TreeMessage>프로젝트가 없습니다</TreeMessage>
                                 ) : (
                                     <>
                                         {groupItems.map((group) => (
@@ -194,6 +194,6 @@ function isDescendantGroup(group: GroupNode, groupId: number): boolean {
     )
 }
 
-function SidebarMessage({ children }: { children: string }) {
+function TreeMessage({ children }: { children: string }) {
     return <div className="px-2 py-4 text-center text-xs text-muted-foreground">{children}</div>
 }

@@ -21,7 +21,7 @@ import { queries } from '@/lib/queries'
 import { comparePosition, reorderById } from '@/lib/reorder'
 
 import { SortableImageItem } from './sortable-image-item'
-import { useSceneImageActions } from './use-image-mutations'
+import { useImageMutations } from './use-image-mutations'
 
 interface SelectionDragState {
     startIndex: number | null
@@ -54,7 +54,7 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
     const selectMode = selectedCount > 0
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
-    const { deleteImages, reorderImage } = useSceneImageActions({
+    const { deleteImages, reorderImage } = useImageMutations({
         sceneId,
         projectId: sceneQuery.data?.projectId,
         latestReorderId: reorderRequestIdRef,

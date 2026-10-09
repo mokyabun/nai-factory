@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { Sidebar } from '@/app/sidebar/app-sidebar'
+import { AppSidebar } from '@/app/sidebar/app-sidebar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import { FileImport } from '@/features/import/file-import'
@@ -10,7 +10,7 @@ import { QueueFailureAlerts } from '@/features/queue/queue-failure-alerts'
 import { useActiveProjectId } from '@/hooks/use-active-project-id'
 
 import { AccessTokenDialog } from './access-token-dialog'
-import { Header } from './app-header'
+import { AppHeader } from './app-header'
 import { useRealtimeInvalidation } from './use-realtime-invalidation'
 
 interface AppShellProps {
@@ -39,9 +39,9 @@ export function AppShell({ children }: AppShellProps) {
                     className="app-sidebar-no-motion"
                     style={{ '--sidebar-width': '350px' } as React.CSSProperties}
                 >
-                    <Sidebar projectId={contextProjectId} />
+                    <AppSidebar projectId={contextProjectId} />
                     <SidebarInset className="flex flex-col overflow-hidden">
-                        <Header />
+                        <AppHeader />
                         <main className="flex flex-1 flex-col overflow-auto p-4">{children}</main>
                         <GenerationDock />
                     </SidebarInset>

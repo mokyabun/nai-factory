@@ -26,7 +26,7 @@ import {
 import { formatSeconds } from './generation-timing'
 import { useGenerationStatus, useJobHistory, useQueueActions } from './use-queue'
 
-interface SidebarQueueProps {
+interface QueuePanelProps {
     projectId?: number | null
 }
 
@@ -64,7 +64,7 @@ function formatDuration(milliseconds: number | null) {
     return `${seconds}s`
 }
 
-export function SidebarQueue({ projectId }: SidebarQueueProps) {
+export function QueuePanel({ projectId }: QueuePanelProps) {
     const { status, job, progress, jobElapsedMs, remainingSeconds } = useGenerationStatus()
     const { start, stop, clearAll, remove, retry } = useQueueActions()
 

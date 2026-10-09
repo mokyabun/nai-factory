@@ -6,7 +6,7 @@ import { CreateGroupDialog } from './create-group-dialog'
 import { CreateProjectDialog } from './create-project-dialog'
 import type { DeleteTarget, ProjectDialog } from './project-tree-model'
 
-interface ProjectDialogsProps {
+interface ProjectTreeDialogsProps {
     projectDialog: ProjectDialog | null
     onOpenChange: (open: boolean) => void
     onCreateGroup: (name: string) => void
@@ -14,13 +14,13 @@ interface ProjectDialogsProps {
     onConfirmDelete: () => Promise<void> | void
 }
 
-export function ProjectDialogs({
+export function ProjectTreeDialogs({
     projectDialog,
     onOpenChange,
     onCreateGroup,
     onCreateProject,
     onConfirmDelete,
-}: ProjectDialogsProps) {
+}: ProjectTreeDialogsProps) {
     const createGroupParent = projectDialog?.type === 'create-group' ? projectDialog.group : null
     const createProjectGroup = projectDialog?.type === 'create-project' ? projectDialog.group : null
     const deleteTarget = projectDialog?.type === 'delete' ? projectDialog.target : null

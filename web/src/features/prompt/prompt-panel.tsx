@@ -21,22 +21,17 @@ import { CharacterPromptEditor } from './character-prompt-editor'
 import { CharacterReferenceEditor } from './character-reference-editor'
 import { ParametersForm } from './parameters-form'
 import { PromptEditor } from './prompt-editor'
-import {
-    SidebarPromptTabs,
-    SidebarPromptTabsContent,
-    SidebarPromptTabsList,
-    SidebarPromptTabsTrigger,
-} from './prompt-tabs'
+import { PromptTabs, PromptTabsContent, PromptTabsList, PromptTabsTrigger } from './prompt-tabs'
 import { PromptVariableEditor } from './prompt-variable-editor'
 import { VibeTransferEditor } from './vibe-transfer-editor'
 
 const NO_VARIABLES: PromptVariable = []
 
-type SidebarPromptProps = {
+type PromptPanelProps = {
     projectId: number | null
 }
 
-export function SidebarPrompt({ projectId }: SidebarPromptProps) {
+export function PromptPanel({ projectId }: PromptPanelProps) {
     if (projectId === null) {
         return (
             <StatusMessage variant="panel" className="h-full min-h-0">
@@ -46,10 +41,10 @@ export function SidebarPrompt({ projectId }: SidebarPromptProps) {
     }
 
     // Keyed by project, so unsaved edits are saved to the project they were made in.
-    return <SidebarPromptContent key={projectId} projectId={projectId} />
+    return <PromptPanelContent key={projectId} projectId={projectId} />
 }
 
-function SidebarPromptContent({ projectId }: { projectId: number }) {
+function PromptPanelContent({ projectId }: { projectId: number }) {
     const queryClient = useQueryClient()
     const projectQuery = useQuery(queries.projects.get(projectId))
     const settingsQuery = useQuery(queries.settings.get())
@@ -114,21 +109,17 @@ function SidebarPromptContent({ projectId }: { projectId: number }) {
             {!project ? (
                 <StatusMessage variant="panel">왼쪽 패널에서 프로젝트를 선택하세요</StatusMessage>
             ) : (
-                <SidebarPromptTabs
+                <PromptTabs
                     defaultValue="prompt"
                     className="flex min-h-0 flex-1 flex-col overflow-hidden"
                 >
-                    <SidebarPromptTabsList>
-                        <SidebarPromptTabsTrigger value="prompt">프롬프트</SidebarPromptTabsTrigger>
-                        <SidebarPromptTabsTrigger value="reference">
-                            레퍼런스
-                        </SidebarPromptTabsTrigger>
-                        <SidebarPromptTabsTrigger value="parameter">
-                            파라미터
-                        </SidebarPromptTabsTrigger>
-                    </SidebarPromptTabsList>
+                    <PromptTabsList>
+                        <PromptTabsTrigger value="prompt">프롬프트</PromptTabsTrigger>
+                        <PromptTabsTrigger value="reference">레퍼런스</PromptTabsTrigger>
+                        <PromptTabsTrigger value="parameter">파라미터</PromptTabsTrigger>
+                    </PromptTabsList>
 
-                    <SidebarPromptTabsContent
+                    <PromptTabsContent
                         value="prompt"
                         className="flex flex-col gap-4 overflow-y-auto px-2 py-4 scrollbar-none"
                     >
@@ -154,9 +145,9 @@ function SidebarPromptContent({ projectId }: { projectId: number }) {
                             variables={variables}
                             onChange={handleVariablesChange}
                         />
-                    </SidebarPromptTabsContent>
+                    </PromptTabsContent>
 
-                    <SidebarPromptTabsContent
+                    <PromptTabsContent
                         value="reference"
                         className="flex flex-col gap-4 overflow-y-auto px-2 py-4 scrollbar-none"
                     >
@@ -174,9 +165,9 @@ function SidebarPromptContent({ projectId }: { projectId: number }) {
                                 <CharacterReferenceEditor projectId={project.id} />
                             </>
                         )}
-                    </SidebarPromptTabsContent>
+                    </PromptTabsContent>
 
-                    <SidebarPromptTabsContent
+                    <PromptTabsContent
                         value="parameter"
                         className="flex flex-col gap-4 overflow-y-auto px-2 py-4 scrollbar-none"
                     >
@@ -186,8 +177,8 @@ function SidebarPromptContent({ projectId }: { projectId: number }) {
                             parameters={project.parameters}
                             onChange={handleParameterChange}
                         />
-                    </SidebarPromptTabsContent>
-                </SidebarPromptTabs>
+                    </PromptTabsContent>
+                </PromptTabs>
             )}
         </div>
     )

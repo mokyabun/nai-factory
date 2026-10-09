@@ -13,7 +13,7 @@ import {
 import * as Base from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 
-import { SidebarHeader } from './sidebar-brand'
+import { SidebarBrand } from './sidebar-brand'
 import { defaultSidebarPanel, type SidebarPanel } from './sidebar-panels'
 
 type PreloadablePanel<TProps = unknown> = LazyExoticComponent<ComponentType<TProps>> & {
@@ -32,27 +32,27 @@ function lazyWithPreload<TProps = unknown>(
     return Object.assign(lazy(loadOnce), { preload: loadOnce })
 }
 
-const SidebarPlayground = lazyWithPreload<Record<string, never>>(() =>
+const PlaygroundPanel = lazyWithPreload<Record<string, never>>(() =>
     import('@/features/playground/playground-panel').then((mod) => ({
-        default: mod.SidebarPlayground as ComponentType<Record<string, never>>,
+        default: mod.PlaygroundPanel as ComponentType<Record<string, never>>,
     })),
 )
-const SidebarProject = lazyWithPreload<Record<string, never>>(() =>
+const ProjectTreePanel = lazyWithPreload<Record<string, never>>(() =>
     import('@/features/project-tree/project-tree-panel').then((mod) => ({
-        default: mod.SidebarProject as ComponentType<Record<string, never>>,
+        default: mod.ProjectTreePanel as ComponentType<Record<string, never>>,
     })),
 )
-const SidebarPrompt = lazyWithPreload<{ projectId: number | null }>(() =>
+const PromptPanel = lazyWithPreload<{ projectId: number | null }>(() =>
     import('@/features/prompt/prompt-panel').then((mod) => ({
-        default: mod.SidebarPrompt as ComponentType<{ projectId: number | null }>,
+        default: mod.PromptPanel as ComponentType<{ projectId: number | null }>,
     })),
 )
-const SidebarQueue = lazyWithPreload<{ projectId?: number | null }>(() =>
+const QueuePanel = lazyWithPreload<{ projectId?: number | null }>(() =>
     import('@/features/queue/queue-panel').then((mod) => ({
-        default: mod.SidebarQueue as ComponentType<{ projectId?: number | null }>,
+        default: mod.QueuePanel as ComponentType<{ projectId?: number | null }>,
     })),
 )
-interface SidebarProps {
+interface AppSidebarProps {
     /** The project of the current page, or the last one opened when the page has none. */
     projectId: number | null
 }
@@ -64,7 +64,7 @@ type SidebarItem = {
     to?: '/playground' | '/log' | '/settings'
 }
 
-export function Sidebar({ projectId }: SidebarProps) {
+export function AppSidebar({ projectId }: AppSidebarProps) {
     const { setOpen, open, isMobile, openMobile, setOpenMobile } = Base.useSidebar()
     const navigate = useNavigate({ from: '/' })
     const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -74,12 +74,12 @@ export function Sidebar({ projectId }: SidebarProps) {
     const isSidebarOpen = isMobile ? openMobile : open
 
     useEffect(() => {
-        void SidebarProject.preload()
-        void SidebarQueue.preload()
+        void ProjectTreePanel.preload()
+        void QueuePanel.preload()
     }, [])
 
     useEffect(() => {
-        if (projectId) void SidebarPrompt.preload()
+        if (projectId) void PromptPanel.preload()
     }, [projectId])
 
     const topItems: SidebarItem[] = [
@@ -173,7 +173,7 @@ export function Sidebar({ projectId }: SidebarProps) {
     function renderIconRail() {
         return (
             <>
-                <SidebarHeader />
+                <SidebarBrand />
                 <Base.SidebarContent>
                     <Base.SidebarGroup className="h-full">
                         <Base.SidebarGroupContent className="h-full">
@@ -230,10 +230,10 @@ export function Sidebar({ projectId }: SidebarProps) {
     function renderPanel() {
         return (
             <Suspense fallback={<SidebarPanelFallback />}>
-                {activePanel === 'project' && <SidebarProject />}
-                {activePanel === 'playground' && <SidebarPlayground />}
-                {activePanel === 'prompt' && <SidebarPrompt projectId={projectId} />}
-                {activePanel === 'queue' && <SidebarQueue projectId={projectId} />}
+                {activePanel === 'project' && <ProjectTreePanel />}
+                {activePanel === 'playground' && <PlaygroundPanel />}
+                {activePanel === 'prompt' && <PromptPanel projectId={projectId} />}
+                {activePanel === 'queue' && <QueuePanel projectId={projectId} />}
             </Suspense>
         )
     }
@@ -289,10 +289,10 @@ export function Sidebar({ projectId }: SidebarProps) {
 }
 
 function preloadSidebarPanel(panel: SidebarPanel) {
-    if (panel === 'project') void SidebarProject.preload()
-    if (panel === 'playground') void SidebarPlayground.preload()
-    if (panel === 'prompt') void SidebarPrompt.preload()
-    if (panel === 'queue') void SidebarQueue.preload()
+    if (panel === 'project') void ProjectTreePanel.preload()
+    if (panel === 'playground') void PlaygroundPanel.preload()
+    if (panel === 'prompt') void PromptPanel.preload()
+    if (panel === 'queue') void QueuePanel.preload()
 }
 
 function isProjectContextPanel(panel: SidebarPanel) {

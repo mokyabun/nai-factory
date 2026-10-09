@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 
-interface UseJsonDropResult {
+interface UseFileDropResult {
     isDragOver: boolean
     pendingFile: File | null
     dragHandlers: {
@@ -12,7 +12,7 @@ interface UseJsonDropResult {
     clearPendingFile: () => void
 }
 
-export function useJsonDrop(): UseJsonDropResult {
+export function useFileDrop(): UseFileDropResult {
     const dragCounter = useRef(0)
     const [isDragOver, setIsDragOver] = useState(false)
     const [pendingFile, setPendingFile] = useState<File | null>(null)

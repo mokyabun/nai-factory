@@ -2,11 +2,7 @@ import { Tabs as TabsPrimitive } from '@base-ui/react/tabs'
 
 import { cn } from '@/lib/utils'
 
-function SidebarPromptTabs({
-    className,
-    orientation = 'horizontal',
-    ...props
-}: TabsPrimitive.Root.Props) {
+function PromptTabs({ className, orientation = 'horizontal', ...props }: TabsPrimitive.Root.Props) {
     return (
         <TabsPrimitive.Root
             data-slot="tabs"
@@ -17,7 +13,7 @@ function SidebarPromptTabs({
     )
 }
 
-function SidebarPromptTabsList({ className, ...props }: TabsPrimitive.List.Props) {
+function PromptTabsList({ className, ...props }: TabsPrimitive.List.Props) {
     return (
         <TabsPrimitive.List
             data-slot="tabs-list"
@@ -30,7 +26,7 @@ function SidebarPromptTabsList({ className, ...props }: TabsPrimitive.List.Props
     )
 }
 
-function SidebarPromptTabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
+function PromptTabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
     return (
         <TabsPrimitive.Tab
             data-slot="tabs-trigger"
@@ -44,7 +40,7 @@ function SidebarPromptTabsTrigger({ className, ...props }: TabsPrimitive.Tab.Pro
     )
 }
 
-function SidebarPromptTabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
+function PromptTabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
     return (
         <TabsPrimitive.Panel
             data-slot="tabs-content"
@@ -54,9 +50,4 @@ function SidebarPromptTabsContent({ className, ...props }: TabsPrimitive.Panel.P
     )
 }
 
-export {
-    SidebarPromptTabs,
-    SidebarPromptTabsContent,
-    SidebarPromptTabsList,
-    SidebarPromptTabsTrigger,
-}
+export { PromptTabs, PromptTabsContent, PromptTabsList, PromptTabsTrigger }

@@ -30,7 +30,7 @@ type EnqueueRequest = {
     startNow: boolean
 }
 
-export function SidebarPlayground() {
+export function PlaygroundPanel() {
     const queryClient = useQueryClient()
     const settingsQuery = useQuery(queries.playground.state())
 

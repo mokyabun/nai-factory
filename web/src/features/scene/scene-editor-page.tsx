@@ -16,7 +16,7 @@ import { matchesKey, qk, queries } from '@/lib/queries'
 import { PromptPreviewPanel } from './prompt-preview-panel'
 import { VariationEditor } from './variation-editor'
 
-export function SceneEditPage({ sceneId }: { sceneId: number }) {
+export function SceneEditorPage({ sceneId }: { sceneId: number }) {
     const sceneQuery = useQuery(queries.scenes.get(sceneId))
 
     if (sceneQuery.isPending) {
