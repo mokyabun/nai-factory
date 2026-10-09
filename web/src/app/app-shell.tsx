@@ -1,17 +1,17 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { Header } from '@/components/app/header'
-import { Sidebar } from '@/components/app/sidebar'
+import { Sidebar } from '@/app/sidebar/app-sidebar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import { FileImport } from '@/features/import/file-import'
 import { GenerationDock } from '@/features/queue/generation-dock'
 import { QueueFailureAlerts } from '@/features/queue/queue-failure-alerts'
 import { useActiveProjectId } from '@/hooks/use-active-project-id'
-import { useRealtimeInvalidation } from '@/hooks/use-realtime-invalidation'
 
 import { AccessTokenDialog } from './access-token-dialog'
+import { Header } from './app-header'
+import { useRealtimeInvalidation } from './use-realtime-invalidation'
 
 interface AppShellProps {
     children: React.ReactNode

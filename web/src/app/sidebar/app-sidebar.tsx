@@ -13,9 +13,8 @@ import {
 import * as Base from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 
-import { defaultSidebarPanel, type SidebarPanel } from './panels'
-import { SidebarFooter } from './sidebar-footer'
-import { SidebarHeader } from './sidebar-header'
+import { SidebarHeader } from './sidebar-brand'
+import { defaultSidebarPanel, type SidebarPanel } from './sidebar-panels'
 
 type PreloadablePanel<TProps = unknown> = LazyExoticComponent<ComponentType<TProps>> & {
     preload: () => Promise<{ default: ComponentType<TProps> }>
@@ -223,7 +222,7 @@ export function Sidebar({ projectId }: SidebarProps) {
                         </Base.SidebarGroupContent>
                     </Base.SidebarGroup>
                 </Base.SidebarContent>
-                <SidebarFooter />
+                <Base.SidebarFooter />
             </>
         )
     }

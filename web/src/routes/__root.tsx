@@ -1,7 +1,7 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router'
 
-import { AppShell } from '@/components/app/app-shell'
-import { isSidebarPanel, type SidebarPanel } from '@/components/app/sidebar/panels'
+import { AppShell } from '@/app/app-shell'
+import { isSidebarPanel, type SidebarPanel } from '@/app/sidebar/sidebar-panels'
 
 export const Route = createRootRoute({
     validateSearch: (search: Record<string, unknown>): { sidebar?: SidebarPanel } => ({
