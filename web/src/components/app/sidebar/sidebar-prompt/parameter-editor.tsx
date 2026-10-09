@@ -3,12 +3,8 @@ import {
     NOVEL_AI_MODEL_OPTIONS,
     NOVEL_AI_NOISE_SCHEDULE_OPTIONS,
     NOVEL_AI_SAMPLER_OPTIONS,
-    type Project,
     type Parameters as ProjectParams,
 } from '@nai-factory/shared'
-import { useQueryClient } from '@tanstack/react-query'
-import { useAtomValue, useSetAtom } from 'jotai'
-import { useEffect, useRef } from 'react'
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,80 +17,14 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
-import { call, contract } from '@/lib/api'
-import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
-import { qk } from '@/lib/queries'
-import { debounce } from '@/lib/utils'
-
-import { sidebarParameterParamsAtom } from './atom'
-
-type ProjectData = Pick<Project, 'id' | 'parameters'>
 
 interface ParameterEditorProps {
-    project: ProjectData
+    parameters: ProjectParams
+    onChange: <K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) => void
 }
 
-export function ParameterEditor({ project }: ParameterEditorProps) {
-    const queryClient = useQueryClient()
-    const params = useAtomValue(sidebarParameterParamsAtom) ?? project.parameters
+export function ParameterEditor({ parameters: params, onChange: set }: ParameterEditorProps) {
     const isV5 = isNovelAIV5Model(params.model)
-    const setParams = useSetAtom(sidebarParameterParamsAtom)
-    const latestProjectIdRef = useRef(project.id)
-    const latestParamsRef = useRef<ProjectParams>({ ...project.parameters })
-    const dirtyRef = useRef(false)
-
-    const saveParamsRef = useRef(
-        // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
-        debounce(async (projectId: number, nextParams: ProjectParams) => {
-            const previousProject = await snapshotQuery<Project>(
-                queryClient,
-                qk.projects.get(projectId),
-            )
-            queryClient.setQueryData<Project | null>(qk.projects.get(projectId), (project) =>
-                project ? { ...project, parameters: nextParams } : project,
-            )
-            const data = await call(contract.projects.update, {
-                params: { id: projectId },
-                body: { parameters: nextParams },
-            }).catch(() => null)
-
-            if (latestProjectIdRef.current !== projectId) return
-            if (JSON.stringify(latestParamsRef.current) !== JSON.stringify(nextParams)) return
-
-            dirtyRef.current = false
-            if (data) queryClient.setQueryData(qk.projects.get(projectId), data)
-            else restoreSnapshot(queryClient, previousProject)
-        }, 600),
-    )
-
-    useEffect(() => {
-        if (latestProjectIdRef.current !== project.id) {
-            saveParamsRef.current.flush()
-            latestProjectIdRef.current = project.id
-            dirtyRef.current = false
-        }
-
-        if (!dirtyRef.current) {
-            const nextParams = { ...project.parameters }
-            latestParamsRef.current = nextParams
-            setParams(nextParams)
-        }
-    }, [project.id, project.parameters, setParams])
-
-    useEffect(() => {
-        const cleanupSaveParams = saveParamsRef.current
-        return () => {
-            cleanupSaveParams.flush()
-        }
-    }, [])
-
-    function set<K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) {
-        const nextParams = { ...params, [key]: value }
-        latestParamsRef.current = nextParams
-        dirtyRef.current = true
-        setParams(nextParams)
-        saveParamsRef.current(project.id, nextParams)
-    }
 
     function sliderValue(value: number | readonly number[], fallback: number) {
         return typeof value === 'number' ? value : (value[0] ?? fallback)

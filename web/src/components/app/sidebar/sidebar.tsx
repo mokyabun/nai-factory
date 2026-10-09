@@ -1,5 +1,4 @@
-import { useNavigate, useRouterState } from '@tanstack/react-router'
-import { Provider, useAtom, useAtomValue } from 'jotai'
+import { useNavigate, useRouterState, useSearch } from '@tanstack/react-router'
 import type { LucideIcon } from 'lucide-react'
 import { AlignLeft, File, FlaskConical, ListTodo, ScrollText, Settings } from 'lucide-react'
 import { type ComponentType, type LazyExoticComponent, lazy, Suspense, useEffect } from 'react'
@@ -14,12 +13,9 @@ import {
 import * as Base from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 
-import { activeProjectIdAtom } from '../atom'
-import { activeSidebarPanelAtom, type SidebarPanel } from './atom'
+import { defaultSidebarPanel, type SidebarPanel } from './panels'
 import { SidebarFooter } from './sidebar-footer'
 import { SidebarHeader } from './sidebar-header'
-
-const SIDEBAR_PANELS = ['project', 'playground', 'prompt', 'queue'] as const
 
 type PreloadablePanel<TProps = unknown> = LazyExoticComponent<ComponentType<TProps>> & {
     preload: () => Promise<{ default: ComponentType<TProps> }>
@@ -57,8 +53,9 @@ const SidebarQueue = lazyWithPreload<{ projectId?: number | null }>(() =>
         default: mod.SidebarQueue as ComponentType<{ projectId?: number | null }>,
     })),
 )
-interface AppSidebarProps {
-    projectId?: number | null
+interface SidebarProps {
+    /** The project of the current page, or the last one opened when the page has none. */
+    projectId: number | null
 }
 
 type SidebarItem = {
@@ -68,23 +65,13 @@ type SidebarItem = {
     to?: '/playground' | '/log' | '/settings'
 }
 
-export function Sidebar() {
-    const projectId = useAtomValue(activeProjectIdAtom)
-
-    return (
-        <Provider>
-            <SidebarContent projectId={projectId} />
-        </Provider>
-    )
-}
-
-function SidebarContent({ projectId }: AppSidebarProps) {
+export function Sidebar({ projectId }: SidebarProps) {
     const { setOpen, open, isMobile, openMobile, setOpenMobile } = Base.useSidebar()
     const navigate = useNavigate({ from: '/' })
-    const [activePanel, setActivePanel] = useAtom(activeSidebarPanelAtom)
-
-    const search = useRouterState({ select: (s) => s.location.search })
     const pathname = useRouterState({ select: (s) => s.location.pathname })
+    // The URL is the only record of the open panel, so links and other components can switch it.
+    const panelParam = useSearch({ strict: false, select: (search) => search.sidebar })
+    const activePanel = panelParam ?? defaultSidebarPanel(pathname)
     const isSidebarOpen = isMobile ? openMobile : open
 
     useEffect(() => {
@@ -95,15 +82,6 @@ function SidebarContent({ projectId }: AppSidebarProps) {
     useEffect(() => {
         if (projectId) void SidebarPrompt.preload()
     }, [projectId])
-
-    useEffect(() => {
-        const params = new URLSearchParams(search)
-        const panel = params.get('sidebar') as SidebarPanel | null
-        const nextPanel = panel && isSidebarPanel(panel) ? panel : getDefaultSidebarPanel(pathname)
-
-        preloadSidebarPanel(nextPanel)
-        setActivePanel(nextPanel)
-    }, [search, pathname, setActivePanel])
 
     const topItems: SidebarItem[] = [
         { title: '프로젝트', panel: 'project' as const, icon: File },
@@ -142,14 +120,13 @@ function SidebarContent({ projectId }: AppSidebarProps) {
 
         if (isProjectContextPanel(panel)) {
             navigateToProjectContextPanel(panel)
-            setActivePanel(panel)
             setSidebarOpen(true)
             return
         }
 
+        // The page's default panel is this one, so the URL needs no `?sidebar=`.
         if (item.to && pathname !== item.to) {
             void navigate({ to: item.to })
-            setActivePanel(panel)
             setSidebarOpen(true)
             return
         }
@@ -157,7 +134,6 @@ function SidebarContent({ projectId }: AppSidebarProps) {
         if (activePanel === panel) {
             setSidebarOpen(!isSidebarOpen)
         } else {
-            setActivePanel(panel)
             setSidebarOpen(true)
             void navigate({
                 search: (prev) => ({ ...prev, sidebar: panel }),
@@ -257,7 +233,7 @@ function SidebarContent({ projectId }: AppSidebarProps) {
             <Suspense fallback={<SidebarPanelFallback />}>
                 {activePanel === 'project' && <SidebarProject />}
                 {activePanel === 'playground' && <SidebarPlayground />}
-                {activePanel === 'prompt' && <SidebarPrompt projectId={projectId ?? null} />}
+                {activePanel === 'prompt' && <SidebarPrompt projectId={projectId} />}
                 {activePanel === 'queue' && <SidebarQueue projectId={projectId} />}
             </Suspense>
         )
@@ -320,26 +296,12 @@ function preloadSidebarPanel(panel: SidebarPanel) {
     if (panel === 'queue') void SidebarQueue.preload()
 }
 
-function isSidebarPanel(panel: string): panel is SidebarPanel {
-    return SIDEBAR_PANELS.includes(panel as SidebarPanel)
-}
-
-function getDefaultSidebarPanel(pathname: string): SidebarPanel {
-    if (pathname === '/playground') return 'playground'
-    if (isProjectPath(pathname) || isScenePath(pathname)) return 'prompt'
-    return 'project'
-}
-
 function isProjectContextPanel(panel: SidebarPanel) {
     return panel === 'project' || panel === 'prompt' || panel === 'queue'
 }
 
 function isProjectPath(pathname: string) {
     return pathname.startsWith('/project/')
-}
-
-function isScenePath(pathname: string) {
-    return pathname.startsWith('/scene/')
 }
 
 function isRouteOnlyPath(pathname: string) {

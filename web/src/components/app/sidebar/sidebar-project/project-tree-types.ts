@@ -1,8 +1,17 @@
-import type { GroupNode, GroupTreeItem } from '@nai-factory/shared'
+import type { GroupNode, GroupTreeItem, ProjectSummary } from '@nai-factory/shared'
+
+export type { ProjectSummary }
 
 export type ProjectGroupId = number | null
 
-import type { ActiveRenameTarget, ProjectSummary } from './atom'
+export type ActiveRenameTarget = { type: 'group'; id: number } | { type: 'project'; id: number }
+export type DeleteTarget =
+    | { type: 'group'; group: GroupNode }
+    | { type: 'project'; project: ProjectSummary }
+export type ProjectDialog =
+    | { type: 'create-group'; group: GroupNode | null }
+    | { type: 'create-project'; group: GroupNode | null }
+    | { type: 'delete'; target: DeleteTarget }
 
 export interface RenameState {
     target: ActiveRenameTarget | null

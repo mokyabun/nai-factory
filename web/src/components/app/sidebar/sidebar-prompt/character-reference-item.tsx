@@ -1,9 +1,8 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { CharacterReference, CharacterReferencePatch } from '@nai-factory/shared'
-import { Provider, useAtom } from 'jotai'
 import { GripVertical, Trash2 } from 'lucide-react'
-import { useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -16,10 +15,8 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
-import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
+import { useAutosave } from '@/hooks/use-autosave'
 import { assetUrl } from '@/lib/api'
-
-import { characterReferenceItemDraftAtom, createCharacterReferenceItemDraft } from './atom'
 
 const REFERENCE_MODES = [
     { value: 'character&style', label: '캐릭터+스타일' },
@@ -31,27 +28,11 @@ type ReferenceMode = (typeof REFERENCE_MODES)[number]['value']
 
 interface SortableCharacterReferenceItemProps {
     reference: CharacterReference
-    onUpdate: (id: number, patch: CharacterReferencePatch) => void
+    onUpdate: (id: number, patch: CharacterReferencePatch) => Promise<unknown>
     onDelete: (id: number) => void
 }
 
 export function SortableCharacterReferenceItem({
-    reference,
-    onUpdate,
-    onDelete,
-}: SortableCharacterReferenceItemProps) {
-    return (
-        <Provider>
-            <SortableCharacterReferenceItemContent
-                reference={reference}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-            />
-        </Provider>
-    )
-}
-
-function SortableCharacterReferenceItemContent({
     reference,
     onUpdate,
     onDelete,
@@ -66,57 +47,36 @@ function SortableCharacterReferenceItemContent({
         opacity: isDragging ? 0.4 : 1,
     }
 
-    const [draftValue, setDraft] = useAtom(characterReferenceItemDraftAtom)
-    const draft = draftValue ?? createCharacterReferenceItemDraft(reference)
-    const { strength, fidelity, mode: referenceMode, enabled } = draft
-
     const save = useCallback(
         (patch: CharacterReferencePatch) => onUpdate(reference.id, patch),
         [onUpdate, reference.id],
     )
-    const pendingUpdate = useDebouncedPatch(save, 400)
-
-    useEffect(() => {
-        setDraft(createCharacterReferenceItemDraft(reference))
-    }, [reference, setDraft])
+    const draft = useAutosave<CharacterReference, CharacterReferencePatch>({
+        data: reference,
+        save,
+        delay: 400,
+    })
+    const { strength, fidelity, mode: referenceMode, enabled } = draft.value ?? reference
 
     function sliderValue(value: number | readonly number[], fallback: number) {
         return typeof value === 'number' ? value : (value[0] ?? fallback)
     }
 
     function handleStrengthChange(value: number) {
-        setDraft((current) => ({
-            ...(current ?? createCharacterReferenceItemDraft(reference)),
-            strength: value,
-        }))
-        pendingUpdate.schedule({ strength: value })
+        draft.update({ strength: value })
     }
 
     function handleFidelityChange(value: number) {
-        setDraft((current) => ({
-            ...(current ?? createCharacterReferenceItemDraft(reference)),
-            fidelity: value,
-        }))
-        pendingUpdate.schedule({ fidelity: value })
+        draft.update({ fidelity: value })
     }
 
     function handleReferenceModeChange(value: string | null) {
         if (!value) return
-
-        const mode = value as ReferenceMode
-        setDraft((current) => ({
-            ...(current ?? createCharacterReferenceItemDraft(reference)),
-            mode,
-        }))
-        onUpdate(reference.id, { mode })
+        draft.update({ mode: value as ReferenceMode }, { immediate: true })
     }
 
     function handleEnabledChange(value: boolean) {
-        setDraft((current) => ({
-            ...(current ?? createCharacterReferenceItemDraft(reference)),
-            enabled: value,
-        }))
-        onUpdate(reference.id, { enabled: value })
+        draft.update({ enabled: value }, { immediate: true })
     }
 
     const previewAssetId = reference.thumbAssetId ?? reference.sourceAssetId

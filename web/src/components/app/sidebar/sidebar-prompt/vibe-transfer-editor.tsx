@@ -10,41 +10,26 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import type { VibeTransfer, VibeTransferPatch } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Provider, useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { GripVertical, Trash2, Upload } from 'lucide-react'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
-import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
+import { useAutosave } from '@/hooks/use-autosave'
+import { useLocalOrder } from '@/hooks/use-local-order'
 import { assetUrl, call, contract } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk, queries } from '@/lib/queries'
-import type { OrderPatch } from '@/lib/reorder'
-
-import {
-    createVibeTransferItemDraft,
-    reorderItems,
-    vibeTransferItemDraftAtom,
-    vibeTransferItemsAtom,
-} from './atom'
+import { type OrderPatch, reorderById } from '@/lib/reorder'
 
 interface SortableVibeItemProps {
     vibe: VibeTransfer
-    onUpdate: (id: number, patch: VibeTransferPatch) => void
+    onUpdate: (id: number, patch: VibeTransferPatch) => Promise<unknown>
     onDelete: (id: number) => void
 }
 
 function SortableVibeItem({ vibe, onUpdate, onDelete }: SortableVibeItemProps) {
-    return (
-        <Provider>
-            <SortableVibeItemContent vibe={vibe} onUpdate={onUpdate} onDelete={onDelete} />
-        </Provider>
-    )
-}
-
-function SortableVibeItemContent({ vibe, onUpdate, onDelete }: SortableVibeItemProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: vibe.id,
     })
@@ -55,35 +40,20 @@ function SortableVibeItemContent({ vibe, onUpdate, onDelete }: SortableVibeItemP
         opacity: isDragging ? 0.4 : 1,
     }
 
-    const [draftValue, setDraft] = useAtom(vibeTransferItemDraftAtom)
-    const draft = draftValue ?? createVibeTransferItemDraft(vibe)
-    const refStrength = draft.referenceStrength
-    const infoExtracted = draft.informationExtracted
-
     const save = useCallback(
         (patch: VibeTransferPatch) => onUpdate(vibe.id, patch),
         [onUpdate, vibe.id],
     )
-    const pendingUpdate = useDebouncedPatch(save, 400)
-
-    useEffect(() => {
-        setDraft(createVibeTransferItemDraft(vibe))
-    }, [vibe, setDraft])
+    const draft = useAutosave<VibeTransfer, VibeTransferPatch>({ data: vibe, save, delay: 400 })
+    const { referenceStrength: refStrength, informationExtracted: infoExtracted } =
+        draft.value ?? vibe
 
     function handleRefStrengthChange(value: number) {
-        setDraft((current) => ({
-            ...(current ?? createVibeTransferItemDraft(vibe)),
-            referenceStrength: value,
-        }))
-        pendingUpdate.schedule({ referenceStrength: value })
+        draft.update({ referenceStrength: value })
     }
 
     function handleInfoExtractedChange(value: number) {
-        setDraft((current) => ({
-            ...(current ?? createVibeTransferItemDraft(vibe)),
-            informationExtracted: value,
-        }))
-        pendingUpdate.schedule({ informationExtracted: value })
+        draft.update({ informationExtracted: value })
     }
 
     function sliderValue(value: number | readonly number[], fallback: number) {
@@ -173,14 +143,8 @@ interface VibeTransferEditorProps {
 export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
     const queryClient = useQueryClient()
     const fileInputRef = useRef<HTMLInputElement>(null)
-    const items = useAtomValue(vibeTransferItemsAtom)
-    const setItems = useSetAtom(vibeTransferItemsAtom)
-
     const query = useQuery(queries.projects.vibeTransfers(projectId))
-
-    useEffect(() => {
-        if (query.data) setItems(query.data)
-    }, [query.data, setItems])
+    const [items, setOrder] = useLocalOrder(query.data)
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -195,7 +159,6 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
                 qk.projects.vibeTransfers(projectId),
                 (current) => [...(current ?? []), created],
             )
-            setItems((current) => [...current, created])
             void queryClient.invalidateQueries({ queryKey: qk.projects.vibeTransfers(projectId) })
         },
     })
@@ -213,21 +176,16 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
                 (current) =>
                     current?.map((item) => (item.id === id ? { ...item, ...patch } : item)),
             )
-            setItems((current) =>
-                current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-            )
-            return { previousItems, previousLocalItems: items }
+            return { previousItems }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousItems)
-            if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
         onSuccess: (updated) => {
             queryClient.setQueryData<VibeTransfer[]>(
                 qk.projects.vibeTransfers(projectId),
                 (current) => current?.map((item) => (item.id === updated.id ? updated : item)),
             )
-            setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)))
         },
     })
 
@@ -242,37 +200,34 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
                 qk.projects.vibeTransfers(projectId),
                 (current) => current?.filter((item) => item.id !== id),
             )
-            setItems((current) => current.filter((item) => item.id !== id))
-            return { previousItems, previousLocalItems: items }
+            return { previousItems }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousItems)
-            if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
         onSettled: () =>
             queryClient.invalidateQueries({ queryKey: qk.projects.vibeTransfers(projectId) }),
     })
 
     const reorderMutation = useMutation({
-        mutationFn: ({ id, beforeId, afterId }: OrderPatch) =>
+        mutationFn: ({ id, beforeId, afterId }: OrderPatch & { items: VibeTransfer[] }) =>
             call(contract.vibeTransfers.move, { params: { id }, body: { beforeId, afterId } }),
-        onMutate: async () => {
+        onMutate: async ({ items }) => {
             const previousItems = await snapshotQuery<VibeTransfer[]>(
                 queryClient,
                 qk.projects.vibeTransfers(projectId),
             )
             queryClient.setQueryData(qk.projects.vibeTransfers(projectId), items)
-            return { previousItems, previousLocalItems: query.data ?? [] }
+            return { previousItems }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousItems)
-            if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
         onSettled: () =>
             queryClient.invalidateQueries({ queryKey: qk.projects.vibeTransfers(projectId) }),
     })
 
-    const updateItem = updateMutation.mutate
+    const updateItem = updateMutation.mutateAsync
     const handleUpdate = useCallback(
         (id: number, patch: VibeTransferPatch) => updateItem({ id, patch }),
         [updateItem],
@@ -291,11 +246,11 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
 
         if (!Number.isFinite(activeId) || !Number.isFinite(overId)) return
 
-        const reordered = reorderItems(items, activeId, overId)
+        const reordered = reorderById(items, activeId, overId)
         if (!reordered) return
 
-        setItems(reordered.items)
-        reorderMutation.mutate(reordered.orderPatch)
+        setOrder(reordered.items)
+        reorderMutation.mutate({ ...reordered.orderPatch, items: reordered.items })
     }
 
     function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {

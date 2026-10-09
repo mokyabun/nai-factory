@@ -11,8 +11,7 @@ import type { ProjectSettings, SceneSummary } from '@nai-factory/shared'
 import type { PointerEvent } from 'react'
 
 import { SortableSceneItem } from '@/components/app/project/sortable-scene-item'
-import type { OrderPatch } from '@/lib/reorder'
-import { reorderSceneItems } from '@/routes/project/$projectId/atom'
+import { type OrderPatch, reorderById } from '@/lib/reorder'
 
 interface SceneGridProps {
     items: SceneSummary[]
@@ -52,7 +51,7 @@ export function SceneGrid({
         const overId = Number(over.id)
         if (!Number.isFinite(activeId) || !Number.isFinite(overId)) return
 
-        const reordered = reorderSceneItems(items, activeId, overId)
+        const reordered = reorderById(items, activeId, overId)
         if (reordered) onReorder(reordered.items, reordered.orderPatch)
     }
 

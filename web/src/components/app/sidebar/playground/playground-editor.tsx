@@ -5,7 +5,7 @@ import { PlaygroundParameters } from './playground-parameters'
 
 interface PlaygroundEditorProps {
     settings: PlaygroundState
-    onFieldChange: <K extends keyof PlaygroundState>(key: K, value: PlaygroundState[K]) => void
+    onFieldChange: (key: 'prompt' | 'negativePrompt', value: string) => void
     onParameterChange: <K extends keyof Parameters>(key: K, value: Parameters[K]) => void
 }
 

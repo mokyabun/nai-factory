@@ -47,6 +47,7 @@ function ImagesPage() {
         () => [...(imagesQuery.data ?? [])].sort(comparePosition),
         [imagesQuery.data],
     )
+    // Ids of images that are gone stay in the set but never count as selected.
     const selectedImageIds = useMemo(
         () => images.filter((img) => selectedIds.has(img.id)).map((img) => img.id),
         [images, selectedIds],
@@ -54,15 +55,6 @@ function ImagesPage() {
     const selectedCount = selectedImageIds.length
     const selectMode = selectedCount > 0
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
-
-    useEffect(() => {
-        const availableIds = new Set(images.map((img) => img.id))
-        // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
-        setSelectedIds((prev) => {
-            const next = new Set([...prev].filter((id) => availableIds.has(id)))
-            return next.size === prev.size ? prev : next
-        })
-    }, [images])
 
     const { deleteImages, reorderImage } = useSceneImageActions({
         sceneId: scenId,

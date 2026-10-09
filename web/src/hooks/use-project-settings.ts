@@ -1,79 +1,37 @@
 import type { Project, ProjectSettings, ProjectSettingsPatch } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
-import { useAtom } from 'jotai'
-import { useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
 
 import { call, contract } from '@/lib/api'
-import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk } from '@/lib/queries'
-import {
-    loadedProjectIdAtom,
-    sceneCardSizeAtom,
-    slideshowImageCountAtom,
-} from '@/routes/project/$projectId/atom'
 
-import { useDebouncedPatch } from './use-debounced-patch'
+import { useAutosave } from './use-autosave'
 
-/** Display settings of a project page, edited locally and saved after a pause. */
-export function useProjectSettings(project: Project | null | undefined) {
+/** Display settings of a project page, shown at once and saved after a pause. */
+export function useProjectSettings(projectId: number, project: Project | undefined) {
     const queryClient = useQueryClient()
-    const [loadedProjectId, setLoadedProjectId] = useAtom(loadedProjectIdAtom)
-    const [slideshowImageCount, setSlideshowImageCount] = useAtom(slideshowImageCountAtom)
-    const [sceneCardSize, setSceneCardSize] = useAtom(sceneCardSizeAtom)
 
     const save = useCallback(
-        async (settings: ProjectSettingsPatch & { projectId?: number }) => {
-            const { projectId, ...patch } = settings
-            if (projectId === undefined) return
-            const previous = await snapshotQuery<Project>(queryClient, qk.projects.get(projectId))
-            queryClient.setQueryData<Project>(qk.projects.get(projectId), (current) =>
-                current ? { ...current, settings: { ...current.settings, ...patch } } : current,
-            )
-            try {
-                const data = await call(contract.projects.update, {
-                    params: { id: projectId },
-                    body: { settings: patch },
-                })
-                queryClient.setQueryData(qk.projects.get(projectId), data)
-            } catch {
-                restoreSnapshot(queryClient, previous)
-            }
+        async (patch: ProjectSettingsPatch) => {
+            const data = await call(contract.projects.update, {
+                params: { id: projectId },
+                body: { settings: patch },
+            })
+            queryClient.setQueryData(qk.projects.get(projectId), data)
         },
-        [queryClient],
+        [projectId, queryClient],
     )
-    const pending = useDebouncedPatch(save)
-
-    useEffect(() => {
-        if (project && project.id !== loadedProjectId) {
-            // Save edits of the previous project before showing the next one.
-            pending.flush()
-            setLoadedProjectId(project.id)
-            setSlideshowImageCount(project.settings.slideshowImageCount)
-            setSceneCardSize(project.settings.sceneCardSize)
-        }
-    }, [
-        project,
-        loadedProjectId,
-        pending,
-        setLoadedProjectId,
-        setSceneCardSize,
-        setSlideshowImageCount,
-    ])
+    const settings = useAutosave<ProjectSettings, ProjectSettingsPatch>({
+        data: project?.settings,
+        save,
+    })
 
     return {
-        slideshowImageCount,
-        sceneCardSize,
-        setSlideshowImageCount: (value: string) => {
-            const next = Math.min(10, Math.max(1, Number(value) || 1))
-            setSlideshowImageCount(next)
-            if (loadedProjectId) {
-                pending.schedule({ projectId: loadedProjectId, slideshowImageCount: next })
-            }
-        },
-        setSceneCardSize: (value: ProjectSettings['sceneCardSize']) => {
-            setSceneCardSize(value)
-            if (loadedProjectId)
-                pending.schedule({ projectId: loadedProjectId, sceneCardSize: value })
-        },
+        slideshowImageCount: settings.value?.slideshowImageCount ?? 4,
+        sceneCardSize: settings.value?.sceneCardSize ?? 'md',
+        setSlideshowImageCount: (value: string) =>
+            settings.update({ slideshowImageCount: Math.min(10, Math.max(1, Number(value) || 1)) }),
+        setSceneCardSize: (value: ProjectSettings['sceneCardSize']) =>
+            settings.update({ sceneCardSize: value }),
     }
 }

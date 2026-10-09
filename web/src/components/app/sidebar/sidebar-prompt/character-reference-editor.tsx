@@ -9,17 +9,16 @@ import {
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { CharacterReference, CharacterReferencePatch } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAtomValue, useSetAtom } from 'jotai'
 import { Upload } from 'lucide-react'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { useLocalOrder } from '@/hooks/use-local-order'
 import { call, contract } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk, queries } from '@/lib/queries'
-import type { OrderPatch } from '@/lib/reorder'
+import { type OrderPatch, reorderById } from '@/lib/reorder'
 
-import { characterReferenceItemsAtom, reorderItems } from './atom'
 import { SortableCharacterReferenceItem } from './character-reference-item'
 
 interface CharacterReferenceEditorProps {
@@ -29,14 +28,8 @@ interface CharacterReferenceEditorProps {
 export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditorProps) {
     const queryClient = useQueryClient()
     const fileInputRef = useRef<HTMLInputElement>(null)
-    const items = useAtomValue(characterReferenceItemsAtom)
-    const setItems = useSetAtom(characterReferenceItemsAtom)
-
     const query = useQuery(queries.projects.characterReferences(projectId))
-
-    useEffect(() => {
-        if (query.data) setItems(query.data)
-    }, [query.data, setItems])
+    const [items, setOrder] = useLocalOrder(query.data)
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -51,7 +44,6 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
                 qk.projects.characterReferences(projectId),
                 (current) => [...(current ?? []), created],
             )
-            setItems((current) => [...current, created])
             void queryClient.invalidateQueries({
                 queryKey: qk.projects.characterReferences(projectId),
             })
@@ -71,21 +63,16 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
                 (current) =>
                     current?.map((item) => (item.id === id ? { ...item, ...patch } : item)),
             )
-            setItems((current) =>
-                current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-            )
-            return { previousItems, previousLocalItems: items }
+            return { previousItems }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousItems)
-            if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
         onSuccess: (updated) => {
             queryClient.setQueryData<CharacterReference[]>(
                 qk.projects.characterReferences(projectId),
                 (current) => current?.map((item) => (item.id === updated.id ? updated : item)),
             )
-            setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)))
         },
     })
 
@@ -100,40 +87,37 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
                 qk.projects.characterReferences(projectId),
                 (current) => current?.filter((item) => item.id !== id),
             )
-            setItems((current) => current.filter((item) => item.id !== id))
-            return { previousItems, previousLocalItems: items }
+            return { previousItems }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousItems)
-            if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
         onSettled: () =>
             queryClient.invalidateQueries({ queryKey: qk.projects.characterReferences(projectId) }),
     })
 
     const reorderMutation = useMutation({
-        mutationFn: ({ id, beforeId, afterId }: OrderPatch) =>
+        mutationFn: ({ id, beforeId, afterId }: OrderPatch & { items: CharacterReference[] }) =>
             call(contract.characterReferences.move, {
                 params: { id },
                 body: { beforeId, afterId },
             }),
-        onMutate: async () => {
+        onMutate: async ({ items }) => {
             const previousItems = await snapshotQuery<CharacterReference[]>(
                 queryClient,
                 qk.projects.characterReferences(projectId),
             )
             queryClient.setQueryData(qk.projects.characterReferences(projectId), items)
-            return { previousItems, previousLocalItems: query.data ?? [] }
+            return { previousItems }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousItems)
-            if (context?.previousLocalItems) setItems(context.previousLocalItems)
         },
         onSettled: () =>
             queryClient.invalidateQueries({ queryKey: qk.projects.characterReferences(projectId) }),
     })
 
-    const updateItem = updateMutation.mutate
+    const updateItem = updateMutation.mutateAsync
     const handleUpdate = useCallback(
         (id: number, patch: CharacterReferencePatch) => updateItem({ id, patch }),
         [updateItem],
@@ -152,11 +136,11 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
 
         if (!Number.isFinite(activeId) || !Number.isFinite(overId)) return
 
-        const reordered = reorderItems(items, activeId, overId)
+        const reordered = reorderById(items, activeId, overId)
         if (!reordered) return
 
-        setItems(reordered.items)
-        reorderMutation.mutate(reordered.orderPatch)
+        setOrder(reordered.items)
+        reorderMutation.mutate({ ...reordered.orderPatch, items: reordered.items })
     }
 
     function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {

@@ -16,19 +16,14 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { CharacterPrompt, Project, PromptVariable } from '@nai-factory/shared'
-import { useQueryClient } from '@tanstack/react-query'
+import type { CharacterPrompt, PromptVariable } from '@nai-factory/shared'
 import { Check, GripVertical, Plus, Trash2, X } from 'lucide-react'
-import { useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { call, contract } from '@/lib/api'
-import { type QuerySnapshot, restoreSnapshot } from '@/lib/optimistic'
-import { qk } from '@/lib/queries'
 import { createPromptCompletionSource } from '@/lib/tag-autocomplete'
-import { debounce } from '@/lib/utils'
 
 interface SortableItemProps {
     id: number
@@ -121,92 +116,48 @@ function SortableItem({ id, cp, completionSource, onUpdate, onRemove }: Sortable
 }
 
 interface CharacterPromptProps {
-    projectId: number
     characterPrompts: CharacterPrompt[]
     variables?: PromptVariable
+    /** Edits are saved after a pause; adding, removing and reordering save at once. */
+    onChange: (characterPrompts: CharacterPrompt[], options?: { immediate?: boolean }) => void
 }
 
 export function CharacterPromptEditor({
-    projectId,
     characterPrompts,
     variables = [],
+    onChange,
 }: CharacterPromptProps) {
-    const queryClient = useQueryClient()
     const completionSource = useMemo(() => createPromptCompletionSource(variables), [variables])
-
-    // Keep a ref to latest characterPrompts for use inside the debounced save
-    const characterPromptsRef = useRef(characterPrompts)
-    // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
-    characterPromptsRef.current = characterPrompts
-    const rollbackProjectRef = useRef<QuerySnapshot<Project> | null>(null)
 
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
     )
 
-    function applyOptimisticPrompts(newPrompts: CharacterPrompt[]) {
-        if (!rollbackProjectRef.current) {
-            rollbackProjectRef.current = {
-                queryKey: qk.projects.get(projectId),
-                data: queryClient.getQueryData<Project>(qk.projects.get(projectId)),
-            }
-        }
-
-        characterPromptsRef.current = newPrompts
-        queryClient.setQueryData<Project | null>(qk.projects.get(projectId), (project) =>
-            project ? { ...project, characterPrompts: newPrompts } : project,
+    function addCharacter() {
+        onChange(
+            [...characterPrompts, { enabled: true, center: { x: 0, y: 0 }, prompt: '', uc: '' }],
+            { immediate: true },
         )
-    }
-
-    async function save(newPrompts: CharacterPrompt[]) {
-        applyOptimisticPrompts(newPrompts)
-
-        try {
-            const data = await call(contract.projects.update, {
-                params: { id: projectId },
-                body: { characterPrompts: newPrompts },
-            })
-            queryClient.setQueryData(qk.projects.get(projectId), data)
-            rollbackProjectRef.current = null
-        } catch {
-            restoreSnapshot(queryClient, rollbackProjectRef.current ?? undefined)
-            rollbackProjectRef.current = null
-        } finally {
-            void queryClient.invalidateQueries({ queryKey: qk.projects.get(projectId) })
-        }
-    }
-
-    // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
-    const saveDebounced = useRef(debounce((newPrompts: CharacterPrompt[]) => save(newPrompts), 600))
-
-    async function addCharacter() {
-        saveDebounced.current.cancel()
-        await save([
-            ...characterPromptsRef.current,
-            { enabled: true, center: { x: 0, y: 0 }, prompt: '', uc: '' },
-        ])
     }
 
     function updateCharacter(index: number, updated: Partial<CharacterPrompt>) {
-        const newPrompts = characterPromptsRef.current.map((cp, i) =>
-            i === index ? { ...cp, ...updated } : cp,
-        )
-        applyOptimisticPrompts(newPrompts)
-        saveDebounced.current(newPrompts)
+        onChange(characterPrompts.map((cp, i) => (i === index ? { ...cp, ...updated } : cp)))
     }
 
-    async function removeCharacter(index: number) {
-        saveDebounced.current.cancel()
-        await save(characterPromptsRef.current.filter((_, i) => i !== index))
+    function removeCharacter(index: number) {
+        onChange(
+            characterPrompts.filter((_, i) => i !== index),
+            { immediate: true },
+        )
     }
 
     function handleDragEnd(event: DragEndEvent) {
         const { active, over } = event
         if (!over || active.id === over.id) return
-        const oldIndex = characterPromptsRef.current.findIndex((_, i) => i === active.id)
-        const newIndex = characterPromptsRef.current.findIndex((_, i) => i === over.id)
-        void save(arrayMove(characterPromptsRef.current, oldIndex, newIndex))
+        const oldIndex = characterPrompts.findIndex((_, i) => i === active.id)
+        const newIndex = characterPrompts.findIndex((_, i) => i === over.id)
+        onChange(arrayMove(characterPrompts, oldIndex, newIndex), { immediate: true })
     }
 
     return (

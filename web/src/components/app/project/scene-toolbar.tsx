@@ -3,7 +3,14 @@ import { Archive, Check, Download, ListPlus, Plus, Settings, Trash2, X } from 'l
 
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import type { ProjectPageDialog } from '@/routes/project/$projectId/atom'
+
+/** The dialogs the project page opens from its toolbar. */
+export type ProjectPageDialog =
+    | { type: 'create-scene' }
+    | { type: 'delete-selected' }
+    | { type: 'export' }
+    | { type: 'stash' }
+    | { type: 'settings' }
 
 interface SceneToolbarProps {
     sceneCount: number
@@ -16,7 +23,7 @@ interface SceneToolbarProps {
     onSelectAll: () => void
     onClearSelection: () => void
     onEnqueue: (position: EnqueuePosition) => void
-    onOpenDialog: (dialog: NonNullable<ProjectPageDialog>) => void
+    onOpenDialog: (dialog: ProjectPageDialog) => void
 }
 
 function ToolbarIconButton({

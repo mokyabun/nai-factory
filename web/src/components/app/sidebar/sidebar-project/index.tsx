@@ -1,36 +1,25 @@
 import type { GroupNode } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouter } from '@tanstack/react-router'
-import { Provider, useAtom } from 'jotai'
+import { useState } from 'react'
 
 import * as Base from '@/components/ui/sidebar'
 import { useRouteIds } from '@/hooks/use-active-project-id'
 import { queries } from '@/lib/queries'
 
-import {
-    type ActiveRenameTarget,
-    type ProjectSummary,
-    projectDialogAtom,
-    renameTargetAtom,
-    renameValueAtom,
-} from './atom'
 import { ProjectDialogs } from './project-dialogs'
 import { ProjectTree } from './project-tree'
 import { collectGroupProjects } from './project-tree-cache'
+import type { ActiveRenameTarget, ProjectDialog, ProjectSummary } from './project-tree-types'
 import { useProjectTree } from './use-project-tree'
 
 export function SidebarProject() {
-    return (
-        <Provider>
-            <SidebarProjectContent />
-        </Provider>
-    )
-}
-
-function SidebarProjectContent() {
     const navigate = useNavigate()
     const router = useRouter()
     const queryClient = useQueryClient()
+    const [projectDialog, setProjectDialog] = useState<ProjectDialog | null>(null)
+    const [renameTarget, setRenameTarget] = useState<ActiveRenameTarget | null>(null)
+    const [renameValue, setRenameValue] = useState('')
     const {
         groupsQuery,
         createGroup,
@@ -46,10 +35,6 @@ function SidebarProjectContent() {
         onSelectProject: (project) => selectProject(project),
         onDialogClose: () => setProjectDialog(null),
     })
-
-    const [projectDialog, setProjectDialog] = useAtom(projectDialogAtom)
-    const [renameTarget, setRenameTarget] = useAtom(renameTargetAtom)
-    const [renameValue, setRenameValue] = useAtom(renameValueAtom)
     const deleteTarget = projectDialog?.type === 'delete' ? projectDialog.target : null
     const createGroupParent =
         projectDialog?.type === 'create-group' ? projectDialog.group : undefined

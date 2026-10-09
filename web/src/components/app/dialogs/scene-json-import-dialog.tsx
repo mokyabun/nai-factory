@@ -1,7 +1,7 @@
 import type { SceneImportMode, SceneJsonData, SceneSummary } from '@nai-factory/shared'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { FileJson } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -50,11 +50,12 @@ export function SceneJsonImportDialog({
 }: SceneJsonImportDialogProps) {
     const queryClient = useQueryClient()
     const [mode, setMode] = useState<SceneImportMode>('append')
-
-    useEffect(() => {
-        // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
+    // Every opening starts from the default mode.
+    const [wasOpen, setWasOpen] = useState(open)
+    if (open !== wasOpen) {
+        setWasOpen(open)
         if (open) setMode('append')
-    }, [open])
+    }
 
     const importSceneJson = useMutation({
         mutationFn: async () => {

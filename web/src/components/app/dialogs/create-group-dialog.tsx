@@ -1,4 +1,4 @@
-import { Provider, useAtom } from 'jotai'
+import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -9,8 +9,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-
-import { createGroupNameAtom } from './atom'
 
 interface CreateGroupDialogProps {
     open: boolean
@@ -25,25 +23,7 @@ export function CreateGroupDialog({
     parentGroupName,
     onCreate,
 }: CreateGroupDialogProps) {
-    return (
-        <Provider>
-            <CreateGroupDialogContent
-                open={open}
-                onOpenChange={onOpenChange}
-                parentGroupName={parentGroupName}
-                onCreate={onCreate}
-            />
-        </Provider>
-    )
-}
-
-function CreateGroupDialogContent({
-    open,
-    onOpenChange,
-    parentGroupName,
-    onCreate,
-}: CreateGroupDialogProps) {
-    const [name, setName] = useAtom(createGroupNameAtom)
+    const [name, setName] = useState('')
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault()

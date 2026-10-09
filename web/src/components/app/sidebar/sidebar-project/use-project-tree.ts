@@ -5,7 +5,6 @@ import { call, contract } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery, tempId } from '@/lib/optimistic'
 import { qk, queries } from '@/lib/queries'
 
-import type { ProjectSummary } from './atom'
 import {
     addGroupToTree,
     addProjectToTree,
@@ -19,6 +18,7 @@ import {
     replaceGroupInTree,
     replaceProjectInTree,
 } from './project-tree-cache'
+import type { ProjectSummary } from './project-tree-types'
 import type { ProjectGroupId } from './project-tree-types'
 
 /** The group tree query and its mutations, each with an optimistic cache update. */

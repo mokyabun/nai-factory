@@ -1,18 +1,24 @@
-import type { Project, ProjectExportBody, SceneSummary } from '@nai-factory/shared'
+import type {
+    Project,
+    ProjectExportBody,
+    ProjectSettings,
+    ProjectSettingsPatch,
+    SceneSummary,
+} from '@nai-factory/shared'
 import { DEFAULT_PROJECT_SETTINGS } from '@nai-factory/shared'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, CircleHelp, FolderDown, Server } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useAutosave } from '@/hooks/use-autosave'
 import { assetUrl, call, contract, errorMessage } from '@/lib/api'
-import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk, queries } from '@/lib/queries'
-import { cn, debounce } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 type DirectoryPicker = () => Promise<{
     getFileHandle: (
@@ -54,8 +60,6 @@ export function ExportDialog({ open, onOpenChange, project, scenes }: ExportDial
 function OutputImagesSettings({ project, scenes }: OutputImagesSettingsProps) {
     const queryClient = useQueryClient()
     const projectId = project?.id ?? null
-    const [template, setTemplate] = useState(DEFAULT_PROJECT_SETTINGS.outputTemplate)
-    const [previewTemplate, setPreviewTemplate] = useState(DEFAULT_PROJECT_SETTINGS.outputTemplate)
     const [imageCount, setImageCount] = useState(1)
     const [pendingMethod, setPendingMethod] = useState<ExportMethod | null>(null)
     const [message, setMessage] = useState('')
@@ -64,57 +68,29 @@ function OutputImagesSettings({ project, scenes }: OutputImagesSettingsProps) {
     const serverExportEnabled = settingsQuery.data?.export.serverExportEnabled ?? false
     const sourceExtension = settingsQuery.data?.image.sourceType.type ?? 'png'
 
-    const saveTemplate = useRef(
-        debounce(async (projectId: number, outputTemplate: string) => {
-            const previousProject = await snapshotQuery<Project>(
-                queryClient,
-                qk.projects.get(projectId),
-            )
-            queryClient.setQueryData<Project | null>(qk.projects.get(projectId), (project) =>
-                project
-                    ? {
-                          ...project,
-                          settings: { ...project.settings, outputTemplate },
-                      }
-                    : project,
-            )
-            try {
-                const data = await call(contract.projects.update, {
-                    params: { id: projectId },
-                    body: { settings: { outputTemplate } },
-                })
-                queryClient.setQueryData(qk.projects.get(projectId), data)
-            } catch {
-                restoreSnapshot(queryClient, previousProject)
-            }
-        }, 350),
+    const saveTemplate = useCallback(
+        async (patch: ProjectSettingsPatch) => {
+            if (projectId === null) return
+            const data = await call(contract.projects.update, {
+                params: { id: projectId },
+                body: { settings: { ...patch, outputTemplate: patch.outputTemplate?.trim() } },
+            })
+            queryClient.setQueryData(qk.projects.get(projectId), data)
+        },
+        [projectId, queryClient],
     )
-    const updatePreviewTemplate = useRef(
-        debounce((value: string) => {
-            setPreviewTemplate(value)
-        }, 120),
-    )
-
-    useEffect(() => {
-        if (!project) return
-        saveTemplate.current.cancel()
-        updatePreviewTemplate.current.cancel()
-        const outputTemplate =
-            project.settings.outputTemplate ?? DEFAULT_PROJECT_SETTINGS.outputTemplate
-        // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
-        setTemplate(outputTemplate)
-        setPreviewTemplate(outputTemplate)
-        setMessage('')
-    }, [project])
-
-    useEffect(() => {
-        const cleanupSaveTemplate = saveTemplate.current
-        const cleanupUpdatePreviewTemplate = updatePreviewTemplate.current
-        return () => {
-            cleanupSaveTemplate.flush()
-            cleanupUpdatePreviewTemplate.flush()
-        }
-    }, [])
+    const settingsDraft = useAutosave<ProjectSettings, ProjectSettingsPatch>({
+        data: project?.settings,
+        save: saveTemplate,
+        delay: 350,
+    })
+    // A blank template is never saved; it stays here until something is typed.
+    const [blankTemplate, setBlankTemplate] = useState<string | null>(null)
+    const template =
+        blankTemplate ??
+        settingsDraft.value?.outputTemplate ??
+        DEFAULT_PROJECT_SETTINGS.outputTemplate
+    const previewTemplate = useDeferredValue(template)
 
     function exportBody(): ProjectExportBody {
         return {
@@ -124,9 +100,12 @@ function OutputImagesSettings({ project, scenes }: OutputImagesSettingsProps) {
     }
 
     function updateTemplate(value: string) {
-        setTemplate(value)
-        updatePreviewTemplate.current(value)
-        if (projectId && value.trim()) saveTemplate.current(projectId, value.trim())
+        if (!value.trim()) {
+            setBlankTemplate(value)
+            return
+        }
+        setBlankTemplate(null)
+        settingsDraft.update({ outputTemplate: value })
     }
 
     async function exportZip() {

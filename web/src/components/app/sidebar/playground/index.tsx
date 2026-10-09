@@ -1,17 +1,29 @@
-import type { EnqueuePosition, Parameters, PlaygroundState, QueueStatus } from '@nai-factory/shared'
+import {
+    DEFAULT_PLAYGROUND_PARAMETERS,
+    type EnqueuePosition,
+    type Parameters,
+    type PlaygroundState,
+    type PlaygroundStatePatch,
+    type QueueStatus,
+} from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAtom } from 'jotai'
-import { useEffect, useRef } from 'react'
+import { useCallback } from 'react'
 
+import { useAutosave } from '@/hooks/use-autosave'
 import { useQueueStatus } from '@/hooks/use-queue'
 import { call, contract } from '@/lib/api'
-import { restoreSnapshot, restoreSnapshots, snapshotQueries, snapshotQuery } from '@/lib/optimistic'
+import { restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
 import { qk, queries } from '@/lib/queries'
-import { debounce } from '@/lib/utils'
 
-import { DEFAULT_PLAYGROUND_STATE, playgroundSettingsAtom } from './atom'
 import { PlaygroundEditor } from './playground-editor'
 import { PlaygroundHeader } from './playground-header'
+
+const DEFAULT_PLAYGROUND_STATE: PlaygroundState = {
+    prompt: '',
+    negativePrompt: '',
+    parameters: DEFAULT_PLAYGROUND_PARAMETERS,
+    updatedAt: new Date(0).toISOString(),
+}
 
 type EnqueueRequest = {
     position: EnqueuePosition
@@ -20,50 +32,20 @@ type EnqueueRequest = {
 
 export function SidebarPlayground() {
     const queryClient = useQueryClient()
-    const [settings, setSettings] = useAtom(playgroundSettingsAtom)
-    const latestSettingsRef = useRef<PlaygroundState>(DEFAULT_PLAYGROUND_STATE)
-    const dirtyRef = useRef(false)
-
     const settingsQuery = useQuery(queries.playground.state())
 
-    const saveSettingsRef = useRef(
-        // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
-        debounce(async (nextSettings: PlaygroundState) => {
-            const previousSettings = await snapshotQuery<PlaygroundState>(
-                queryClient,
-                qk.playground.state(),
-            )
-            queryClient.setQueryData(qk.playground.state(), nextSettings)
-            const data = await call(contract.playground.updateState, {
-                body: {
-                    prompt: nextSettings.prompt,
-                    negativePrompt: nextSettings.negativePrompt,
-                    parameters: nextSettings.parameters,
-                },
-            }).catch(() => null)
-
-            if (JSON.stringify(latestSettingsRef.current) !== JSON.stringify(nextSettings)) return
-            if (!data) {
-                restoreSnapshot(queryClient, previousSettings)
-                return
-            }
-
-            dirtyRef.current = false
+    const save = useCallback(
+        async (patch: PlaygroundStatePatch) => {
+            const data = await call(contract.playground.updateState, { body: patch })
             queryClient.setQueryData(qk.playground.state(), data)
-        }, 600),
+        },
+        [queryClient],
     )
-
-    useEffect(() => {
-        if (!dirtyRef.current && settingsQuery.data) {
-            latestSettingsRef.current = settingsQuery.data
-            setSettings(settingsQuery.data)
-        }
-    }, [settingsQuery.data, setSettings])
-
-    useEffect(() => {
-        const cleanupSaveSettings = saveSettingsRef.current
-        return () => cleanupSaveSettings.flush()
-    }, [])
+    const draft = useAutosave<PlaygroundState, PlaygroundStatePatch>({
+        data: settingsQuery.data,
+        save,
+    })
+    const settings = draft.value ?? DEFAULT_PLAYGROUND_STATE
 
     const { status: queueStatus } = useQueueStatus()
 
@@ -118,25 +100,12 @@ export function SidebarPlayground() {
         },
     })
 
-    function updateSettings(updater: (prev: PlaygroundState) => PlaygroundState) {
-        setSettings((prev) => {
-            const nextSettings = updater(prev)
-            latestSettingsRef.current = nextSettings
-            dirtyRef.current = true
-            saveSettingsRef.current(nextSettings)
-            return nextSettings
-        })
-    }
-
-    function setField<K extends keyof PlaygroundState>(key: K, value: PlaygroundState[K]) {
-        updateSettings((prev) => ({ ...prev, [key]: value }))
+    function setField(key: 'prompt' | 'negativePrompt', value: string) {
+        draft.update({ [key]: value })
     }
 
     function setParameter<K extends keyof Parameters>(key: K, value: Parameters[K]) {
-        updateSettings((prev) => ({
-            ...prev,
-            parameters: { ...prev.parameters, [key]: value },
-        }))
+        draft.update({ parameters: { [key]: value } })
     }
 
     return (

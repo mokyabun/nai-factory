@@ -1,9 +1,8 @@
 import { SceneJsonData, type SceneJsonData as SceneJsonDataType } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useAtom } from 'jotai'
 import { FileJson } from 'lucide-react'
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { SceneJsonImportDialog } from '@/components/app/dialogs/scene-json-import-dialog'
 import { SdStudioImportDialog } from '@/components/app/dialogs/sd-studio-import-dialog'
@@ -19,7 +18,6 @@ import { call, contract } from '@/lib/api'
 import { qk } from '@/lib/queries'
 
 import { AccessTokenDialog } from './access-token-dialog'
-import { activeProjectIdAtom, importDialogOpenAtom } from './atom'
 
 interface AppShellProps {
     children: React.ReactNode
@@ -30,17 +28,18 @@ export function AppShell({ children }: AppShellProps) {
     const navigate = useNavigate()
     const activeProjectId = useActiveProjectId()
     const { isDragOver, pendingFile, dragHandlers, clearPendingFile } = useJsonDrop()
-    const [importDialogOpen, setImportDialogOpen] = useAtom(importDialogOpenAtom)
-    const [storedProjectId, setStoredProjectId] = useAtom(activeProjectIdAtom)
+    const [importDialogOpen, setImportDialogOpen] = useState(false)
+    // Pages without a project (settings, log, playground) keep working on the last one opened.
+    const [lastProjectId, setLastProjectId] = useState<number | null>(null)
+    if (activeProjectId !== null && activeProjectId !== lastProjectId) {
+        setLastProjectId(activeProjectId)
+    }
+    const contextProjectId = activeProjectId ?? lastProjectId
     const [dropMessage, setDropMessage] = useState('')
     const [sceneJsonImportOpen, setSceneJsonImportOpen] = useState(false)
     const [pendingSceneJsonData, setPendingSceneJsonData] = useState<SceneJsonDataType | null>(null)
 
     useRealtimeInvalidation(queryClient)
-
-    useLayoutEffect(() => {
-        if (activeProjectId !== null) setStoredProjectId(activeProjectId)
-    }, [activeProjectId, setStoredProjectId])
 
     useEffect(() => {
         if (!pendingFile) return
@@ -76,7 +75,7 @@ export function AppShell({ children }: AppShellProps) {
                 return
             }
 
-            if (storedProjectId === null) {
+            if (contextProjectId === null) {
                 setDropMessage('Scene JSON은 프로젝트 안에서 가져올 수 있습니다.')
                 clearPendingFile()
                 return
@@ -91,7 +90,7 @@ export function AppShell({ children }: AppShellProps) {
             setDropMessage('가져오기에 실패했습니다.')
             clearPendingFile()
         })
-    }, [pendingFile, storedProjectId, clearPendingFile, navigate, queryClient, setImportDialogOpen])
+    }, [pendingFile, contextProjectId, clearPendingFile, navigate, queryClient])
 
     useEffect(() => {
         if (!dropMessage || dropMessage.endsWith('중...')) return
@@ -134,7 +133,7 @@ export function AppShell({ children }: AppShellProps) {
                     className="app-sidebar-no-motion"
                     style={{ '--sidebar-width': '350px' } as React.CSSProperties}
                 >
-                    <Sidebar />
+                    <Sidebar projectId={contextProjectId} />
                     <SidebarInset className="flex flex-col overflow-hidden">
                         <Header />
                         <main className="flex flex-1 flex-col overflow-auto p-4">{children}</main>
@@ -149,13 +148,13 @@ export function AppShell({ children }: AppShellProps) {
                 open={importDialogOpen}
                 onOpenChange={handleImportDialogOpenChange}
                 file={pendingFile}
-                projectId={storedProjectId}
+                projectId={contextProjectId}
             />
             <SceneJsonImportDialog
                 open={sceneJsonImportOpen}
                 onOpenChange={handleSceneJsonImportOpenChange}
                 data={pendingSceneJsonData}
-                projectId={storedProjectId}
+                projectId={contextProjectId}
             />
         </>
     )

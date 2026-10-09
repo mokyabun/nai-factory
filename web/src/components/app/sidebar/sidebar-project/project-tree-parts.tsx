@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 
-import type { ProjectSummary } from './atom'
+import type { ProjectSummary } from './project-tree-types'
 
 interface GroupMenuActions {
     onCreateGroup: () => void

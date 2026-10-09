@@ -8,7 +8,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { AlertCircle, ArrowLeft, Plus } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { VariationEditor } from '@/components/app/project/variation-editor'
 import { Button } from '@/components/ui/button'
@@ -23,47 +23,51 @@ export const Route = createFileRoute('/scene/$sceneId/')({ component: SceneEditP
 
 function SceneEditPage() {
     const { sceneId } = Route.useParams()
+    const sceneQuery = useQuery(queries.scenes.get(Number(sceneId)))
+
+    if (sceneQuery.isPending) {
+        return (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                불러오는 중...
+            </div>
+        )
+    }
+
+    if (!sceneQuery.data) {
+        return (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                씬을 찾을 수 없습니다.
+            </div>
+        )
+    }
+
+    // Keyed by scene: the draft starts from the loaded scene and later refetches leave it alone.
+    return <SceneEditor key={sceneQuery.data.id} scene={sceneQuery.data} />
+}
+
+function SceneEditor({ scene: loadedScene }: { scene: Scene }) {
     const navigate = useNavigate()
     const queryClient = useQueryClient()
-    const scenId = Number(sceneId)
+    const { id: sceneId, projectId } = loadedScene
 
-    const sceneQuery = useQuery(queries.scenes.get(scenId))
+    const previewQuery = useQuery(queries.scenes.preview(sceneId))
 
-    const previewQuery = useQuery({
-        ...queries.scenes.preview(scenId),
-        enabled: !!sceneQuery.data,
-    })
-
-    const [name, setName] = useState('')
-    const [variations, setVariations] = useState<VariationDraft[]>([])
-    const [loadedId, setLoadedId] = useState<number | null>(null)
-
-    // Sync local state only when switching to a different scene
-    useEffect(() => {
-        const data = sceneQuery.data
-        if (data && data.id !== loadedId) {
-            // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
-            setLoadedId(data.id)
-            setName(data.name)
-            setVariations(data.variations)
-        }
-    }, [sceneQuery.data, loadedId])
+    const [name, setName] = useState(loadedScene.name)
+    const [variations, setVariations] = useState<VariationDraft[]>(loadedScene.variations)
 
     const patchScene = useMutation({
         mutationFn: (patch: ScenePatch) =>
-            call(contract.scenes.update, { params: { id: scenId }, body: patch }),
+            call(contract.scenes.update, { params: { id: sceneId }, body: patch }),
         onMutate: async (patch) => {
-            const projectId = sceneQuery.data?.projectId
             const snapshots = await snapshotQueries(queryClient, {
                 predicate: (query) =>
-                    matchesKey(query.queryKey, qk.scenes.get(scenId)) ||
-                    (projectId !== undefined &&
-                        matchesKey(query.queryKey, qk.scenes.list(projectId))),
+                    matchesKey(query.queryKey, qk.scenes.get(sceneId)) ||
+                    matchesKey(query.queryKey, qk.scenes.list(projectId)),
             })
-            if (projectId !== undefined && patch.name) {
+            if (patch.name) {
                 queryClient.setQueryData<SceneSummary[]>(qk.scenes.list(projectId), (scenes) =>
                     scenes?.map((scene) =>
-                        scene.id === scenId ? { ...scene, name: patch.name as string } : scene,
+                        scene.id === sceneId ? { ...scene, name: patch.name as string } : scene,
                     ),
                 )
             }
@@ -73,7 +77,7 @@ function SceneEditPage() {
             restoreSnapshots(queryClient, context?.snapshots)
         },
         onSuccess: (scene: Scene, patch) => {
-            queryClient.setQueryData(qk.scenes.get(scenId), scene)
+            queryClient.setQueryData(qk.scenes.get(sceneId), scene)
             // New variations were sent with temporary negative ids. Remember the server's ids so
             // later saves update them; local ids stay unchanged to keep editor rows mounted.
             patch.variations?.forEach((draft, index) => {
@@ -83,7 +87,7 @@ function SceneEditPage() {
                 }
             })
             void queryClient.invalidateQueries({ queryKey: qk.scenes.list(scene.projectId) })
-            void queryClient.invalidateQueries({ queryKey: qk.scenes.preview(scenId) })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes.preview(sceneId) })
         },
     })
 
@@ -108,24 +112,6 @@ function SceneEditPage() {
             })),
         })
     }
-
-    if (sceneQuery.isPending) {
-        return (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                불러오는 중...
-            </div>
-        )
-    }
-
-    if (!sceneQuery.data) {
-        return (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                씬을 찾을 수 없습니다.
-            </div>
-        )
-    }
-
-    const projectId = sceneQuery.data.projectId
 
     return (
         <div className="flex h-full flex-col gap-4">

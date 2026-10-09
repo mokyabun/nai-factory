@@ -8,8 +8,8 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 
-import type { ImageFormat, SettingsDraft } from './atom'
 import { SettingField } from './setting-field'
+import type { ImageFormat, SettingsDraft } from './settings-draft'
 
 const IMAGE_FORMATS = [
     { value: 'png', label: 'PNG' },

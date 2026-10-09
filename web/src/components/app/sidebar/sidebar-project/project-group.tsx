@@ -1,6 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { useAtomValue, useSetAtom } from 'jotai'
 import { ChevronRight, Folder } from 'lucide-react'
 import { useCallback } from 'react'
 
@@ -9,7 +8,7 @@ import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 
-import { collapsedGroupIdsAtom, setGroupCollapsedAtom } from './atom'
+import { useCollapsedGroups } from './collapsed-groups'
 import { ProjectRow } from './project-row'
 import { GroupContextMenuContent, GroupMenu, RenameInput } from './project-tree-parts'
 import type { ProjectGroupProps } from './project-tree-types'
@@ -25,8 +24,7 @@ export function ProjectGroup({
     onCommitRename,
     onCancelRename,
 }: ProjectGroupProps) {
-    const collapsedGroupIds = useAtomValue(collapsedGroupIdsAtom)
-    const setGroupCollapsed = useSetAtom(setGroupCollapsedAtom)
+    const collapsedGroups = useCollapsedGroups()
     const groupRenameTarget = { type: 'group', id: group.id } as const
     const isRenaming = isSameRenameTarget(rename.target, groupRenameTarget)
     const droppableId = `project-group:${group.id}`
@@ -53,7 +51,7 @@ export function ProjectGroup({
     }
     const Container = depth === 0 ? Base.SidebarMenuItem : Base.SidebarMenuSubItem
     const isEmpty = group.groups.length === 0 && group.projects.length === 0
-    const isOpen = !collapsedGroupIds.has(group.id)
+    const isOpen = !collapsedGroups.isCollapsed(group.id)
     const setNodeRef = useCallback(
         (node: HTMLElement | null) => {
             setDropNodeRef(node)
@@ -70,7 +68,7 @@ export function ProjectGroup({
             <Collapsible
                 open={isOpen}
                 onOpenChange={(open) => {
-                    setGroupCollapsed({ groupId: group.id, collapsed: !open })
+                    collapsedGroups.setCollapsed(group.id, !open)
                 }}
                 className={cn(
                     'group/collapsible transition-colors',

@@ -6,24 +6,20 @@ import type {
     StashItem,
 } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAtom, useSetAtom } from 'jotai'
 
 import { call, contract } from '@/lib/api'
 import { restoreSnapshots, snapshotQueries, tempId } from '@/lib/optimistic'
 import { optimisticSceneSummaries } from '@/lib/optimistic-scenes'
 import { matchesKey, qk, queries } from '@/lib/queries'
-import {
-    projectPageDialogAtom,
-    sceneItemsAtom,
-    selectedSceneIdsSetAtom,
-} from '@/routes/project/$projectId/atom'
+
+import type { ProjectPageCallbacks } from './use-project-scene-actions'
 
 /** Stash items and the mutations to save, delete and apply them to a project. */
-export function useProjectStash(projectId: number) {
+export function useProjectStash(
+    projectId: number,
+    { takeSelection, closeDialog }: ProjectPageCallbacks,
+) {
     const queryClient = useQueryClient()
-    const [items, setItems] = useAtom(sceneItemsAtom)
-    const [selectedIds, setSelectedIds] = useAtom(selectedSceneIdsSetAtom)
-    const setProjectDialog = useSetAtom(projectPageDialogAtom)
 
     const stashQuery = useQuery(queries.stash.list())
 
@@ -95,17 +91,14 @@ export function useProjectStash(projectId: number) {
                 queryClient.setQueryData<SceneSummary[]>(qk.scenes.list(projectId), (scenes) =>
                     merge(scenes ?? []),
                 )
-                setItems(merge)
             }
-            const previousSelectedIds = selectedIds
-            setSelectedIds(new Set<number>())
-            setProjectDialog(null)
-            return { snapshots, previousItems: items, previousSelectedIds }
+            const restoreSelection = takeSelection()
+            closeDialog()
+            return { snapshots, restoreSelection }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshots(queryClient, context?.snapshots)
-            if (context?.previousItems) setItems(context.previousItems)
-            if (context?.previousSelectedIds) setSelectedIds(context.previousSelectedIds)
+            context?.restoreSelection()
         },
         onSettled: () => {
             void queryClient.invalidateQueries({ queryKey: qk.projects.get(projectId) })

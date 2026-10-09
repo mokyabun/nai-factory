@@ -1,4 +1,4 @@
-import { Provider, useAtom } from 'jotai'
+import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -10,8 +10,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-
-import { createProjectNameAtom } from './atom'
 
 interface CreateProjectDialogProps {
     open: boolean
@@ -26,25 +24,7 @@ export function CreateProjectDialog({
     groupName,
     onCreate,
 }: CreateProjectDialogProps) {
-    return (
-        <Provider>
-            <CreateProjectDialogContent
-                open={open}
-                onOpenChange={onOpenChange}
-                groupName={groupName}
-                onCreate={onCreate}
-            />
-        </Provider>
-    )
-}
-
-function CreateProjectDialogContent({
-    open,
-    onOpenChange,
-    groupName,
-    onCreate,
-}: CreateProjectDialogProps) {
-    const [name, setName] = useAtom(createProjectNameAtom)
+    const [name, setName] = useState('')
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault()

@@ -1,22 +1,21 @@
-import type { Project, ProjectPatch, PromptVariable } from '@nai-factory/shared'
+import type {
+    CharacterPrompt,
+    Parameters,
+    Project,
+    ProjectPatch,
+    PromptVariable,
+} from '@nai-factory/shared'
 import { isNovelAIV5Model } from '@nai-factory/shared'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Provider, useAtom } from 'jotai'
 import { AlignLeft } from 'lucide-react'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { SidebarHeader } from '@/components/ui/sidebar'
-import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
+import { useAutosave } from '@/hooks/use-autosave'
 import { call, contract } from '@/lib/api'
-import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
 import { qk, queries } from '@/lib/queries'
 
-import {
-    createSidebarPromptDraft,
-    sidebarParameterParamsAtom,
-    sidebarPromptDraftAtom,
-} from './atom'
 import { CharacterPromptEditor } from './character-prompt-editor'
 import { CharacterReferenceEditor } from './character-reference-editor'
 import { ParameterEditor } from './parameter-editor'
@@ -29,6 +28,8 @@ import {
     SidebarPromptTabsTrigger,
 } from './sidebar-prompt-tabs'
 import { VibeTransferEditor } from './vibe-transfer-editor'
+
+const NO_VARIABLES: PromptVariable = []
 
 type SidebarPromptProps = {
     projectId: number | null
@@ -43,81 +44,56 @@ export function SidebarPrompt({ projectId }: SidebarPromptProps) {
         )
     }
 
-    return (
-        <Provider key={projectId}>
-            <SidebarPromptContent projectId={projectId} />
-        </Provider>
-    )
+    // Keyed by project, so unsaved edits are saved to the project they were made in.
+    return <SidebarPromptContent key={projectId} projectId={projectId} />
 }
 
-export function SidebarPromptContent({ projectId }: { projectId: number }) {
+function SidebarPromptContent({ projectId }: { projectId: number }) {
     const queryClient = useQueryClient()
-    const [draft, setDraft] = useAtom(sidebarPromptDraftAtom)
-    const [parameterDraft] = useAtom(sidebarParameterParamsAtom)
-    const { loadedProjectId, prompt, negativePrompt, variables } = draft
-
     const projectQuery = useQuery(queries.projects.get(projectId))
-
     const settingsQuery = useQuery(queries.settings.get())
 
-    // The component is keyed by project, so pending edits always belong to `projectId`.
     const saveProject = useCallback(
         async (patch: ProjectPatch) => {
-            const previousProject = await snapshotQuery<Project>(
-                queryClient,
-                qk.projects.get(projectId),
-            )
-            queryClient.setQueryData<Project>(qk.projects.get(projectId), (project) =>
-                project
-                    ? {
-                          ...project,
-                          ...patch,
-                          parameters: project.parameters,
-                          settings: project.settings,
-                      }
-                    : project,
-            )
-            try {
-                const data = await call(contract.projects.update, {
-                    params: { id: projectId },
-                    body: patch,
-                })
-                queryClient.setQueryData(qk.projects.get(projectId), data)
-            } catch {
-                restoreSnapshot(queryClient, previousProject)
-            }
+            const body = patch.variables
+                ? { ...patch, variables: normalizeVariableDraft(patch.variables) }
+                : patch
+            const data = await call(contract.projects.update, { params: { id: projectId }, body })
+            queryClient.setQueryData(qk.projects.get(projectId), data)
         },
         [projectId, queryClient],
     )
-    const pendingSave = useDebouncedPatch(saveProject)
+    // Prompt, variables, character prompts and parameters share one autosave queue.
+    const { value: project, update } = useAutosave<Project, ProjectPatch>({
+        data: projectQuery.data,
+        save: saveProject,
+    })
 
-    // Load the draft once the project arrives.
-    useEffect(() => {
-        const data = projectQuery.data
-        if (!data) return
-        if (loadedProjectId === data.id) return
-        setDraft(createSidebarPromptDraft(data))
-    }, [projectQuery.data, loadedProjectId, setDraft])
-
-    function handlePromptChange(value: string) {
-        setDraft((current) => ({ ...current, prompt: value }))
-        if (loadedProjectId) pendingSave.schedule({ prompt: value })
-    }
-
-    function handleNegativePromptChange(value: string) {
-        setDraft((current) => ({ ...current, negativePrompt: value }))
-        if (loadedProjectId) pendingSave.schedule({ negativePrompt: value })
-    }
+    // Variables that fail validation stay local, and unsaved, until they are fixed.
+    const [invalidVariables, setInvalidVariables] = useState<PromptVariable | null>(null)
+    const variables = invalidVariables ?? project?.variables ?? NO_VARIABLES
 
     function handleVariablesChange(value: PromptVariable) {
-        setDraft((current) => ({ ...current, variables: value }))
-        if (loadedProjectId && !variableValidationMessage(value)) {
-            pendingSave.schedule({ variables: normalizeVariableDraft(value) })
+        if (variableValidationMessage(value)) {
+            setInvalidVariables(value)
+            return
         }
+        setInvalidVariables(null)
+        update({ variables: value })
     }
 
-    const project = projectQuery.data
-    const isV5 = isNovelAIV5Model(parameterDraft?.model ?? project?.parameters.model ?? '')
+    function handleCharacterPromptsChange(
+        characterPrompts: CharacterPrompt[],
+        options?: { immediate?: boolean },
+    ) {
+        update({ characterPrompts }, options)
+    }
+
+    function handleParameterChange<K extends keyof Parameters>(key: K, value: Parameters[K]) {
+        update({ parameters: { [key]: value } })
+    }
+
+    const isV5 = isNovelAIV5Model(project?.parameters.model ?? '')
     const completionVariables = useMemo(
         () => [...(settingsQuery.data?.globalVariables ?? []), ...variables],
         [settingsQuery.data?.globalVariables, variables],
@@ -159,18 +135,18 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
                     >
                         <span className="text-lg">프롬프트</span>
                         <PromptEditor
-                            prompt={prompt}
-                            negativePrompt={negativePrompt}
+                            prompt={project.prompt ?? ''}
+                            negativePrompt={project.negativePrompt ?? ''}
                             variables={completionVariables}
-                            onPromptChange={handlePromptChange}
-                            onNegativePromptChange={handleNegativePromptChange}
+                            onPromptChange={(prompt) => update({ prompt })}
+                            onNegativePromptChange={(negativePrompt) => update({ negativePrompt })}
                         />
 
                         <span className="text-lg mt-4">캐릭터 프롬프트</span>
                         <CharacterPromptEditor
-                            projectId={project.id}
                             characterPrompts={project.characterPrompts ?? []}
                             variables={completionVariables}
+                            onChange={handleCharacterPromptsChange}
                         />
 
                         <span className="text-lg mt-4">변수</span>
@@ -205,7 +181,10 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
                         className="flex flex-col gap-4 overflow-y-auto px-2 py-4 scrollbar-none"
                     >
                         <span className="text-lg">파라미터</span>
-                        <ParameterEditor project={project} />
+                        <ParameterEditor
+                            parameters={project.parameters}
+                            onChange={handleParameterChange}
+                        />
                     </SidebarPromptTabsContent>
                 </SidebarPromptTabs>
             )}

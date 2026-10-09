@@ -1,6 +1,6 @@
 import type { GroupNode, GroupTreeItem } from '@nai-factory/shared'
 
-import type { ProjectSummary } from './atom'
+import type { ProjectSummary } from './project-tree-types'
 import type { ProjectGroupId } from './project-tree-types'
 
 /*

@@ -1,8 +1,7 @@
 import type { EnqueuePosition, ProjectSettings, SceneSummary } from '@nai-factory/shared'
 import { useNavigate } from '@tanstack/react-router'
-import { Provider, useAtom } from 'jotai'
 import { Check, Copy, Image, ListPlus, Loader, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { ImageProgressBar } from '@/components/app/generation/generation-progress'
@@ -26,8 +25,6 @@ import { useSceneMutations } from '@/hooks/use-scene-mutations'
 import { assetUrl } from '@/lib/api'
 import { formatSeconds } from '@/lib/generation-progress'
 import { cn } from '@/lib/utils'
-
-import { sceneCardDeleteOpenAtom, sceneCardThumbIndexAtom } from './atom'
 
 interface SceneCardProps {
     scene: SceneSummary
@@ -64,34 +61,6 @@ export function SceneCard({
     onToggleSelect,
     onSelectDragStart,
 }: SceneCardProps) {
-    return (
-        <Provider>
-            <SceneCardContent
-                scene={scene}
-                index={index}
-                selected={selected}
-                selectMode={selectMode}
-                isProcessing={isProcessing}
-                slideshowCount={slideshowCount}
-                cardSize={cardSize}
-                onToggleSelect={onToggleSelect}
-                onSelectDragStart={onSelectDragStart}
-            />
-        </Provider>
-    )
-}
-
-function SceneCardContent({
-    scene,
-    index,
-    selected = false,
-    selectMode = false,
-    isProcessing = false,
-    slideshowCount = 4,
-    cardSize = 'md',
-    onToggleSelect,
-    onSelectDragStart,
-}: SceneCardProps) {
     const navigate = useNavigate()
 
     const queueCount = scene.queueCount ?? 0
@@ -99,20 +68,15 @@ function SceneCardContent({
     const images = scene.latestImages ?? []
     const cycleImages = images.slice(0, slideshowCount)
 
-    const [currentThumbIndex, setCurrentThumbIndex] = useAtom(sceneCardThumbIndexAtom)
-    const [deleteOpen, setDeleteOpen] = useAtom(sceneCardDeleteOpenAtom)
+    const [slideshowTick, setSlideshowTick] = useState(0)
+    const [deleteOpen, setDeleteOpen] = useState(false)
+    const currentThumbIndex = cycleImages.length > 1 ? slideshowTick % cycleImages.length : 0
 
     useEffect(() => {
-        if (cycleImages.length <= 1) {
-            setCurrentThumbIndex(0)
-            return
-        }
-        const interval = setInterval(
-            () => setCurrentThumbIndex((i) => (i + 1) % cycleImages.length),
-            2000,
-        )
+        if (cycleImages.length <= 1) return
+        const interval = setInterval(() => setSlideshowTick((tick) => tick + 1), 2000)
         return () => clearInterval(interval)
-    }, [cycleImages.length, setCurrentThumbIndex])
+    }, [cycleImages.length])
 
     const currentThumbImg = cycleImages[currentThumbIndex] ?? null
 

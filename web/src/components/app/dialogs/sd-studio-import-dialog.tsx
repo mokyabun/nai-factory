@@ -1,9 +1,8 @@
-import type { SceneSummary } from '@nai-factory/shared'
+import type { SceneSummary, SdStudioImportOptions } from '@nai-factory/shared'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Provider, useAtom } from 'jotai'
 import { ArrowLeft, FileJson } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -21,15 +20,25 @@ import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { optimisticSceneSummaries } from '@/lib/optimistic-scenes'
 import { qk } from '@/lib/queries'
 
-import {
-    parsedSdStudioFileAtom,
-    type SdStudioImportOptionsDraft,
-    sdStudioImportOptionsAtom,
-    sdStudioImportStepAtom,
-    sdStudioParseErrorAtom,
-    sdStudioProjectNameAtom,
-} from './atom'
 import { OptionRow } from './option-row'
+
+type SdStudioImportStep = 'choose' | 'options' | 'project-name'
+type SdStudioImportOptionsDraft = Required<SdStudioImportOptions>
+
+interface ParsedSdStudioFile {
+    raw: unknown
+    name: string
+    sceneCount: number
+    hasPreset: boolean
+}
+
+const DEFAULT_IMPORT_OPTIONS: SdStudioImportOptionsDraft = {
+    importPrompt: true,
+    importNegativePrompt: true,
+    importScenes: true,
+    importCharacterPrompts: true,
+    importParameters: true,
+}
 
 interface Props {
     open: boolean
@@ -42,36 +51,29 @@ interface Props {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function SdStudioImportDialog({ open, onOpenChange, file, projectId }: Props) {
-    return (
-        <Provider>
-            <SdStudioImportDialogContent
-                open={open}
-                onOpenChange={onOpenChange}
-                file={file}
-                projectId={projectId}
-            />
-        </Provider>
-    )
-}
-
-function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Props) {
     const navigate = useNavigate()
     const queryClient = useQueryClient()
-    const [step, setStep] = useAtom(sdStudioImportStepAtom)
-    const [parsed, setParsed] = useAtom(parsedSdStudioFileAtom)
-    const [parseError, setParseError] = useAtom(sdStudioParseErrorAtom)
-    const [projectName, setProjectName] = useAtom(sdStudioProjectNameAtom)
-    const [options, setOptions] = useAtom(sdStudioImportOptionsAtom)
+    const [step, setStep] = useState<SdStudioImportStep>('choose')
+    const [parsed, setParsed] = useState<ParsedSdStudioFile | null>(null)
+    const [parseError, setParseError] = useState<string | null>(null)
+    const [projectName, setProjectName] = useState('')
+    const [options, setOptions] = useState(DEFAULT_IMPORT_OPTIONS)
 
-    // Parse the file whenever it changes
-    useEffect(() => {
-        if (!file) return
-
+    // Start over whenever another file is dropped.
+    const [currentFile, setCurrentFile] = useState<File | null>(null)
+    if (file !== currentFile) {
+        setCurrentFile(file)
         setParsed(null)
         setParseError(null)
         setStep(projectId ? 'choose' : 'project-name')
+    }
+
+    useEffect(() => {
+        if (!file) return
+        let cancelled = false
 
         void file.text().then((text) => {
+            if (cancelled) return
             try {
                 const raw = JSON.parse(text) as Record<string, unknown>
                 const name =
@@ -86,7 +88,10 @@ function SdStudioImportDialogContent({ open, onOpenChange, file, projectId }: Pr
                 setParseError('JSON 파일을 파싱할 수 없습니다.')
             }
         })
-    }, [file, projectId, setParseError, setParsed, setProjectName, setStep])
+        return () => {
+            cancelled = true
+        }
+    }, [file])
 
     // ─── Mutations ────────────────────────────────────────────────────────────
 

@@ -1,8 +1,5 @@
 import type { SceneSummary } from '@nai-factory/shared'
-import { useSetAtom } from 'jotai'
-import { type PointerEvent, useEffect, useRef } from 'react'
-
-import { selectedSceneIdsSetAtom } from '@/routes/project/$projectId/atom'
+import { type PointerEvent, useEffect, useRef, useState } from 'react'
 
 interface SelectionDragState {
     startIndex: number | null
@@ -24,9 +21,13 @@ function isEditableTarget(target: EventTarget | null) {
  * Scene selection for the project grid: click to toggle, drag across cards to select a range,
  * Ctrl/⌘+A to select all and Escape to clear.
  */
-export function useSceneSelection(items: SceneSummary[], selectedIds: Set<number>) {
-    const setSelectedIds = useSetAtom(selectedSceneIdsSetAtom)
+export function useSceneSelection(items: SceneSummary[]) {
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set())
     const dragRef = useRef<SelectionDragState | null>(null)
+    // Ids of scenes that are gone stay in the set but never count as selected.
+    const selectedSceneIds = items
+        .filter((scene) => selectedIds.has(scene.id))
+        .map((scene) => scene.id)
 
     function applyRange(state: SelectionDragState, targetIndex: number) {
         if (items.length === 0) return
@@ -76,9 +77,12 @@ export function useSceneSelection(items: SceneSummary[], selectedIds: Set<number
 
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [items, setSelectedIds])
+    }, [items])
 
     return {
+        selectedIds,
+        /** The selected scenes, in grid order. */
+        selectedSceneIds,
         selectDragStart: (index: number, selected: boolean) => {
             const state: SelectionDragState = {
                 startIndex: index,
@@ -113,6 +117,12 @@ export function useSceneSelection(items: SceneSummary[], selectedIds: Set<number
         },
         clear: () => {
             setSelectedIds(new Set<number>())
+        },
+        /** Clears the selection for a request and returns how to restore it if the request fails. */
+        take: () => {
+            const previous = selectedIds
+            setSelectedIds(new Set<number>())
+            return () => setSelectedIds(previous)
         },
     }
 }

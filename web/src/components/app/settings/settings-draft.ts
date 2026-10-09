@@ -5,7 +5,6 @@ import type {
     PromptVariable,
     SettingsPatch,
 } from '@nai-factory/shared'
-import { atom } from 'jotai'
 
 export type ImageFormat = ImageSaveType['type']
 
@@ -19,25 +18,7 @@ export type SettingsDraft = {
     thumbSize: number
     debugEnabled: boolean
     debugRequestLimit: number
-    loaded: boolean
 }
-
-const defaultSettingsDraft: SettingsDraft = {
-    novelAIMode: 'live',
-    globalVars: [],
-    sourceFormat: 'png',
-    sourceQuality: 90,
-    thumbFormat: 'webp',
-    thumbQuality: 80,
-    thumbSize: 256,
-    debugEnabled: false,
-    debugRequestLimit: 20,
-    loaded: false,
-}
-
-export const settingsDraftAtom = atom<SettingsDraft>(defaultSettingsDraft)
-
-export const settingsPatchAtom = atom((get) => createSettingsPatch(get(settingsDraftAtom)))
 
 export type GlobalVarUpdate = {
     index: number
@@ -93,7 +74,6 @@ export function createSettingsDraft(settings: GlobalSettings): SettingsDraft {
         thumbSize: settings.image.thumbnailSize,
         debugEnabled: settings.debug.enabled,
         debugRequestLimit: settings.debug.recentRequestLimit,
-        loaded: true,
     }
 }
 

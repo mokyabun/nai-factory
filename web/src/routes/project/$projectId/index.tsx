@@ -1,15 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { Provider, useAtom, useAtomValue } from 'jotai'
-import { useEffect } from 'react'
+import { useState } from 'react'
 
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { CreateSceneDialog } from '@/components/app/dialogs/create-scene-dialog'
 import { ExportDialog } from '@/components/app/project/export-dialog'
 import { ProjectSettingsDialog } from '@/components/app/project/project-settings-dialog'
 import { SceneGrid } from '@/components/app/project/scene-grid'
-import { SceneToolbar } from '@/components/app/project/scene-toolbar'
+import { type ProjectPageDialog, SceneToolbar } from '@/components/app/project/scene-toolbar'
 import { StashDialog } from '@/components/app/project/stash-dialog'
+import { useLocalOrder } from '@/hooks/use-local-order'
 import { useProjectSceneActions } from '@/hooks/use-project-scene-actions'
 import { useProjectSettings } from '@/hooks/use-project-settings'
 import { useProjectStash } from '@/hooks/use-project-stash'
@@ -17,60 +17,35 @@ import { useQueueStatus } from '@/hooks/use-queue'
 import { useSceneSelection } from '@/hooks/use-scene-selection'
 import { queries } from '@/lib/queries'
 
-import {
-    hasScenesAtom,
-    projectPageDialogAtom,
-    sceneItemsAtom,
-    selectedSceneCountAtom,
-    selectedSceneIdsAtom,
-    selectedSceneIdsSetAtom,
-    selectModeAtom,
-} from './atom'
-
 export const Route = createFileRoute('/project/$projectId/')({ component: ProjectPage })
 
 function ProjectPage() {
-    return (
-        <Provider>
-            <ProjectPageContent />
-        </Provider>
-    )
+    const { projectId } = Route.useParams()
+    // Keyed by project, so selection, dialogs and unsaved settings never carry over.
+    return <ProjectPageContent key={projectId} projectId={Number(projectId)} />
 }
 
-function ProjectPageContent() {
-    const { projectId } = Route.useParams()
-    const projId = Number(projectId)
-
-    const projectQuery = useQuery(queries.projects.get(projId))
-    const scenesQuery = useQuery(queries.scenes.list(projId))
+function ProjectPageContent({ projectId }: { projectId: number }) {
+    const projectQuery = useQuery(queries.projects.get(projectId))
+    const scenesQuery = useQuery(queries.scenes.list(projectId))
     const { status: queueStatus } = useQueueStatus()
 
-    const [items, setItems] = useAtom(sceneItemsAtom)
-    const [selectedIds, setSelectedIds] = useAtom(selectedSceneIdsSetAtom)
-    const [projectDialog, setProjectDialog] = useAtom(projectPageDialogAtom)
-    const selectedSceneIds = useAtomValue(selectedSceneIdsAtom)
-    const selectedCount = useAtomValue(selectedSceneCountAtom)
-    const selectMode = useAtomValue(selectModeAtom)
-    const hasScenes = useAtomValue(hasScenesAtom)
+    // Drags reorder the grid at once; the cache follows in the move mutation.
+    const [items, setOrder] = useLocalOrder(scenesQuery.data)
+    const [projectDialog, setProjectDialog] = useState<ProjectPageDialog | null>(null)
+    const closeDialog = () => setProjectDialog(null)
 
-    const settings = useProjectSettings(projectQuery.data)
-    const selection = useSceneSelection(items, selectedIds)
-    const sceneActions = useProjectSceneActions(projId)
-    const stash = useProjectStash(projId)
+    const settings = useProjectSettings(projectId, projectQuery.data)
+    const selection = useSceneSelection(items)
+    const pageCallbacks = { takeSelection: selection.take, closeDialog }
+    const sceneActions = useProjectSceneActions(projectId, pageCallbacks)
+    const stash = useProjectStash(projectId, pageCallbacks)
 
-    // Mirror the server list locally so drags render immediately; drop stale selections.
-    useEffect(() => {
-        if (!scenesQuery.data) return
-        setItems(scenesQuery.data)
-        const availableIds = new Set(scenesQuery.data.map((scene) => scene.id))
-        setSelectedIds((prev) => {
-            const next = new Set([...prev].filter((id) => availableIds.has(id)))
-            return next.size === prev.size ? prev : next
-        })
-    }, [scenesQuery.data, setItems, setSelectedIds])
-
-    const closeDialog = (open: boolean) => {
-        if (!open) setProjectDialog(null)
+    const { selectedIds, selectedSceneIds } = selection
+    const selectedCount = selectedSceneIds.length
+    const selectMode = selectedCount > 0
+    const handleDialogOpenChange = (open: boolean) => {
+        if (!open) closeDialog()
     }
     const current = queueStatus.current
 
@@ -78,7 +53,7 @@ function ProjectPageContent() {
         <div className="flex h-full flex-col gap-4">
             <SceneToolbar
                 sceneCount={items.length}
-                hasScenes={hasScenes}
+                hasScenes={items.length > 0}
                 selectMode={selectMode}
                 selectedCount={selectedCount}
                 projectLoaded={!!projectQuery.data}
@@ -106,7 +81,10 @@ function ProjectPageContent() {
                     processingSceneId={current?.kind === 'scene' ? current.sceneId : null}
                     slideshowCount={settings.slideshowImageCount}
                     cardSize={settings.sceneCardSize}
-                    onReorder={sceneActions.moveScene}
+                    onReorder={(reordered, patch) => {
+                        setOrder(reordered)
+                        sceneActions.moveScene(reordered, patch)
+                    }}
                     onToggleSelect={selection.toggle}
                     onSelectDragStart={selection.selectDragStart}
                     onSelectDragEnter={selection.selectDragEnter}
@@ -116,25 +94,25 @@ function ProjectPageContent() {
 
             <CreateSceneDialog
                 open={projectDialog?.type === 'create-scene'}
-                onOpenChange={closeDialog}
+                onOpenChange={handleDialogOpenChange}
                 onCreate={sceneActions.createScene}
             />
             <ConfirmDeleteDialog
                 open={projectDialog?.type === 'delete-selected'}
-                onOpenChange={closeDialog}
+                onOpenChange={handleDialogOpenChange}
                 title="선택 씬 삭제"
                 description={`선택한 씬 ${selectedCount}개와 모든 생성된 이미지를 삭제합니다. 되돌릴 수 없습니다.`}
                 onConfirm={() => sceneActions.deleteScenes(selectedSceneIds)}
             />
             <ExportDialog
                 open={projectDialog?.type === 'export'}
-                onOpenChange={closeDialog}
+                onOpenChange={handleDialogOpenChange}
                 project={projectQuery.data ?? null}
                 scenes={items}
             />
             <ProjectSettingsDialog
                 open={projectDialog?.type === 'settings'}
-                onOpenChange={closeDialog}
+                onOpenChange={handleDialogOpenChange}
                 slideshowImageCount={settings.slideshowImageCount}
                 sceneCardSize={settings.sceneCardSize}
                 project={projectQuery.data ?? null}
@@ -145,7 +123,7 @@ function ProjectPageContent() {
             />
             <StashDialog
                 open={projectDialog?.type === 'stash'}
-                onOpenChange={closeDialog}
+                onOpenChange={handleDialogOpenChange}
                 project={projectQuery.data}
                 scenes={items}
                 selectedSceneIds={selectedSceneIds}

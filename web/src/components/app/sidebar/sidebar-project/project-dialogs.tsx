@@ -4,10 +4,10 @@ import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dia
 import { CreateGroupDialog } from '@/components/app/dialogs/create-group-dialog'
 import { CreateProjectDialog } from '@/components/app/dialogs/create-project-dialog'
 
-import type { DeleteTarget, ProjectDialog } from './atom'
+import type { DeleteTarget, ProjectDialog } from './project-tree-types'
 
 interface ProjectDialogsProps {
-    projectDialog: ProjectDialog
+    projectDialog: ProjectDialog | null
     onOpenChange: (open: boolean) => void
     onCreateGroup: (name: string) => void
     onCreateProject: (name: string) => void

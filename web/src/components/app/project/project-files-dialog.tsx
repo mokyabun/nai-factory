@@ -3,7 +3,7 @@ import { DEFAULT_ARCHIVE_INCLUDE, SceneJsonData } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Download, FileJson, Upload } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,16 +55,6 @@ export function ProjectFilesSettings({
     const [importFile, setImportFile] = useState<File | null>(null)
     const [pendingMethod, setPendingMethod] = useState<PendingMethod | null>(null)
     const [message, setMessage] = useState('')
-
-    useEffect(() => {
-        if (!project) return
-        // eslint-disable-next-line react/set-state-in-effect -- Synchronize the local draft with externally loaded data or dialog state.
-        setArchiveInclude(DEFAULT_ARCHIVE_INCLUDE)
-        setSceneJsonFile(null)
-        setSceneJsonMode('append')
-        setImportFile(null)
-        setMessage('')
-    }, [project])
 
     function archiveBody(): ArchiveExportBody {
         return { include: archiveInclude }

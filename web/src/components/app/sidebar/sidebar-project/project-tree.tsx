@@ -8,9 +8,8 @@ import {
     useSensors,
 } from '@dnd-kit/core'
 import type { GroupNode } from '@nai-factory/shared'
-import { useAtom } from 'jotai'
 import { Plus } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 import {
     ContextMenu,
@@ -20,11 +19,9 @@ import {
 } from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
 
-import { activeGroupDragIdAtom, activeProjectDragIdAtom, type ProjectSummary } from './atom'
 import { ProjectGroup } from './project-group'
 import { GroupDragPreview, ProjectDragPreview, SidebarMessage } from './project-tree-parts'
-import type { ProjectGroupId } from './project-tree-types'
-import type { ProjectTreeProps } from './project-tree-types'
+import type { ProjectGroupId, ProjectSummary, ProjectTreeProps } from './project-tree-types'
 import { RootProjects } from './root-projects'
 
 export function ProjectTree({
@@ -37,8 +34,8 @@ export function ProjectTree({
     onCommitRename,
     onCancelRename,
 }: ProjectTreeProps) {
-    const [activeProjectId, setActiveProjectId] = useAtom(activeProjectDragIdAtom)
-    const [activeGroupId, setActiveGroupId] = useAtom(activeGroupDragIdAtom)
+    const [activeProjectId, setActiveProjectId] = useState<number | null>(null)
+    const [activeGroupId, setActiveGroupId] = useState<number | null>(null)
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
     const groupItems = useMemo(
         () => groups.filter((group): group is GroupNode => group.type === 'group'),
