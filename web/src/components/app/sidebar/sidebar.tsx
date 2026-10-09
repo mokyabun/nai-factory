@@ -34,7 +34,7 @@ function lazyWithPreload<TProps = unknown>(
 }
 
 const SidebarPlayground = lazyWithPreload<Record<string, never>>(() =>
-    import('./playground').then((mod) => ({
+    import('@/features/playground/playground-panel').then((mod) => ({
         default: mod.SidebarPlayground as ComponentType<Record<string, never>>,
     })),
 )
