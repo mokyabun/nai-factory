@@ -11,6 +11,7 @@ import { AlertCircle, ArrowLeft, Plus } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { VariationEditor } from '@/components/app/project/variation-editor'
+import { StatusMessage } from '@/components/app/status-message'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
@@ -26,19 +27,11 @@ function SceneEditPage() {
     const sceneQuery = useQuery(queries.scenes.get(Number(sceneId)))
 
     if (sceneQuery.isPending) {
-        return (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                불러오는 중...
-            </div>
-        )
+        return <StatusMessage className="h-full">불러오는 중...</StatusMessage>
     }
 
     if (!sceneQuery.data) {
-        return (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                씬을 찾을 수 없습니다.
-            </div>
-        )
+        return <StatusMessage className="h-full">씬을 찾을 수 없습니다.</StatusMessage>
     }
 
     // Keyed by scene: the draft starts from the loaded scene and later refetches leave it alone.

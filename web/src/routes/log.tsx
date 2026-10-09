@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Bug, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { StatusMessage } from '@/components/app/status-message'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { call, contract } from '@/lib/api'
@@ -56,13 +57,9 @@ function LogPage() {
 
             <div className="min-h-0 flex-1 overflow-y-auto">
                 {requestsQuery.isPending ? (
-                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                        불러오는 중...
-                    </div>
+                    <StatusMessage className="h-full">불러오는 중...</StatusMessage>
                 ) : requests.length === 0 ? (
-                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                        기록 없음
-                    </div>
+                    <StatusMessage className="h-full">기록 없음</StatusMessage>
                 ) : (
                     <div className="flex flex-col gap-2 pb-4">
                         {requests.map((request) => (

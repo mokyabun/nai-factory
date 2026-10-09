@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
 import { useCallback, useRef } from 'react'
 
+import { StatusMessage } from '@/components/app/status-message'
 import { Button } from '@/components/ui/button'
 import { useLocalOrder } from '@/hooks/use-local-order'
 import { call, contract } from '@/lib/api'
@@ -162,11 +163,9 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
             />
 
             {query.isPending ? (
-                <div className="py-4 text-center text-xs text-muted-foreground">불러오는 중...</div>
+                <StatusMessage variant="inline">불러오는 중...</StatusMessage>
             ) : items.length === 0 ? (
-                <div className="py-4 text-center text-xs text-muted-foreground">
-                    캐릭터 레퍼런스 없음
-                </div>
+                <StatusMessage variant="inline">캐릭터 레퍼런스 없음</StatusMessage>
             ) : (
                 <DndContext
                     sensors={sensors}

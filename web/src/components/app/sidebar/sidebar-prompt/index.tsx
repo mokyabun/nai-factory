@@ -10,16 +10,17 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlignLeft } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 
+import { StatusMessage } from '@/components/app/status-message'
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { useAutosave } from '@/hooks/use-autosave'
 import { call, contract } from '@/lib/api'
 import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
 import { qk, queries } from '@/lib/queries'
 
+import { ParametersForm } from '../parameters-form'
+import { PromptEditor } from '../prompt-editor'
 import { CharacterPromptEditor } from './character-prompt-editor'
 import { CharacterReferenceEditor } from './character-reference-editor'
-import { ParameterEditor } from './parameter-editor'
-import { PromptEditor } from './prompt-editor'
 import { PromptVariableEditor } from './prompt-variable-editor'
 import {
     SidebarPromptTabs,
@@ -38,9 +39,9 @@ type SidebarPromptProps = {
 export function SidebarPrompt({ projectId }: SidebarPromptProps) {
     if (projectId === null) {
         return (
-            <div className="flex h-full min-h-0 flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
+            <StatusMessage variant="panel" className="h-full min-h-0">
                 왼쪽 패널에서 프로젝트를 선택하세요
-            </div>
+            </StatusMessage>
         )
     }
 
@@ -111,9 +112,7 @@ function SidebarPromptContent({ projectId }: { projectId: number }) {
             </SidebarHeader>
 
             {!project ? (
-                <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
-                    왼쪽 패널에서 프로젝트를 선택하세요
-                </div>
+                <StatusMessage variant="panel">왼쪽 패널에서 프로젝트를 선택하세요</StatusMessage>
             ) : (
                 <SidebarPromptTabs
                     defaultValue="prompt"
@@ -140,6 +139,7 @@ function SidebarPromptContent({ projectId }: { projectId: number }) {
                             variables={completionVariables}
                             onPromptChange={(prompt) => update({ prompt })}
                             onNegativePromptChange={(negativePrompt) => update({ negativePrompt })}
+                            className="h-[300px]"
                         />
 
                         <span className="text-lg mt-4">캐릭터 프롬프트</span>
@@ -181,7 +181,8 @@ function SidebarPromptContent({ projectId }: { projectId: number }) {
                         className="flex flex-col gap-4 overflow-y-auto px-2 py-4 scrollbar-none"
                     >
                         <span className="text-lg">파라미터</span>
-                        <ParameterEditor
+                        <ParametersForm
+                            scope="project"
                             parameters={project.parameters}
                             onChange={handleParameterChange}
                         />

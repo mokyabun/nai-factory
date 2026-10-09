@@ -1,7 +1,7 @@
 import type { Parameters, PlaygroundState } from '@nai-factory/shared'
 
+import { ParametersForm } from '../parameters-form'
 import { PromptEditor } from '../prompt-editor'
-import { PlaygroundParameters } from './playground-parameters'
 
 interface PlaygroundEditorProps {
     settings: PlaygroundState
@@ -24,7 +24,11 @@ export function PlaygroundEditor({
                 className="min-h-[300px] shrink-0"
             />
 
-            <PlaygroundParameters parameters={settings.parameters} onChange={onParameterChange} />
+            <ParametersForm
+                scope="playground"
+                parameters={settings.parameters}
+                onChange={onParameterChange}
+            />
         </div>
     )
 }

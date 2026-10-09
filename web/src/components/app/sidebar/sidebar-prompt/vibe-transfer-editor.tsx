@@ -13,9 +13,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { GripVertical, Trash2, Upload } from 'lucide-react'
 import { useCallback, useRef } from 'react'
 
+import { formatRatio, LabeledSlider } from '@/components/app/form-fields'
+import { StatusMessage } from '@/components/app/status-message'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Slider } from '@/components/ui/slider'
 import { useAutosave } from '@/hooks/use-autosave'
 import { useLocalOrder } from '@/hooks/use-local-order'
 import { assetUrl, call, contract } from '@/lib/api'
@@ -47,18 +47,6 @@ function SortableVibeItem({ vibe, onUpdate, onDelete }: SortableVibeItemProps) {
     const draft = useAutosave<VibeTransfer, VibeTransferPatch>({ data: vibe, save, delay: 400 })
     const { referenceStrength: refStrength, informationExtracted: infoExtracted } =
         draft.value ?? vibe
-
-    function handleRefStrengthChange(value: number) {
-        draft.update({ referenceStrength: value })
-    }
-
-    function handleInfoExtractedChange(value: number) {
-        draft.update({ informationExtracted: value })
-    }
-
-    function sliderValue(value: number | readonly number[], fallback: number) {
-        return typeof value === 'number' ? value : (value[0] ?? fallback)
-    }
 
     return (
         <div
@@ -96,40 +84,26 @@ function SortableVibeItem({ vibe, onUpdate, onDelete }: SortableVibeItemProps) {
 
             <div className="flex flex-1 flex-col p-1 justify-center h-full">
                 <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-xs">레퍼런스 강도</Label>
-                            <span className="text-xs text-muted-foreground">
-                                {refStrength.toFixed(2)}
-                            </span>
-                        </div>
-                        <Slider
-                            value={[refStrength]}
-                            min={0}
-                            max={1}
-                            step={0.01}
-                            onValueChange={(value) =>
-                                handleRefStrengthChange(sliderValue(value, refStrength))
-                            }
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-xs">정보 추출량</Label>
-                            <span className="text-xs text-muted-foreground">
-                                {infoExtracted.toFixed(2)}
-                            </span>
-                        </div>
-                        <Slider
-                            value={[infoExtracted]}
-                            min={0}
-                            max={1}
-                            step={0.01}
-                            onValueChange={(value) =>
-                                handleInfoExtractedChange(sliderValue(value, infoExtracted))
-                            }
-                        />
-                    </div>
+                    <LabeledSlider
+                        compact
+                        label="레퍼런스 강도"
+                        value={refStrength}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        format={formatRatio}
+                        onChange={(value) => draft.update({ referenceStrength: value })}
+                    />
+                    <LabeledSlider
+                        compact
+                        label="정보 추출량"
+                        value={infoExtracted}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        format={formatRatio}
+                        onChange={(value) => draft.update({ informationExtracted: value })}
+                    />
                 </div>
             </div>
         </div>
@@ -272,11 +246,9 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
             />
 
             {query.isPending ? (
-                <div className="py-4 text-center text-xs text-muted-foreground">불러오는 중...</div>
+                <StatusMessage variant="inline">불러오는 중...</StatusMessage>
             ) : items.length === 0 ? (
-                <div className="py-4 text-center text-xs text-muted-foreground">
-                    바이브 이미지 없음
-                </div>
+                <StatusMessage variant="inline">바이브 이미지 없음</StatusMessage>
             ) : (
                 <DndContext
                     sensors={sensors}

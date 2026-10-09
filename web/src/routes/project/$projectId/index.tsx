@@ -9,6 +9,7 @@ import { ProjectSettingsDialog } from '@/components/app/project/project-settings
 import { SceneGrid } from '@/components/app/project/scene-grid'
 import { type ProjectPageDialog, SceneToolbar } from '@/components/app/project/scene-toolbar'
 import { StashDialog } from '@/components/app/project/stash-dialog'
+import { StatusMessage } from '@/components/app/status-message'
 import { useLocalOrder } from '@/hooks/use-local-order'
 import { useProjectSceneActions } from '@/hooks/use-project-scene-actions'
 import { useProjectSettings } from '@/hooks/use-project-settings'
@@ -66,13 +67,9 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
             />
 
             {scenesQuery.isPending ? (
-                <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                    불러오는 중...
-                </div>
+                <StatusMessage>불러오는 중...</StatusMessage>
             ) : items.length === 0 ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
-                    <p className="text-sm">씬이 없습니다. 새 씬을 추가하세요.</p>
-                </div>
+                <StatusMessage>씬이 없습니다. 새 씬을 추가하세요.</StatusMessage>
             ) : (
                 <SceneGrid
                     items={items}

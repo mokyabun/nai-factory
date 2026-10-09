@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
-import { AlertCircle, Check, Copy, FlaskConical, Recycle, SlidersHorizontal } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Copy, FlaskConical, Recycle, SlidersHorizontal } from 'lucide-react'
+import { useMemo } from 'react'
+import { toast } from 'sonner'
 
 import {
     DropdownMenu,
@@ -12,6 +13,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useApplyGenerationSettings } from '@/hooks/use-apply-generation-settings'
+import { errorMessage } from '@/lib/api'
 import {
     type GenerationSettings,
     playgroundUnsupportedNotice,
@@ -19,8 +21,6 @@ import {
     type SeedMode,
 } from '@/lib/generation-settings'
 import { cn } from '@/lib/utils'
-
-type Feedback = { kind: 'success' | 'error'; message: string }
 
 interface ImageReuseMenuProps {
     metadata: Record<string, unknown>
@@ -34,22 +34,12 @@ export function ImageReuseMenu({ metadata, source, triggerClassName }: ImageReus
     const { toPlayground, toProject } = useApplyGenerationSettings()
     const settings = useMemo(() => readGenerationSettings(metadata), [metadata])
     const unsupported = playgroundUnsupportedNotice(settings)
-    const [feedback, setFeedback] = useState<Feedback | null>(null)
 
-    useEffect(() => {
-        if (!feedback) return
-        const timer = window.setTimeout(() => setFeedback(null), 2500)
-        return () => window.clearTimeout(timer)
-    }, [feedback])
-
+    // A toast outlives the menu, so the result still shows after moving to Playground.
     function report(promise: Promise<unknown>, message: string) {
         promise.then(
-            () => setFeedback({ kind: 'success', message }),
-            (error: unknown) =>
-                setFeedback({
-                    kind: 'error',
-                    message: error instanceof Error ? error.message : '적용하지 못했습니다',
-                }),
+            () => toast.success(message),
+            (error: unknown) => toast.error(errorMessage(error, '적용하지 못했습니다')),
         )
     }
 
@@ -76,16 +66,9 @@ export function ImageReuseMenu({ metadata, source, triggerClassName }: ImageReus
                     'inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors disabled:opacity-50',
                     triggerClassName,
                 )}
-                title={feedback?.message}
             >
-                {feedback?.kind === 'success' ? (
-                    <Check className="h-4 w-4" />
-                ) : feedback?.kind === 'error' ? (
-                    <AlertCircle className="h-4 w-4 text-destructive" />
-                ) : (
-                    <Recycle className="h-4 w-4" />
-                )}
-                <span aria-live="polite">{feedback?.message ?? '재사용'}</span>
+                <Recycle className="h-4 w-4" />
+                <span>재사용</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72">
                 <DropdownMenuGroup>

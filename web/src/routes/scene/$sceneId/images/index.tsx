@@ -15,6 +15,7 @@ import { type PointerEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dialog'
 import { SortableImageItem } from '@/components/app/project/sortable-image-item'
+import { StatusMessage } from '@/components/app/status-message'
 import { Button } from '@/components/ui/button'
 import { useSceneImageActions } from '@/hooks/use-scene-image-actions'
 import { assetUrl } from '@/lib/api'
@@ -261,13 +262,9 @@ function ImagesPage() {
 
                 {/* Image grid */}
                 {imagesQuery.isPending ? (
-                    <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                        불러오는 중...
-                    </div>
+                    <StatusMessage>불러오는 중...</StatusMessage>
                 ) : images.length === 0 ? (
-                    <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                        생성된 이미지가 없습니다.
-                    </div>
+                    <StatusMessage>생성된 이미지가 없습니다.</StatusMessage>
                 ) : (
                     <DndContext
                         sensors={sensors}

@@ -21,6 +21,7 @@ import { Check, GripVertical, Plus, Trash2, X } from 'lucide-react'
 import { useMemo } from 'react'
 
 import { CodeEditor } from '@/components/app/code-editor/code-editor'
+import { StatusMessage } from '@/components/app/status-message'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { createPromptCompletionSource } from '@/lib/tag-autocomplete'
@@ -163,9 +164,7 @@ export function CharacterPromptEditor({
     return (
         <div className="flex flex-col gap-3">
             {characterPrompts.length === 0 ? (
-                <div className="py-4 text-center text-xs text-muted-foreground">
-                    캐릭터 프롬프트 없음
-                </div>
+                <StatusMessage variant="inline">캐릭터 프롬프트 없음</StatusMessage>
             ) : (
                 <DndContext
                     sensors={sensors}
