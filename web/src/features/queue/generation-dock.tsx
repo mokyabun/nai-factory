@@ -89,8 +89,8 @@ export function GenerationDock() {
                 <>
                     <div className="h-4 w-px shrink-0 bg-primary-foreground/20" />
                     <div className="flex shrink-0 items-center gap-1.5 px-4">
-                        <span className="opacity-70">작업</span>
-                        <span className="font-semibold tabular-nums">{status.pendingCount}개</span>
+                        <span className="opacity-70">이미지</span>
+                        <span className="font-semibold tabular-nums">{status.pendingImages}장</span>
                         <span className="opacity-70">남음</span>
                         {remainingSeconds !== null && (
                             <span className="hidden tabular-nums opacity-50 md:inline">

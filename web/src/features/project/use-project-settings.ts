@@ -2,6 +2,7 @@ import type { Project, ProjectSettings, ProjectSettingsPatch } from '@nai-factor
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 
+import { clampImageCount } from '@/components/image-count-input'
 import { useAutosave } from '@/hooks/use-autosave'
 import { call, contract } from '@/lib/api'
 import { qk } from '@/lib/queries'
@@ -27,9 +28,12 @@ export function useProjectSettings(projectId: number, project: Project | undefin
     return {
         slideshowImageCount: settings.value?.slideshowImageCount ?? 4,
         sceneCardSize: settings.value?.sceneCardSize ?? 'md',
+        defaultImageCount: settings.value?.defaultImageCount ?? 1,
         setSlideshowImageCount: (value: string) =>
             settings.update({ slideshowImageCount: Math.min(10, Math.max(1, Number(value) || 1)) }),
         setSceneCardSize: (value: ProjectSettings['sceneCardSize']) =>
             settings.update({ sceneCardSize: value }),
+        setDefaultImageCount: (value: number) =>
+            settings.update({ defaultImageCount: clampImageCount(value) }),
     }
 }

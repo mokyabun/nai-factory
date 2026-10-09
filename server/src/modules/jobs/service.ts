@@ -104,6 +104,7 @@ function afterEnqueue(ctx: AppContext, jobIds: number[]): EnqueueResult {
 }
 
 export function enqueueScenes(ctx: AppContext, body: SceneEnqueueBody) {
+    const count = body.count ?? 1
     const ids = ctx.db.transaction((tx) => {
         const targets = resolveTargets(tx, body)
         const keys = priorityKeys(tx, body.position ?? 'back', targets.length)
@@ -114,7 +115,8 @@ export function enqueueScenes(ctx: AppContext, body: SceneEnqueueBody) {
                     kind: 'scene' as const,
                     status: 'queued' as const,
                     priorityKey: keys[index] as string,
-                    repeatCount: body.count ?? 1,
+                    repeatCount: count,
+                    totalImages: count,
                     ...target,
                 })),
             )
@@ -124,7 +126,7 @@ export function enqueueScenes(ctx: AppContext, body: SceneEnqueueBody) {
 }
 
 export function enqueuePlayground(ctx: AppContext, body: PlaygroundEnqueueBody) {
-    const { position, ...overrides } = body
+    const { position, count = 1, ...overrides } = body
     const ids = ctx.db.transaction((tx) => {
         const snapshot = playground.mergeSnapshot(playground.getState(ctx), overrides)
         if (!snapshot.prompt.trim()) throw badRequest('The playground prompt is empty')
@@ -136,6 +138,8 @@ export function enqueuePlayground(ctx: AppContext, body: PlaygroundEnqueueBody) 
                     status: 'queued',
                     priorityKey: key as string,
                     payload: snapshot,
+                    repeatCount: count,
+                    totalImages: count,
                 },
             ])
             .map((row) => row.id)
@@ -221,16 +225,15 @@ export function status(ctx: AppContext): QueueStatus {
     const counts = repo.finishedCounts(ctx.db)
     const { avgImageMs, sampleSize } = ctx.scheduler.samples()
 
-    const waiting = {
-        scene: Math.max(0, pending.scene - (current?.kind === 'scene' ? 1 : 0)),
-        playground: Math.max(0, pending.playground - (current?.kind === 'playground' ? 1 : 0)),
-    }
-    const remainingMs = pendingCount > 0 || current ? ctx.scheduler.estimate(now, waiting) : null
+    const images = repo.pendingImages(ctx.db)
+    const remainingMs =
+        pendingCount > 0 || current ? ctx.scheduler.estimate(now, images.queued) : null
 
     return {
         state,
         pauseReason: state === 'paused' || state === 'pausing' ? pauseReason : null,
         pendingCount,
+        pendingImages: images.total,
         estimatedSeconds: remainingMs === null ? null : Math.round(remainingMs / 1000),
         current:
             current && currentRow

@@ -1,6 +1,7 @@
 import type { EnqueuePosition } from '@nai-factory/shared'
 import { ChevronDown, ListPlus, ListX, Trash2, X } from 'lucide-react'
 
+import { ImageCountInput } from '@/components/image-count-input'
 import { Button } from '@/components/ui/button'
 import {
     DropdownMenu,
@@ -15,11 +16,14 @@ interface SceneSelectionBarProps {
     sceneCount: number
     selectedCount: number
     selectedQueueCount: number
+    imageCount: number
+    selectedImageTotal: number
     enqueuePending: boolean
     clearQueuePending: boolean
     deletePending: boolean
     onSelectAll: () => void
     onClearSelection: () => void
+    onImageCountChange: (count: number) => void
     onEnqueue: (position: EnqueuePosition) => void
     onClearQueue: () => void
     onDelete: () => void
@@ -29,11 +33,14 @@ export function SceneSelectionBar({
     sceneCount,
     selectedCount,
     selectedQueueCount,
+    imageCount,
+    selectedImageTotal,
     enqueuePending,
     clearQueuePending,
     deletePending,
     onSelectAll,
     onClearSelection,
+    onImageCountChange,
     onEnqueue,
     onClearQueue,
     onDelete,
@@ -98,6 +105,16 @@ export function SceneSelectionBar({
                         </span>
                     )}
                 </Button>
+                <div className="flex items-center gap-1.5">
+                    <ImageCountInput
+                        value={imageCount}
+                        onChange={onImageCountChange}
+                        className="h-8"
+                    />
+                    <span className="text-sm whitespace-nowrap text-muted-foreground tabular-nums">
+                        장씩 · 총 {selectedImageTotal}장
+                    </span>
+                </div>
                 <div className="h-5 w-px bg-border" />
                 <ToolbarIconButton
                     label="선택 삭제"

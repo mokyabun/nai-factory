@@ -1,7 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { ProjectSettings } from '@nai-factory/shared'
-import type { SceneSummary } from '@nai-factory/shared'
+import type { EnqueuePosition, ProjectSettings, SceneSummary } from '@nai-factory/shared'
 import { GripHorizontal } from 'lucide-react'
 
 import { SceneCard } from './scene-card'
@@ -16,6 +15,7 @@ interface SortableSceneItemProps {
     slideshowCount: number
     cardSize: ProjectSettings['sceneCardSize']
     selectionActions: SceneSelectionActions | null
+    onEnqueueScene: (sceneId: number, position: EnqueuePosition) => void
     onToggleSelect: (id: number) => void
     onSelectDragStart: (index: number, selected: boolean) => void
     onSelectDragEnter: (index: number) => void
@@ -30,6 +30,7 @@ export function SortableSceneItem({
     slideshowCount,
     cardSize,
     selectionActions,
+    onEnqueueScene,
     onToggleSelect,
     onSelectDragStart,
     onSelectDragEnter,
@@ -60,6 +61,7 @@ export function SortableSceneItem({
                 slideshowCount={slideshowCount}
                 cardSize={cardSize}
                 selectionActions={selectionActions}
+                onEnqueue={(position) => onEnqueueScene(scene.id, position)}
                 onToggleSelect={onToggleSelect}
                 onSelectDragStart={onSelectDragStart}
             />

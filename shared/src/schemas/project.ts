@@ -1,6 +1,7 @@
 import * as z from 'zod'
 
 import { CharacterPrompt, IsoDateTime, Parameters, PromptVariable } from './common'
+import { MAX_IMAGES_PER_JOB } from './job'
 
 export const DEFAULT_OUTPUT_TEMPLATE = '{character}-{scene}-{number}.{extension}'
 
@@ -9,6 +10,8 @@ export const ProjectSettings = z.object({
     slideshowImageCount: z.number().int().min(1).max(10).default(4),
     sceneCardSize: z.enum(['sm', 'md', 'lg']).default('md'),
     outputTemplate: z.string().min(1).default(DEFAULT_OUTPUT_TEMPLATE),
+    /** Images per variation when scenes are queued. */
+    defaultImageCount: z.number().int().min(1).max(MAX_IMAGES_PER_JOB).default(1),
 })
 export type ProjectSettings = z.infer<typeof ProjectSettings>
 

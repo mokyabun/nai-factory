@@ -28,6 +28,7 @@ export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
     slideshowImageCount: 4,
     sceneCardSize: 'md',
     outputTemplate: DEFAULT_OUTPUT_TEMPLATE,
+    defaultImageCount: 1,
 }
 
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {

@@ -2,6 +2,8 @@ import * as z from 'zod'
 
 import { IsoDateTime, Parameters } from './common'
 
+export const MAX_IMAGES_PER_JOB = 100
+
 export const JobKind = z.enum(['scene', 'playground'])
 export type JobKind = z.infer<typeof JobKind>
 
@@ -73,6 +75,8 @@ export const QueueStatus = z.object({
     pauseReason: QueuePauseReason.nullable(),
     /** Queued jobs, including the one currently running. */
     pendingCount: z.number(),
+    /** Images those jobs still have to generate. */
+    pendingImages: z.number(),
     /** Estimated seconds until every queued job finishes; null without duration samples. */
     estimatedSeconds: z.number().nullable(),
     current: QueueCurrentJob.nullable(),

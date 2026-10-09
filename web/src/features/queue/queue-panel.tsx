@@ -108,7 +108,10 @@ export function QueuePanel({ projectId }: QueuePanelProps) {
 
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2 scrollbar-none">
                 <div className="grid grid-cols-2 gap-2">
-                    <Metric label="남은 작업" value={`${status.pendingCount}`} />
+                    <Metric
+                        label="남은 작업 / 이미지"
+                        value={`${status.pendingCount} / ${status.pendingImages}`}
+                    />
                     <Metric
                         label="예상"
                         value={remainingSeconds !== null ? formatSeconds(remainingSeconds) : '-'}

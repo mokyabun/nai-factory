@@ -36,6 +36,7 @@ interface SceneCardProps {
     cardSize?: ProjectSettings['sceneCardSize']
     /** Actions for the whole selection; the menu of a selected card uses them. */
     selectionActions?: SceneSelectionActions | null
+    onEnqueue: (position: EnqueuePosition) => void
     onToggleSelect?: (id: number) => void
     onSelectDragStart?: (index: number, selected: boolean) => void
 }
@@ -61,6 +62,7 @@ export function SceneCard({
     slideshowCount = 4,
     cardSize = 'md',
     selectionActions = null,
+    onEnqueue,
     onToggleSelect,
     onSelectDragStart,
 }: SceneCardProps) {
@@ -83,9 +85,7 @@ export function SceneCard({
 
     const currentThumbImg = cycleImages[currentThumbIndex] ?? null
 
-    const { remove, duplicate, enqueue, clearQueue } = useSceneMutations(scene.projectId)
-    const enqueueScene = (position: EnqueuePosition) =>
-        enqueue.mutate({ sceneIds: [scene.id], position })
+    const { remove, duplicate, clearQueue } = useSceneMutations(scene.projectId)
     const openImages = () =>
         navigate({ to: '/scene/$sceneId/images', params: { sceneId: String(scene.id) } })
     const openEditor = () =>
@@ -98,13 +98,12 @@ export function SceneCard({
                   name: scene.name,
                   queueCount,
                   pending: {
-                      enqueue: enqueue.isPending,
                       clearQueue: clearQueue.isPending,
                       duplicate: duplicate.isPending,
                   },
                   onOpenImages: () => void openImages(),
                   onEdit: () => void openEditor(),
-                  onEnqueue: enqueueScene,
+                  onEnqueue,
                   onClearQueue: () => clearQueue.mutate([scene]),
                   onSelect: onToggleSelect && (() => onToggleSelect(scene.id)),
                   onDuplicate: () => duplicate.mutate(scene),
@@ -253,8 +252,7 @@ export function SceneCard({
                             className="min-w-0 flex-1 shrink basis-0 gap-1 rounded-none px-1 text-xs"
                             aria-label="큐 추가"
                             onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => enqueueScene('back')}
-                            disabled={enqueue.isPending}
+                            onClick={() => onEnqueue('back')}
                         >
                             <ListPlus className="h-3.5 w-3.5" />
                             <span className={cn('truncate', cardSize === 'sm' && 'sr-only')}>

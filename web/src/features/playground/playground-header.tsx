@@ -29,7 +29,7 @@ export function PlaygroundHeader({
                 <FlaskConical className="h-4 w-4 shrink-0" />
                 <span className="min-w-0 flex-1 truncate text-md font-bold">Playground</span>
             </div>
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 px-1 pb-1">
+            <div className="grid grid-cols-2 gap-2 px-1 pb-1">
                 <Button
                     type="button"
                     size="sm"

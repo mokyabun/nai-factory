@@ -1,9 +1,7 @@
 import * as z from 'zod'
 
 import { ParametersPatch } from '../schemas/common'
-import { EnqueuePosition, JobStatus } from '../schemas/job'
-
-export const MAX_IMAGES_PER_JOB = 100
+import { EnqueuePosition, JobStatus, MAX_IMAGES_PER_JOB } from '../schemas/job'
 
 const StatusList = z
     .string()
@@ -44,6 +42,7 @@ export const PlaygroundEnqueueBody = z.object({
     prompt: z.string().optional(),
     negativePrompt: z.string().optional(),
     parameters: ParametersPatch.optional(),
+    count: z.number().int().min(1).max(MAX_IMAGES_PER_JOB).optional(),
     position: EnqueuePosition.optional(),
 })
 export type PlaygroundEnqueueBody = z.infer<typeof PlaygroundEnqueueBody>

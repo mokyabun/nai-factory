@@ -23,6 +23,7 @@ describe('B3: partial updates keep the other fields', () => {
             slideshowImageCount: 8,
             sceneCardSize: 'md',
             outputTemplate: '{scene}.{extension}',
+            defaultImageCount: 1,
         })
     })
 

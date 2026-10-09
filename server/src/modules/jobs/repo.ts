@@ -146,6 +146,20 @@ export function pendingCounts(db: DbOrTx) {
     }
 }
 
+const remainingImages = sql<number>`coalesce(sum(max(0, coalesce(${jobs.totalImages}, ${jobs.repeatCount}) - ${jobs.doneImages})), 0)`
+
+export function pendingImages(db: DbOrTx) {
+    const rows = db
+        .select({ status: jobs.status, images: remainingImages })
+        .from(jobs)
+        .where(inArray(jobs.status, ['queued', 'running']))
+        .groupBy(jobs.status)
+        .all()
+    const queued = rows.find((row) => row.status === 'queued')?.images ?? 0
+    const running = rows.find((row) => row.status === 'running')?.images ?? 0
+    return { queued, total: queued + running }
+}
+
 export function finishedCounts(db: DbOrTx) {
     const rows = db
         .select({ status: jobs.status, count: count() })

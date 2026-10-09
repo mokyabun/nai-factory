@@ -72,7 +72,7 @@ export function selectionMenu(actions: SceneSelectionActions): SceneMenu {
 export function singleSceneMenu(scene: {
     name: string
     queueCount: number
-    pending: { enqueue: boolean; clearQueue: boolean; duplicate: boolean }
+    pending: { clearQueue: boolean; duplicate: boolean }
     onOpenImages: () => void
     onEdit: () => void
     onEnqueue: (position: EnqueuePosition) => void
@@ -93,13 +93,11 @@ export function singleSceneMenu(scene: {
                     label: '큐 앞에 추가',
                     icon: ListStart,
                     onClick: () => scene.onEnqueue('front'),
-                    disabled: scene.pending.enqueue,
                 },
                 {
                     label: '큐 뒤에 추가',
                     icon: ListEnd,
                     onClick: () => scene.onEnqueue('back'),
-                    disabled: scene.pending.enqueue,
                 },
                 {
                     label: scene.queueCount > 0 ? `큐 삭제 (${scene.queueCount})` : '큐 삭제',

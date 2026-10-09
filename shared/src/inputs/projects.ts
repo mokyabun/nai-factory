@@ -1,6 +1,7 @@
 import * as z from 'zod'
 
 import { CharacterPrompt, ParametersPatch, PromptVariable } from '../schemas/common'
+import { MAX_IMAGES_PER_JOB } from '../schemas/job'
 
 export const ProjectListQuery = z.object({
     /** A group id, or `none` for ungrouped projects. Omit for every project. */
@@ -18,6 +19,7 @@ export const ProjectSettingsPatch = z.object({
     slideshowImageCount: z.number().int().min(1).max(10).optional(),
     sceneCardSize: z.enum(['sm', 'md', 'lg']).optional(),
     outputTemplate: z.string().min(1).optional(),
+    defaultImageCount: z.number().int().min(1).max(MAX_IMAGES_PER_JOB).optional(),
 })
 export type ProjectSettingsPatch = z.infer<typeof ProjectSettingsPatch>
 

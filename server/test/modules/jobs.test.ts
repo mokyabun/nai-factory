@@ -456,3 +456,38 @@ describe('references in live mode', () => {
         expect(await t.call(contract.images.list, { query: { sceneId: scene.id } })).toHaveLength(1)
     })
 })
+
+describe('image count when queueing', () => {
+    it('stores the count as repeatCount of scene jobs', async () => {
+        const t = await track(createTestApp())
+        const first = await createScene(t, { poses: ['a', 'b'] })
+        const second = await createScene(t, { projectId: first.projectId, poses: ['c'] })
+        const third = await createScene(t, { projectId: first.projectId, poses: ['d', 'e'] })
+
+        await t.call(contract.jobs.enqueueScenes, {
+            body: { sceneIds: [first.scene.id, second.scene.id, third.scene.id], count: 4 },
+        })
+
+        const queued = await t.call(contract.jobs.list)
+        expect(queued.map((job) => job.totalImages)).toEqual([4, 4, 4, 4, 4])
+        expect((await jobsOf(t)).every((job) => job.repeatCount === 4)).toBe(true)
+        const status = await t.call(contract.jobs.status)
+        expect(status).toMatchObject({ pendingCount: 5, pendingImages: 20 })
+
+        await runQueue(t)
+        const images = await t.call(contract.images.list, { query: { sceneId: first.scene.id } })
+        expect(images).toHaveLength(8)
+        expect((await t.call(contract.jobs.status)).pendingImages).toBe(0)
+    })
+
+    it('stores the count as repeatCount of playground jobs', async () => {
+        const t = await track(createTestApp())
+        await t.call(contract.jobs.enqueuePlayground, { body: { prompt: 'cat', count: 3 } })
+
+        const [job] = await jobsOf(t)
+        expect(job).toMatchObject({ kind: 'playground', repeatCount: 3, totalImages: 3 })
+
+        await runQueue(t)
+        expect(await t.call(contract.playground.images)).toHaveLength(3)
+    })
+})

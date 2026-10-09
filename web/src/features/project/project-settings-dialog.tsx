@@ -1,5 +1,6 @@
 import type { Project, ProjectSettings, SceneSummary } from '@nai-factory/shared'
 
+import { ImageCountInput } from '@/components/image-count-input'
 import {
     Dialog,
     DialogContent,
@@ -32,11 +33,13 @@ export interface ProjectSettingsDialogProps {
     onOpenChange: (open: boolean) => void
     slideshowImageCount: number
     sceneCardSize: ProjectSettings['sceneCardSize']
+    defaultImageCount: number
     project: Project | null
     scenes: SceneSummary[]
     selectedSceneIds: number[]
     onSlideshowImageCountChange: (value: string) => void
     onSceneCardSizeChange: (value: ProjectSettings['sceneCardSize']) => void
+    onDefaultImageCountChange: (value: number) => void
 }
 
 export function ProjectSettingsDialog({
@@ -44,11 +47,13 @@ export function ProjectSettingsDialog({
     onOpenChange,
     slideshowImageCount,
     sceneCardSize,
+    defaultImageCount,
     project,
     scenes,
     selectedSceneIds,
     onSlideshowImageCountChange,
     onSceneCardSizeChange,
+    onDefaultImageCountChange,
 }: ProjectSettingsDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -109,6 +114,18 @@ export function ProjectSettingsDialog({
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                </SettingRow>
+                                <SettingRow
+                                    htmlFor="project-default-image-count"
+                                    label="기본 이미지 수"
+                                    description="씬을 큐에 추가할 때 변수 세트마다 생성할 이미지 수 (1–100)"
+                                >
+                                    <ImageCountInput
+                                        id="project-default-image-count"
+                                        value={defaultImageCount}
+                                        onChange={onDefaultImageCountChange}
+                                        className="w-24"
+                                    />
                                 </SettingRow>
                             </div>
                         </TabsContent>

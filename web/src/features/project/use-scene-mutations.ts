@@ -24,11 +24,19 @@ function invalidateSceneQueue(queryClient: QueryClient, projectId: number) {
     void queryClient.invalidateQueries({ queryKey: qk.scenes.list(projectId) })
 }
 
-function addPendingCount(queryClient: QueryClient, delta: number) {
+function addPending(queryClient: QueryClient, delta: { jobs: number; images: number }) {
     queryClient.setQueryData<QueueStatus>(qk.jobs.status(), (status) =>
-        status ? { ...status, pendingCount: Math.max(0, status.pendingCount + delta) } : status,
+        status
+            ? {
+                  ...status,
+                  pendingCount: Math.max(0, status.pendingCount + delta.jobs),
+                  pendingImages: Math.max(0, status.pendingImages + delta.images),
+              }
+            : status,
     )
 }
+
+export type SceneEnqueueRequest = { sceneIds: number[]; position: EnqueuePosition; count: number }
 
 /** Shared by the grid and the scene cards so both show the same optimistic updates. */
 export function useSceneMutations(projectId: number) {
@@ -119,9 +127,8 @@ export function useSceneMutations(projectId: number) {
     })
 
     const enqueue = useMutation({
-        mutationFn: ({ sceneIds, position }: { sceneIds: number[]; position: EnqueuePosition }) =>
-            call(contract.jobs.enqueueScenes, { body: { sceneIds, position } }),
-        onMutate: async ({ sceneIds }) => {
+        mutationFn: (body: SceneEnqueueRequest) => call(contract.jobs.enqueueScenes, { body }),
+        onMutate: async ({ sceneIds, count }) => {
             const snapshots = await snapshotSceneQueue(queryClient, projectId)
             const sceneIdSet = new Set(sceneIds)
             // The server queues one job per variation.
@@ -135,7 +142,7 @@ export function useSceneMutations(projectId: number) {
                         : scene,
                 ),
             )
-            addPendingCount(queryClient, jobCount)
+            addPending(queryClient, { jobs: jobCount, images: jobCount * count })
             return { snapshots }
         },
         onError: (_error, _variables, context) => {
@@ -155,7 +162,9 @@ export function useSceneMutations(projectId: number) {
             queryClient.setQueryData<SceneSummary[]>(scenesKey, (items) =>
                 items?.map((item) => (sceneIds.has(item.id) ? { ...item, queueCount: 0 } : item)),
             )
-            addPendingCount(queryClient, -scenes.reduce((sum, scene) => sum + scene.queueCount, 0))
+            const jobCount = scenes.reduce((sum, scene) => sum + scene.queueCount, 0)
+            // Image totals per job are unknown here; the refetch corrects them.
+            addPending(queryClient, { jobs: -jobCount, images: 0 })
             return { snapshots }
         },
         onError: (_error, _variables, context) => {

@@ -1,3 +1,4 @@
+import type { EnqueuePosition } from '@nai-factory/shared'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
@@ -9,6 +10,7 @@ import { useLocalOrder } from '@/hooks/use-local-order'
 import { queries } from '@/lib/queries'
 
 import { CreateSceneDialog } from './create-scene-dialog'
+import { EnqueueConfirmDialog } from './enqueue-confirm-dialog'
 import { ExportDialog } from './export-dialog'
 import { ProjectSettingsDialog } from './project-settings-dialog'
 import type { SceneSelectionActions } from './scene-card-menu'
@@ -37,7 +39,12 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
     const settings = useProjectSettings(projectId, projectQuery.data)
     const selection = useDragSelection(items)
     const pageCallbacks = { takeSelection: selection.take, closeDialog }
-    const sceneActions = useProjectSceneActions(projectId, pageCallbacks)
+    const sceneActions = useProjectSceneActions(projectId, pageCallbacks, {
+        project: projectQuery.data,
+        scenes: items,
+    })
+    const [selectionImageCount, setSelectionImageCount] = useState<number | null>(null)
+    const imageCount = selectionImageCount ?? settings.defaultImageCount
     const stash = useProjectStash(projectId, pageCallbacks)
 
     const { selectedIds, orderedSelectedIds: selectedSceneIds } = selection
@@ -45,6 +52,8 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
     const selectMode = selectedCount > 0
     const selectedScenes = items.filter((scene) => selectedIds.has(scene.id))
     const selectedQueueCount = selectedScenes.reduce((sum, scene) => sum + scene.queueCount, 0)
+    const enqueueSelected = (position: EnqueuePosition) =>
+        sceneActions.enqueueScenes(selectedSceneIds, position, imageCount)
     const handleDialogOpenChange = (open: boolean) => {
         if (!open) closeDialog()
     }
@@ -53,7 +62,7 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
         ? {
               count: selectedCount,
               queueCount: selectedQueueCount,
-              onEnqueue: (position) => sceneActions.enqueueScenes(selectedSceneIds, position),
+              onEnqueue: enqueueSelected,
               onClearQueue: () => sceneActions.clearSceneQueues(selectedScenes),
               onDelete: () => setProjectDialog({ type: 'delete-selected' }),
           }
@@ -65,13 +74,18 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
                 sceneCount={items.length}
                 selectedCount={selectedCount}
                 selectedQueueCount={selectedQueueCount}
+                imageCount={imageCount}
+                selectedImageTotal={
+                    sceneActions.summarizeEnqueue(selectedSceneIds, imageCount).total
+                }
                 projectLoaded={!!projectQuery.data}
                 enqueuePending={sceneActions.enqueuePending}
                 clearQueuePending={sceneActions.clearQueuePending}
                 deletePending={sceneActions.deletePending}
                 onSelectAll={selection.selectAll}
                 onClearSelection={selection.clear}
-                onEnqueue={(position) => sceneActions.enqueueScenes(selectedSceneIds, position)}
+                onImageCountChange={setSelectionImageCount}
+                onEnqueue={enqueueSelected}
                 onClearQueue={() => sceneActions.clearSceneQueues(selectedScenes)}
                 onOpenDialog={setProjectDialog}
             />
@@ -89,6 +103,9 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
                     slideshowCount={settings.slideshowImageCount}
                     cardSize={settings.sceneCardSize}
                     selectionActions={selectionActions}
+                    onEnqueueScene={(sceneId, position) =>
+                        sceneActions.enqueueScenes([sceneId], position)
+                    }
                     onReorder={(reordered, patch) => {
                         setOrder(reordered)
                         sceneActions.moveScene(reordered, patch)
@@ -100,6 +117,11 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
                 />
             )}
 
+            <EnqueueConfirmDialog
+                summary={sceneActions.enqueueConfirmation.summary}
+                onCancel={sceneActions.enqueueConfirmation.cancel}
+                onConfirm={sceneActions.enqueueConfirmation.confirm}
+            />
             <CreateSceneDialog
                 open={projectDialog?.type === 'create-scene'}
                 onOpenChange={handleDialogOpenChange}
@@ -123,11 +145,13 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
                 onOpenChange={handleDialogOpenChange}
                 slideshowImageCount={settings.slideshowImageCount}
                 sceneCardSize={settings.sceneCardSize}
+                defaultImageCount={settings.defaultImageCount}
                 project={projectQuery.data ?? null}
                 scenes={items}
                 selectedSceneIds={selectedSceneIds}
                 onSlideshowImageCountChange={settings.setSlideshowImageCount}
                 onSceneCardSizeChange={settings.setSceneCardSize}
+                onDefaultImageCountChange={settings.setDefaultImageCount}
             />
             <StashDialog
                 open={projectDialog?.type === 'stash'}

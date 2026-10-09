@@ -52,42 +52,24 @@ export function deriveQueueState(input: {
 
 export type EstimateInput = {
     now: number
-    /** Waiting jobs per kind, excluding the running one. */
-    waiting: Record<JobKind, number>
+    /** Images of the waiting jobs, excluding the running one. */
+    waitingImages: number
     avgImageMs: number | null
-    avgJobMs: Record<JobKind, number | null>
-    current: Pick<CurrentJob, 'kind' | 'total' | 'done' | 'imageStartedAt'> | null
+    current: Pick<CurrentJob, 'total' | 'done' | 'imageStartedAt'> | null
 }
 
-/** Waiting jobs are estimated per job because their image counts are only known once compiled. */
 export function estimateRemainingMs(input: EstimateInput): number | null {
-    const jobMs = (kind: JobKind) => input.avgJobMs[kind] ?? input.avgImageMs
-    let total = 0
-
-    for (const kind of ['scene', 'playground'] as const) {
-        const count = input.waiting[kind]
-        if (count === 0) continue
-        const average = jobMs(kind)
-        if (average === null) return null
-        total += average * count
-    }
+    if (input.avgImageMs === null) return null
+    let remainingImages = input.waitingImages
+    let elapsed = 0
 
     const current = input.current
     if (current) {
-        if (current.total !== null && input.avgImageMs !== null) {
-            const remaining = Math.max(0, current.total - current.done)
-            const elapsed = current.imageStartedAt
-                ? input.now - current.imageStartedAt.getTime()
-                : 0
-            total += Math.max(0, remaining * input.avgImageMs - elapsed)
-        } else {
-            const average = jobMs(current.kind)
-            if (average === null) return null
-            total += average
-        }
+        remainingImages += Math.max(0, (current.total ?? 1) - current.done)
+        if (current.imageStartedAt) elapsed = input.now - current.imageStartedAt.getTime()
     }
 
-    return total
+    return Math.max(0, remainingImages * input.avgImageMs - elapsed)
 }
 
 export type Scheduler = ReturnType<typeof createScheduler>
@@ -96,10 +78,6 @@ export type Scheduler = ReturnType<typeof createScheduler>
 export function createScheduler(ctx: AppContext) {
     const log = ctx.log.child({ module: 'scheduler' })
     const imageDurations = new RollingSamples(SAMPLE_SIZE)
-    const jobDurations: Record<JobKind, RollingSamples> = {
-        scene: new RollingSamples(SAMPLE_SIZE),
-        playground: new RollingSamples(SAMPLE_SIZE),
-    }
 
     let running = false
     let processing = false
@@ -192,7 +170,6 @@ export function createScheduler(ctx: AppContext) {
         const finishedAt = new Date()
         if (outcome === 'completed') {
             repo.update(ctx.db, job.id, { status: 'completed', finishedAt })
-            jobDurations[job.kind].push(finishedAt.getTime() - startedAt.getTime())
             log.info({ event: 'job.completed', jobId: job.id }, 'Job completed')
         } else if (outcome === 'cancelled') {
             // The row is gone when its scene was deleted; otherwise keep it in the history.
@@ -289,15 +266,11 @@ export function createScheduler(ctx: AppContext) {
             return { running, processing, pauseReason }
         },
 
-        estimate(now: number, waiting: Record<JobKind, number>) {
+        estimate(now: number, waitingImages: number) {
             return estimateRemainingMs({
                 now,
-                waiting,
+                waitingImages,
                 avgImageMs: imageDurations.average(),
-                avgJobMs: {
-                    scene: jobDurations.scene.average(),
-                    playground: jobDurations.playground.average(),
-                },
                 current,
             })
         },

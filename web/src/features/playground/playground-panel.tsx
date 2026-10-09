@@ -83,6 +83,7 @@ export function PlaygroundPanel() {
                     ? {
                           ...status,
                           pendingCount: status.pendingCount + 1,
+                          pendingImages: status.pendingImages + 1,
                           ...(startNow && {
                               pauseReason: null,
                               state: 'running' as const,

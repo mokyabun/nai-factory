@@ -96,6 +96,7 @@ describe('ProjectSettings', () => {
             slideshowImageCount: 8,
             sceneCardSize: 'md',
             outputTemplate: '{character}-{scene}-{number}.{extension}',
+            defaultImageCount: 1,
         })
     })
 })

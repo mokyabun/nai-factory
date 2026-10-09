@@ -7,7 +7,7 @@ import {
     useSensors,
 } from '@dnd-kit/core'
 import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
-import type { ProjectSettings, SceneSummary } from '@nai-factory/shared'
+import type { EnqueuePosition, ProjectSettings, SceneSummary } from '@nai-factory/shared'
 import type { PointerEvent } from 'react'
 
 import { type OrderPatch, reorderById } from '@/lib/reorder'
@@ -23,6 +23,7 @@ interface SceneGridProps {
     slideshowCount: number
     cardSize: ProjectSettings['sceneCardSize']
     selectionActions: SceneSelectionActions | null
+    onEnqueueScene: (sceneId: number, position: EnqueuePosition) => void
     onReorder: (items: SceneSummary[], patch: OrderPatch) => void
     onToggleSelect: (id: number) => void
     onSelectDragStart: (index: number, selected: boolean) => void
@@ -39,6 +40,7 @@ export function SceneGrid({
     slideshowCount,
     cardSize,
     selectionActions,
+    onEnqueueScene,
     onReorder,
     onToggleSelect,
     onSelectDragStart,
@@ -77,6 +79,7 @@ export function SceneGrid({
                             slideshowCount={slideshowCount}
                             cardSize={cardSize}
                             selectionActions={selectionActions}
+                            onEnqueueScene={onEnqueueScene}
                             onToggleSelect={onToggleSelect}
                             onSelectDragStart={onSelectDragStart}
                             onSelectDragEnter={onSelectDragEnter}

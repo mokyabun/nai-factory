@@ -12,6 +12,7 @@ export const emptyQueueStatus: QueueStatus = {
     state: 'idle',
     pauseReason: null,
     pendingCount: 0,
+    pendingImages: 0,
     estimatedSeconds: null,
     current: null,
     avgImageMs: null,

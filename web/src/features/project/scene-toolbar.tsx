@@ -17,12 +17,15 @@ interface SceneToolbarProps {
     sceneCount: number
     selectedCount: number
     selectedQueueCount: number
+    imageCount: number
+    selectedImageTotal: number
     projectLoaded: boolean
     enqueuePending: boolean
     clearQueuePending: boolean
     deletePending: boolean
     onSelectAll: () => void
     onClearSelection: () => void
+    onImageCountChange: (count: number) => void
     onEnqueue: (position: EnqueuePosition) => void
     onClearQueue: () => void
     onOpenDialog: (dialog: ProjectPageDialog) => void
@@ -32,12 +35,15 @@ export function SceneToolbar({
     sceneCount,
     selectedCount,
     selectedQueueCount,
+    imageCount,
+    selectedImageTotal,
     projectLoaded,
     enqueuePending,
     clearQueuePending,
     deletePending,
     onSelectAll,
     onClearSelection,
+    onImageCountChange,
     onEnqueue,
     onClearQueue,
     onOpenDialog,
@@ -51,11 +57,14 @@ export function SceneToolbar({
                     sceneCount={sceneCount}
                     selectedCount={selectedCount}
                     selectedQueueCount={selectedQueueCount}
+                    imageCount={imageCount}
+                    selectedImageTotal={selectedImageTotal}
                     enqueuePending={enqueuePending}
                     clearQueuePending={clearQueuePending}
                     deletePending={deletePending}
                     onSelectAll={onSelectAll}
                     onClearSelection={onClearSelection}
+                    onImageCountChange={onImageCountChange}
                     onEnqueue={onEnqueue}
                     onClearQueue={onClearQueue}
                     onDelete={() => onOpenDialog({ type: 'delete-selected' })}
