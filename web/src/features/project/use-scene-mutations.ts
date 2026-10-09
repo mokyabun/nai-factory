@@ -145,14 +145,17 @@ export function useSceneMutations(projectId: number) {
     })
 
     const clearQueue = useMutation({
-        mutationFn: (scene: SceneSummary) =>
-            call(contract.jobs.clear, { query: { sceneId: scene.id } }),
-        onMutate: async (scene) => {
+        mutationFn: (scenes: SceneSummary[]) =>
+            Promise.all(
+                scenes.map((scene) => call(contract.jobs.clear, { query: { sceneId: scene.id } })),
+            ),
+        onMutate: async (scenes) => {
             const snapshots = await snapshotSceneQueue(queryClient, projectId)
-            queryClient.setQueryData<SceneSummary[]>(scenesKey, (scenes) =>
-                scenes?.map((item) => (item.id === scene.id ? { ...item, queueCount: 0 } : item)),
+            const sceneIds = new Set(scenes.map((scene) => scene.id))
+            queryClient.setQueryData<SceneSummary[]>(scenesKey, (items) =>
+                items?.map((item) => (sceneIds.has(item.id) ? { ...item, queueCount: 0 } : item)),
             )
-            addPendingCount(queryClient, -scene.queueCount)
+            addPendingCount(queryClient, -scenes.reduce((sum, scene) => sum + scene.queueCount, 0))
             return { snapshots }
         },
         onError: (_error, _variables, context) => {

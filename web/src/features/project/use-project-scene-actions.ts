@@ -27,11 +27,13 @@ export function useProjectSceneActions(
             mutations.move.mutate({ ...patch, items }),
         enqueueScenes: (sceneIds: number[], position: EnqueuePosition) =>
             mutations.enqueue.mutate({ sceneIds, position }, restoreOnError()),
+        clearSceneQueues: (scenes: SceneSummary[]) => mutations.clearQueue.mutate(scenes),
         deleteScenes: (sceneIds: number[]) => {
             closeDialog()
             mutations.remove.mutate(sceneIds, restoreOnError())
         },
         enqueuePending: mutations.enqueue.isPending,
+        clearQueuePending: mutations.clearQueue.isPending,
         deletePending: mutations.remove.isPending,
     }
 }

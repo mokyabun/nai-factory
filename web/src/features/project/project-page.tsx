@@ -42,6 +42,8 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
     const { selectedIds, orderedSelectedIds: selectedSceneIds } = selection
     const selectedCount = selectedSceneIds.length
     const selectMode = selectedCount > 0
+    const selectedScenes = items.filter((scene) => selectedIds.has(scene.id))
+    const selectedQueueCount = selectedScenes.reduce((sum, scene) => sum + scene.queueCount, 0)
     const handleDialogOpenChange = (open: boolean) => {
         if (!open) closeDialog()
     }
@@ -54,12 +56,15 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
                 hasScenes={items.length > 0}
                 selectMode={selectMode}
                 selectedCount={selectedCount}
+                selectedQueueCount={selectedQueueCount}
                 projectLoaded={!!projectQuery.data}
                 enqueuePending={sceneActions.enqueuePending}
+                clearQueuePending={sceneActions.clearQueuePending}
                 deletePending={sceneActions.deletePending}
                 onSelectAll={selection.selectAll}
                 onClearSelection={selection.clear}
                 onEnqueue={(position) => sceneActions.enqueueScenes(selectedSceneIds, position)}
+                onClearQueue={() => sceneActions.clearSceneQueues(selectedScenes)}
                 onOpenDialog={setProjectDialog}
             />
 

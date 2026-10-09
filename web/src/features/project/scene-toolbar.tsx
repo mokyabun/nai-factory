@@ -1,5 +1,5 @@
 import type { EnqueuePosition } from '@nai-factory/shared'
-import { Archive, Check, Download, ListPlus, Plus, Settings, Trash2, X } from 'lucide-react'
+import { Archive, Check, Download, ListPlus, ListX, Plus, Settings, Trash2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -16,12 +16,15 @@ interface SceneToolbarProps {
     hasScenes: boolean
     selectMode: boolean
     selectedCount: number
+    selectedQueueCount: number
     projectLoaded: boolean
     enqueuePending: boolean
+    clearQueuePending: boolean
     deletePending: boolean
     onSelectAll: () => void
     onClearSelection: () => void
     onEnqueue: (position: EnqueuePosition) => void
+    onClearQueue: () => void
     onOpenDialog: (dialog: ProjectPageDialog) => void
 }
 
@@ -61,12 +64,15 @@ export function SceneToolbar({
     hasScenes,
     selectMode,
     selectedCount,
+    selectedQueueCount,
     projectLoaded,
     enqueuePending,
+    clearQueuePending,
     deletePending,
     onSelectAll,
     onClearSelection,
     onEnqueue,
+    onClearQueue,
     onOpenDialog,
 }: SceneToolbarProps) {
     return (
@@ -107,6 +113,18 @@ export function SceneToolbar({
                         >
                             <ListPlus className="h-4 w-4" />
                             뒤로 추가
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            onClick={onClearQueue}
+                            disabled={clearQueuePending || selectedQueueCount === 0}
+                        >
+                            <ListX className="h-4 w-4" />큐 삭제
+                            {selectedQueueCount > 0 && (
+                                <span className="text-muted-foreground">{selectedQueueCount}</span>
+                            )}
                         </Button>
                         <Button
                             variant="destructive"

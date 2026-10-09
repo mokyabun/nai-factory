@@ -266,7 +266,7 @@ export function SceneCard({
                             className="min-w-0 flex-1 shrink basis-0 gap-1 rounded-none px-1 text-xs text-muted-foreground hover:text-destructive"
                             aria-label="큐 삭제"
                             onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => clearQueue.mutate(scene)}
+                            onClick={() => clearQueue.mutate([scene])}
                             disabled={clearQueue.isPending || !inQueue}
                         >
                             <Trash2 className="h-3.5 w-3.5" />
