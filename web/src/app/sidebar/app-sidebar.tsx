@@ -52,6 +52,9 @@ const QueuePanel = lazyWithPreload<{ projectId?: number | null }>(() =>
         default: mod.QueuePanel as ComponentType<{ projectId?: number | null }>,
     })),
 )
+const railButtonClassName =
+    'size-12! justify-center p-3! group-data-[collapsible=icon]:size-12! group-data-[collapsible=icon]:p-3! [&_svg]:size-6 [&>span]:sr-only'
+
 interface AppSidebarProps {
     /** The project of the current page, or the last one opened when the page has none. */
     projectId: number | null
@@ -190,7 +193,7 @@ export function AppSidebar({ projectId }: AppSidebarProps) {
                                             }
                                             onClick={() => handleItemClick(item)}
                                             isActive={isSidebarItemActive(item)}
-                                            className="h-10 justify-center p-2.5 [&_svg]:size-5 [&>span]:sr-only"
+                                            className={railButtonClassName}
                                         >
                                             <item.icon />
                                             <span>{item.title}</span>
@@ -210,7 +213,7 @@ export function AppSidebar({ projectId }: AppSidebarProps) {
                                                 }
                                                 onClick={() => handleItemClick(item)}
                                                 isActive={isSidebarItemActive(item)}
-                                                className="h-10 justify-center p-2.5 [&_svg]:size-5 [&>span]:sr-only"
+                                                className={railButtonClassName}
                                             >
                                                 <item.icon />
                                                 <span>{item.title}</span>

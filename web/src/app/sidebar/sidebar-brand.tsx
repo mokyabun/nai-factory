@@ -13,12 +13,12 @@ export function SidebarBrand() {
                     {isMobile ? (
                         <Base.SidebarMenuButton
                             size="lg"
-                            className="h-10 justify-center p-0 [&_svg]:size-5 [&>div:last-child]:sr-only"
+                            className="size-12! justify-center p-0! group-data-[collapsible=icon]:size-12! [&_svg]:size-6 [&>div:last-child]:sr-only"
                             aria-label="사이드바 닫기"
                             onClick={() => setOpenMobile(false)}
                         >
-                            <div className="flex aspect-square size-10 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                                <X className="size-5" />
+                            <div className="flex aspect-square size-12 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                                <X className="size-6" />
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight">
                                 <span className="truncate font-semibold">사이드바 닫기</span>
@@ -28,11 +28,11 @@ export function SidebarBrand() {
                     ) : (
                         <Base.SidebarMenuButton
                             size="lg"
-                            className="h-10 justify-center p-0 [&_svg]:size-5 [&>div:last-child]:sr-only"
+                            className="size-12! justify-center p-0! group-data-[collapsible=icon]:size-12! [&_svg]:size-6 [&>div:last-child]:sr-only"
                             render={<Link to="/" />}
                         >
-                            <div className="flex aspect-square size-10 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                                <Factory className="size-5" />
+                            <div className="flex aspect-square size-12 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                                <Factory className="size-6" />
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight">
                                 <span className="truncate font-semibold">NAI Factory</span>
