@@ -27,15 +27,13 @@ export function useImageMutations({
     projectId,
     latestReorderId,
     onDeleted,
-    onDeleteFailed,
 }: {
     sceneId: number
     projectId: number | undefined
     /** Id of the newest reorder; responses to older ones are ignored. */
     latestReorderId: RefObject<number>
-    /** Clears local selection state and returns the previous selection. */
-    onDeleted: (imageIds: number[]) => Set<number>
-    onDeleteFailed: (previousSelectedIds: Set<number>) => void
+    /** Clears local selection state and returns how to restore it if the delete fails. */
+    onDeleted: (imageIds: number[]) => () => void
 }) {
     const queryClient = useQueryClient()
 
@@ -73,12 +71,12 @@ export function useImageMutations({
                     ),
                 )
             }
-            const previousSelectedIds = onDeleted(imageIds)
-            return { snapshots, projectId, previousSelectedIds }
+            const restoreSelection = onDeleted(imageIds)
+            return { snapshots, projectId, restoreSelection }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshots(queryClient, context?.snapshots)
-            if (context?.previousSelectedIds) onDeleteFailed(context.previousSelectedIds)
+            context?.restoreSelection()
         },
         onSettled: (_data, _error, _variables, context) => {
             void queryClient.invalidateQueries({ queryKey: qk.images.list(sceneId) })

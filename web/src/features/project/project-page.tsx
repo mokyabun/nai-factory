@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { StatusMessage } from '@/components/status-message'
 import { useQueueStatus } from '@/features/queue/use-queue'
+import { useDragSelection } from '@/hooks/use-drag-selection'
 import { useLocalOrder } from '@/hooks/use-local-order'
 import { queries } from '@/lib/queries'
 
@@ -16,7 +17,6 @@ import { StashDialog } from './stash-dialog'
 import { useProjectSceneActions } from './use-project-scene-actions'
 import { useProjectSettings } from './use-project-settings'
 import { useProjectStash } from './use-project-stash'
-import { useSceneSelection } from './use-scene-selection'
 
 export function ProjectPage({ projectId }: { projectId: number }) {
     // Keyed by project, so selection, dialogs and unsaved settings never carry over.
@@ -34,12 +34,12 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
     const closeDialog = () => setProjectDialog(null)
 
     const settings = useProjectSettings(projectId, projectQuery.data)
-    const selection = useSceneSelection(items)
+    const selection = useDragSelection(items)
     const pageCallbacks = { takeSelection: selection.take, closeDialog }
     const sceneActions = useProjectSceneActions(projectId, pageCallbacks)
     const stash = useProjectStash(projectId, pageCallbacks)
 
-    const { selectedIds, selectedSceneIds } = selection
+    const { selectedIds, orderedSelectedIds: selectedSceneIds } = selection
     const selectedCount = selectedSceneIds.length
     const selectMode = selectedCount > 0
     const handleDialogOpenChange = (open: boolean) => {

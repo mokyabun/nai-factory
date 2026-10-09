@@ -11,23 +11,18 @@ import type { Image } from '@nai-factory/shared'
 import { useQuery } from '@tanstack/react-query'
 import { Outlet, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Check, Trash2, X } from 'lucide-react'
-import { type PointerEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { StatusMessage } from '@/components/status-message'
 import { Button } from '@/components/ui/button'
+import { useDragSelection } from '@/hooks/use-drag-selection'
 import { assetUrl } from '@/lib/api'
 import { queries } from '@/lib/queries'
 import { comparePosition, reorderById } from '@/lib/reorder'
 
 import { SortableImageItem } from './sortable-image-item'
 import { useImageMutations } from './use-image-mutations'
-
-interface SelectionDragState {
-    startIndex: number | null
-    action: 'select' | 'deselect'
-    baseSelectedIds: Set<number>
-}
 
 export function ImagesPage({ sceneId }: { sceneId: number }) {
     const navigate = useNavigate()
@@ -38,18 +33,13 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
 
     const [deleteTarget, setDeleteTarget] = useState<Image | null>(null)
     const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false)
-    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set<number>())
-    const selectionDragRef = useRef<SelectionDragState | null>(null)
     const reorderRequestIdRef = useRef(0)
     const images = useMemo(
         () => [...(imagesQuery.data ?? [])].sort(comparePosition),
         [imagesQuery.data],
     )
-    // Ids of images that are gone stay in the set but never count as selected.
-    const selectedImageIds = useMemo(
-        () => images.filter((img) => selectedIds.has(img.id)).map((img) => img.id),
-        [images, selectedIds],
-    )
+    const selection = useDragSelection(images)
+    const { selectedIds, orderedSelectedIds: selectedImageIds } = selection
     const selectedCount = selectedImageIds.length
     const selectMode = selectedCount > 0
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
@@ -59,17 +49,10 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
         projectId: sceneQuery.data?.projectId,
         latestReorderId: reorderRequestIdRef,
         onDeleted: (imageIds) => {
-            const previous = selectedIds
-            setSelectedIds((current) => {
-                const next = new Set(current)
-                for (const id of imageIds) next.delete(id)
-                return next
-            })
             setDeleteTarget(null)
             setDeleteSelectedOpen(false)
-            return previous
+            return selection.take(imageIds)
         },
-        onDeleteFailed: setSelectedIds,
     })
 
     function handleDragEnd(event: DragEndEvent) {
@@ -90,105 +73,6 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
             items: reordered.items,
         })
     }
-
-    function applySelectionDragRange(state: SelectionDragState, targetIndex: number) {
-        if (images.length === 0) return
-
-        if (state.startIndex === null) state.startIndex = targetIndex
-
-        const clampedTargetIndex = Math.min(Math.max(targetIndex, 0), images.length - 1)
-        const from = Math.min(state.startIndex, clampedTargetIndex)
-        const to = Math.max(state.startIndex, clampedTargetIndex)
-        const rangeIds = images.slice(from, to + 1).map((img) => img.id)
-
-        setSelectedIds(() => {
-            const next = new Set(state.baseSelectedIds)
-            for (const id of rangeIds) {
-                if (state.action === 'select') next.add(id)
-                else next.delete(id)
-            }
-            return next
-        })
-    }
-
-    function handleSelectDragStart(index: number, selected: boolean) {
-        const state: SelectionDragState = {
-            startIndex: index,
-            action: selected ? 'deselect' : 'select',
-            baseSelectedIds: new Set(selectedIds),
-        }
-
-        selectionDragRef.current = state
-        applySelectionDragRange(state, index)
-    }
-
-    function handleSelectDragEnter(index: number) {
-        const state = selectionDragRef.current
-        if (!state) return
-
-        applySelectionDragRange(state, index)
-    }
-
-    function handleGridPointerDown(event: PointerEvent<HTMLDivElement>) {
-        if (event.button !== 0 || event.target !== event.currentTarget) return
-
-        event.preventDefault()
-        selectionDragRef.current = {
-            startIndex: null,
-            action: 'select',
-            baseSelectedIds: new Set(selectedIds),
-        }
-    }
-
-    function toggleSelect(id: number) {
-        setSelectedIds((prev) => {
-            const next = new Set(prev)
-            if (next.has(id)) next.delete(id)
-            else next.add(id)
-            return next
-        })
-    }
-
-    function selectAllImages() {
-        setSelectedIds(new Set(images.map((img) => img.id)))
-    }
-
-    function clearSelection() {
-        setSelectedIds(new Set<number>())
-    }
-
-    useEffect(() => {
-        function handlePointerEnd() {
-            selectionDragRef.current = null
-        }
-
-        window.addEventListener('pointerup', handlePointerEnd)
-        window.addEventListener('pointercancel', handlePointerEnd)
-        return () => {
-            window.removeEventListener('pointerup', handlePointerEnd)
-            window.removeEventListener('pointercancel', handlePointerEnd)
-        }
-    }, [])
-
-    useEffect(() => {
-        function handleKeyDown(event: KeyboardEvent) {
-            if (isEditableTarget(event.target)) return
-
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
-                if (images.length === 0) return
-                event.preventDefault()
-                setSelectedIds(new Set(images.map((img) => img.id)))
-                return
-            }
-
-            if (event.key === 'Escape') {
-                setSelectedIds(new Set<number>())
-            }
-        }
-
-        window.addEventListener('keydown', handleKeyDown)
-        return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [images])
 
     function goBack() {
         const projectId = sceneQuery.data?.projectId
@@ -219,7 +103,7 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                             variant="outline"
                             size="sm"
                             className="gap-1.5"
-                            onClick={selectAllImages}
+                            onClick={selection.selectAll}
                             disabled={selectedCount === images.length}
                         >
                             <Check className="h-4 w-4" />
@@ -248,7 +132,7 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                             variant="ghost"
                             size="sm"
                             className="gap-1.5"
-                            onClick={clearSelection}
+                            onClick={selection.clear}
                         >
                             <X className="h-4 w-4" />
                             해제
@@ -272,7 +156,7 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                         >
                             <div
                                 className="grid min-h-0 flex-1 content-start grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 pb-4"
-                                onPointerDown={handleGridPointerDown}
+                                onPointerDown={selection.gridPointerDown}
                             >
                                 {images.map((img, index) => (
                                     <SortableImageItem
@@ -283,7 +167,7 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                                         selected={selectedIds.has(img.id)}
                                         onView={(img) =>
                                             selectMode
-                                                ? toggleSelect(img.id)
+                                                ? selection.toggle(img.id)
                                                 : navigate({
                                                       to: '/scene/$sceneId/images/$imageId',
                                                       params: {
@@ -293,9 +177,9 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                                                   })
                                         }
                                         onDelete={(img) => setDeleteTarget(img)}
-                                        onToggleSelect={toggleSelect}
-                                        onSelectDragStart={handleSelectDragStart}
-                                        onSelectDragEnter={handleSelectDragEnter}
+                                        onToggleSelect={selection.toggle}
+                                        onSelectDragStart={selection.selectDragStart}
+                                        onSelectDragEnter={selection.selectDragEnter}
                                     />
                                 ))}
                             </div>
@@ -324,15 +208,5 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                 onConfirm={() => deleteImages.mutateAsync(selectedImageIds)}
             />
         </>
-    )
-}
-
-function isEditableTarget(target: EventTarget | null) {
-    if (!(target instanceof HTMLElement)) return false
-    return (
-        target.isContentEditable ||
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement
     )
 }
