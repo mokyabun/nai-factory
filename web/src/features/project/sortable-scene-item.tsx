@@ -5,6 +5,7 @@ import type { SceneSummary } from '@nai-factory/shared'
 import { GripHorizontal } from 'lucide-react'
 
 import { SceneCard } from './scene-card'
+import type { SceneSelectionActions } from './scene-card-menu'
 
 interface SortableSceneItemProps {
     scene: SceneSummary
@@ -14,6 +15,7 @@ interface SortableSceneItemProps {
     isProcessing: boolean
     slideshowCount: number
     cardSize: ProjectSettings['sceneCardSize']
+    selectionActions: SceneSelectionActions | null
     onToggleSelect: (id: number) => void
     onSelectDragStart: (index: number, selected: boolean) => void
     onSelectDragEnter: (index: number) => void
@@ -27,6 +29,7 @@ export function SortableSceneItem({
     isProcessing,
     slideshowCount,
     cardSize,
+    selectionActions,
     onToggleSelect,
     onSelectDragStart,
     onSelectDragEnter,
@@ -56,6 +59,7 @@ export function SortableSceneItem({
                 isProcessing={isProcessing}
                 slideshowCount={slideshowCount}
                 cardSize={cardSize}
+                selectionActions={selectionActions}
                 onToggleSelect={onToggleSelect}
                 onSelectDragStart={onSelectDragStart}
             />

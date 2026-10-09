@@ -12,6 +12,7 @@ import type { PointerEvent } from 'react'
 
 import { type OrderPatch, reorderById } from '@/lib/reorder'
 
+import type { SceneSelectionActions } from './scene-card-menu'
 import { SortableSceneItem } from './sortable-scene-item'
 
 interface SceneGridProps {
@@ -21,6 +22,7 @@ interface SceneGridProps {
     processingSceneId: number | null
     slideshowCount: number
     cardSize: ProjectSettings['sceneCardSize']
+    selectionActions: SceneSelectionActions | null
     onReorder: (items: SceneSummary[], patch: OrderPatch) => void
     onToggleSelect: (id: number) => void
     onSelectDragStart: (index: number, selected: boolean) => void
@@ -36,6 +38,7 @@ export function SceneGrid({
     processingSceneId,
     slideshowCount,
     cardSize,
+    selectionActions,
     onReorder,
     onToggleSelect,
     onSelectDragStart,
@@ -73,6 +76,7 @@ export function SceneGrid({
                             isProcessing={scene.id === processingSceneId}
                             slideshowCount={slideshowCount}
                             cardSize={cardSize}
+                            selectionActions={selectionActions}
                             onToggleSelect={onToggleSelect}
                             onSelectDragStart={onSelectDragStart}
                             onSelectDragEnter={onSelectDragEnter}

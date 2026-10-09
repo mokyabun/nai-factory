@@ -10,7 +10,7 @@ export interface ProjectPageCallbacks {
     closeDialog: () => void
 }
 
-/** Queueing and deleting clear the selection and restore it when the request fails. */
+/** Queueing, clearing queues and deleting clear the selection and restore it when the request fails. */
 export function useProjectSceneActions(
     projectId: number,
     { takeSelection, closeDialog }: ProjectPageCallbacks,
@@ -27,7 +27,8 @@ export function useProjectSceneActions(
             mutations.move.mutate({ ...patch, items }),
         enqueueScenes: (sceneIds: number[], position: EnqueuePosition) =>
             mutations.enqueue.mutate({ sceneIds, position }, restoreOnError()),
-        clearSceneQueues: (scenes: SceneSummary[]) => mutations.clearQueue.mutate(scenes),
+        clearSceneQueues: (scenes: SceneSummary[]) =>
+            mutations.clearQueue.mutate(scenes, restoreOnError()),
         deleteScenes: (sceneIds: number[]) => {
             closeDialog()
             mutations.remove.mutate(sceneIds, restoreOnError())

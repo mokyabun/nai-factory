@@ -1,22 +1,14 @@
 import type { EnqueuePosition, ProjectSettings, SceneSummary } from '@nai-factory/shared'
 import { useNavigate } from '@tanstack/react-router'
-import { Check, Copy, Image, ListPlus, Loader, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { Check, Image, ListPlus, Loader, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
-import {
-    ContextMenu,
-    ContextMenuContent,
-    ContextMenuItem,
-    ContextMenuSeparator,
-    ContextMenuTrigger,
-} from '@/components/ui/context-menu'
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@/components/ui/context-menu'
 import {
     DropdownMenu,
     DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ImageProgressBar } from '@/features/queue/generation-progress'
@@ -25,6 +17,13 @@ import { useGenerationStatus } from '@/features/queue/use-queue'
 import { assetUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
+import {
+    SceneContextMenuItems,
+    SceneDropdownMenuItems,
+    type SceneSelectionActions,
+    selectionMenu,
+    singleSceneMenu,
+} from './scene-card-menu'
 import { useSceneMutations } from './use-scene-mutations'
 
 interface SceneCardProps {
@@ -35,6 +34,8 @@ interface SceneCardProps {
     isProcessing?: boolean
     slideshowCount?: number
     cardSize?: ProjectSettings['sceneCardSize']
+    /** Actions for the whole selection; the menu of a selected card uses them. */
+    selectionActions?: SceneSelectionActions | null
     onToggleSelect?: (id: number) => void
     onSelectDragStart?: (index: number, selected: boolean) => void
 }
@@ -59,6 +60,7 @@ export function SceneCard({
     isProcessing = false,
     slideshowCount = 4,
     cardSize = 'md',
+    selectionActions = null,
     onToggleSelect,
     onSelectDragStart,
 }: SceneCardProps) {
@@ -84,6 +86,30 @@ export function SceneCard({
     const { remove, duplicate, enqueue, clearQueue } = useSceneMutations(scene.projectId)
     const enqueueScene = (position: EnqueuePosition) =>
         enqueue.mutate({ sceneIds: [scene.id], position })
+    const openImages = () =>
+        navigate({ to: '/scene/$sceneId/images', params: { sceneId: String(scene.id) } })
+    const openEditor = () =>
+        navigate({ to: '/scene/$sceneId', params: { sceneId: String(scene.id) } })
+
+    const menu =
+        selected && selectionActions
+            ? selectionMenu(selectionActions)
+            : singleSceneMenu({
+                  name: scene.name,
+                  queueCount,
+                  pending: {
+                      enqueue: enqueue.isPending,
+                      clearQueue: clearQueue.isPending,
+                      duplicate: duplicate.isPending,
+                  },
+                  onOpenImages: () => void openImages(),
+                  onEdit: () => void openEditor(),
+                  onEnqueue: enqueueScene,
+                  onClearQueue: () => clearQueue.mutate([scene]),
+                  onSelect: onToggleSelect && (() => onToggleSelect(scene.id)),
+                  onDuplicate: () => duplicate.mutate(scene),
+                  onDelete: () => setDeleteOpen(true),
+              })
 
     return (
         <>
@@ -116,28 +142,7 @@ export function SceneCard({
                             <MoreHorizontal className="h-3.5 w-3.5" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" sideOffset={6}>
-                            <DropdownMenuItem
-                                onClick={() => enqueueScene('front')}
-                                disabled={enqueue.isPending}
-                            >
-                                <ListPlus className="mr-2 h-4 w-4" />큐 맨 앞 추가
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                onClick={() => duplicate.mutate(scene)}
-                                disabled={duplicate.isPending}
-                            >
-                                <Copy className="mr-2 h-4 w-4" />
-                                복제
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => setDeleteOpen(true)}
-                            >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                삭제
-                            </DropdownMenuItem>
+                            <SceneDropdownMenuItems menu={menu} />
                         </DropdownMenuContent>
                     </DropdownMenu>
 
@@ -176,10 +181,7 @@ export function SceneCard({
                                 return
                             }
 
-                            void navigate({
-                                to: '/scene/$sceneId/images',
-                                params: { sceneId: String(scene.id) },
-                            })
+                            void openImages()
                         }}
                     >
                         {currentThumbImg === null ? (
@@ -281,12 +283,7 @@ export function SceneCard({
                             className="min-w-0 flex-1 shrink basis-0 gap-1 rounded-none px-1 text-xs"
                             aria-label="수정"
                             onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() =>
-                                navigate({
-                                    to: '/scene/$sceneId',
-                                    params: { sceneId: String(scene.id) },
-                                })
-                            }
+                            onClick={openEditor}
                         >
                             <Pencil className="h-3.5 w-3.5" />
                             <span className={cn('truncate', cardSize === 'sm' && 'sr-only')}>
@@ -297,28 +294,7 @@ export function SceneCard({
                 </ContextMenuTrigger>
 
                 <ContextMenuContent>
-                    <ContextMenuItem
-                        onClick={() => enqueueScene('front')}
-                        disabled={enqueue.isPending}
-                    >
-                        <ListPlus className="mr-2 h-4 w-4" />큐 맨 앞 추가
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem
-                        onClick={() => duplicate.mutate(scene)}
-                        disabled={duplicate.isPending}
-                    >
-                        <Copy className="mr-2 h-4 w-4" />
-                        복제
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setDeleteOpen(true)}
-                    >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        삭제
-                    </ContextMenuItem>
+                    <SceneContextMenuItems menu={menu} />
                 </ContextMenuContent>
             </ContextMenu>
 

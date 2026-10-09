@@ -11,6 +11,7 @@ import { queries } from '@/lib/queries'
 import { CreateSceneDialog } from './create-scene-dialog'
 import { ExportDialog } from './export-dialog'
 import { ProjectSettingsDialog } from './project-settings-dialog'
+import type { SceneSelectionActions } from './scene-card-menu'
 import { SceneGrid } from './scene-grid'
 import { type ProjectPageDialog, SceneToolbar } from './scene-toolbar'
 import { StashDialog } from './stash-dialog'
@@ -48,13 +49,20 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
         if (!open) closeDialog()
     }
     const current = queueStatus.current
+    const selectionActions: SceneSelectionActions | null = selectMode
+        ? {
+              count: selectedCount,
+              queueCount: selectedQueueCount,
+              onEnqueue: (position) => sceneActions.enqueueScenes(selectedSceneIds, position),
+              onClearQueue: () => sceneActions.clearSceneQueues(selectedScenes),
+              onDelete: () => setProjectDialog({ type: 'delete-selected' }),
+          }
+        : null
 
     return (
         <div className="flex h-full flex-col gap-4">
             <SceneToolbar
                 sceneCount={items.length}
-                hasScenes={items.length > 0}
-                selectMode={selectMode}
                 selectedCount={selectedCount}
                 selectedQueueCount={selectedQueueCount}
                 projectLoaded={!!projectQuery.data}
@@ -80,6 +88,7 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
                     processingSceneId={current?.kind === 'scene' ? current.sceneId : null}
                     slideshowCount={settings.slideshowImageCount}
                     cardSize={settings.sceneCardSize}
+                    selectionActions={selectionActions}
                     onReorder={(reordered, patch) => {
                         setOrder(reordered)
                         sceneActions.moveScene(reordered, patch)
