@@ -137,6 +137,10 @@ function PromptPanelContent({ projectId }: { projectId: number }) {
                         <CharacterPromptEditor
                             characterPrompts={project.characterPrompts ?? []}
                             variables={completionVariables}
+                            usePositions={project.parameters.useCharacterPositions}
+                            onUsePositionsChange={(enabled) =>
+                                handleParameterChange('useCharacterPositions', enabled)
+                            }
                             onChange={handleCharacterPromptsChange}
                         />
 

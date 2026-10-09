@@ -76,3 +76,20 @@ export const NovelAICharacterPrompt = z.object({
     uc: z.string(),
 })
 export type NovelAICharacterPrompt = z.infer<typeof NovelAICharacterPrompt>
+
+/** Cell centers of NovelAI's 5×5 character position grid, per axis. */
+export const CHARACTER_GRID_STEPS = [0.1, 0.3, 0.5, 0.7, 0.9] as const
+
+export const DEFAULT_CHARACTER_CENTER = { x: 0.5, y: 0.5 }
+
+const CHARACTER_GRID_COLUMNS = ['A', 'B', 'C', 'D', 'E'] as const
+
+function nearestGridIndex(value: number) {
+    const index = Math.round((value - CHARACTER_GRID_STEPS[0]) / 0.2)
+    return Math.min(CHARACTER_GRID_STEPS.length - 1, Math.max(0, index))
+}
+
+/** Grid cell of a center as NovelAI names it: column `A`–`E` from the left, row `1`–`5` from the top. */
+export function characterGridCell(center: { x: number; y: number }) {
+    return `${CHARACTER_GRID_COLUMNS[nearestGridIndex(center.x)]}${nearestGridIndex(center.y) + 1}`
+}

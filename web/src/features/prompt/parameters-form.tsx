@@ -11,7 +11,7 @@ import { LabeledSlider, NumberField, SelectField, ToggleRow } from '@/components
 interface ParametersFormProps {
     parameters: Parameters
     onChange: <K extends keyof Parameters>(key: K, value: Parameters[K]) => void
-    /** Projects also place characters and use references; Playground does neither. */
+    /** Projects also use references; Playground does not. */
     scope: 'project' | 'playground'
 }
 
@@ -116,13 +116,6 @@ export function ParametersForm({ parameters, onChange, scope }: ParametersFormPr
                     disabled={isV5}
                     onChange={(checked) => onChange('varietyPlus', checked)}
                 />
-                {scope === 'project' && (
-                    <ToggleRow
-                        label="캐릭터 위치 사용"
-                        checked={parameters.useCharacterPositions}
-                        onChange={(checked) => onChange('useCharacterPositions', checked)}
-                    />
-                )}
             </div>
         </div>
     )

@@ -1,4 +1,5 @@
 import {
+    DEFAULT_CHARACTER_CENTER,
     NOVEL_AI_NOISE_SCHEDULES,
     NOVEL_AI_SAMPLERS,
     type NovelAINoiseSchedule,
@@ -52,7 +53,7 @@ export function buildProjectPatch(preset: SdPreset | undefined, options: SdStudi
     if (options.importCharacterPrompts && preset.characterPrompts) {
         patch.characterPrompts = preset.characterPrompts.map((prompt) => ({
             enabled: prompt.enabled ?? true,
-            center: prompt.center ?? { x: 0.5, y: 0.5 },
+            center: prompt.center ?? { ...DEFAULT_CHARACTER_CENTER },
             prompt: prompt.prompt ?? '',
             uc: prompt.uc ?? '',
         }))

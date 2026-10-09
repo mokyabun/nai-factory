@@ -16,7 +16,11 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { CharacterPrompt, PromptVariable } from '@nai-factory/shared'
+import {
+    type CharacterPrompt,
+    DEFAULT_CHARACTER_CENTER,
+    type PromptVariable,
+} from '@nai-factory/shared'
 import { Check, GripVertical, Plus, Trash2, X } from 'lucide-react'
 import { useMemo } from 'react'
 
@@ -25,17 +29,28 @@ import { StatusMessage } from '@/components/status-message'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
+import { CharacterPositionPicker } from './character-position-picker'
 import { createPromptCompletionSource } from './tag-autocomplete'
 
 interface SortableItemProps {
     id: number
     cp: CharacterPrompt
     completionSource: CompletionSource
+    usePositions: boolean
+    onUsePositionsChange: (enabled: boolean) => void
     onUpdate: (updated: Partial<CharacterPrompt>) => void
     onRemove: () => void
 }
 
-function SortableItem({ id, cp, completionSource, onUpdate, onRemove }: SortableItemProps) {
+function SortableItem({
+    id,
+    cp,
+    completionSource,
+    usePositions,
+    onUsePositionsChange,
+    onUpdate,
+    onRemove,
+}: SortableItemProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id,
     })
@@ -50,7 +65,7 @@ function SortableItem({ id, cp, completionSource, onUpdate, onRemove }: Sortable
         <div ref={setNodeRef} style={style}>
             <Tabs
                 defaultValue="prompt"
-                className="flex h-[200px] shrink-0 flex-col overflow-hidden border scrollbar-thin"
+                className="relative flex h-[200px] shrink-0 flex-col overflow-hidden border scrollbar-thin"
             >
                 <TabsList className="bg-transparent w-full shrink-0 justify-between my-1 pr-2">
                     <div className="flex items-center">
@@ -69,7 +84,7 @@ function SortableItem({ id, cp, completionSource, onUpdate, onRemove }: Sortable
                             부정 프롬프트
                         </TabsTrigger>
                     </div>
-                    <div>
+                    <div className="flex items-center">
                         <Button
                             variant="ghost"
                             size="icon-xs"
@@ -112,6 +127,13 @@ function SortableItem({ id, cp, completionSource, onUpdate, onRemove }: Sortable
                         onChange={(value) => onUpdate({ uc: value })}
                     />
                 </TabsContent>
+                <CharacterPositionPicker
+                    center={cp.center}
+                    enabled={usePositions}
+                    onCenterChange={(center) => onUpdate({ center })}
+                    onEnabledChange={onUsePositionsChange}
+                    className="absolute right-1.5 bottom-1.5 z-10"
+                />
             </Tabs>
         </div>
     )
@@ -120,6 +142,9 @@ function SortableItem({ id, cp, completionSource, onUpdate, onRemove }: Sortable
 interface CharacterPromptProps {
     characterPrompts: CharacterPrompt[]
     variables?: PromptVariable
+    /** `useCharacterPositions` of the parameters; toggled from each character's position picker. */
+    usePositions: boolean
+    onUsePositionsChange: (enabled: boolean) => void
     /** Edits are saved after a pause; adding, removing and reordering save at once. */
     onChange: (characterPrompts: CharacterPrompt[], options?: { immediate?: boolean }) => void
 }
@@ -127,6 +152,8 @@ interface CharacterPromptProps {
 export function CharacterPromptEditor({
     characterPrompts,
     variables = [],
+    usePositions,
+    onUsePositionsChange,
     onChange,
 }: CharacterPromptProps) {
     const completionSource = useMemo(() => createPromptCompletionSource(variables), [variables])
@@ -138,7 +165,15 @@ export function CharacterPromptEditor({
 
     function addCharacter() {
         onChange(
-            [...characterPrompts, { enabled: true, center: { x: 0, y: 0 }, prompt: '', uc: '' }],
+            [
+                ...characterPrompts,
+                {
+                    enabled: true,
+                    center: { ...DEFAULT_CHARACTER_CENTER },
+                    prompt: '',
+                    uc: '',
+                },
+            ],
             { immediate: true },
         )
     }
@@ -184,6 +219,8 @@ export function CharacterPromptEditor({
                                     id={i}
                                     cp={cp}
                                     completionSource={completionSource}
+                                    usePositions={usePositions}
+                                    onUsePositionsChange={onUsePositionsChange}
                                     onUpdate={(updated) => updateCharacter(i, updated)}
                                     onRemove={() => removeCharacter(i)}
                                 />
