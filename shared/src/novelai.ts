@@ -93,3 +93,14 @@ function nearestGridIndex(value: number) {
 export function characterGridCell(center: { x: number; y: number }) {
     return `${CHARACTER_GRID_COLUMNS[nearestGridIndex(center.x)]}${nearestGridIndex(center.y) + 1}`
 }
+
+export const FREE_GENERATION_MAX_PIXELS = 1024 * 1024
+export const FREE_GENERATION_MAX_STEPS = 28
+
+/** Opus rule from docs.novelai.net/en/subscription: one image, at most 1024×1024 pixels and 28 steps. */
+export function isFreeGeneration(parameters: { width: number; height: number; steps: number }) {
+    return (
+        parameters.width * parameters.height <= FREE_GENERATION_MAX_PIXELS &&
+        parameters.steps <= FREE_GENERATION_MAX_STEPS
+    )
+}

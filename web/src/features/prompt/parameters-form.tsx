@@ -1,4 +1,6 @@
 import {
+    FREE_GENERATION_MAX_STEPS,
+    isFreeGeneration,
     isNovelAIV5Model,
     NOVEL_AI_MODEL_OPTIONS,
     NOVEL_AI_NOISE_SCHEDULE_OPTIONS,
@@ -7,6 +9,9 @@ import {
 } from '@nai-factory/shared'
 
 import { LabeledSlider, NumberField, SelectField, ToggleRow } from '@/components/form-fields'
+import { Badge } from '@/components/ui/badge'
+
+import { ImageSizeField } from './image-size-field'
 
 interface ParametersFormProps {
     parameters: Parameters
@@ -36,26 +41,27 @@ export function ParametersForm({ parameters, onChange, scope }: ParametersFormPr
                 </p>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-                <NumberField
-                    id={id('width')}
-                    label="너비"
-                    value={parameters.width}
-                    min={64}
-                    max={2048}
-                    step={64}
-                    onChange={(value) => onChange('width', value)}
-                />
-                <NumberField
-                    id={id('height')}
-                    label="높이"
-                    value={parameters.height}
-                    min={64}
-                    max={2048}
-                    step={64}
-                    onChange={(value) => onChange('height', value)}
-                />
-            </div>
+            {!isFreeGeneration(parameters) && (
+                <div className="flex items-start gap-2">
+                    <Badge variant="destructive" className="shrink-0">
+                        Anlas 소모
+                    </Badge>
+                    <p className="text-xs text-muted-foreground">
+                        1024×1024 픽셀 또는 {FREE_GENERATION_MAX_STEPS} 스텝을 넘으면 Opus
+                        구독에서도 Anlas를 소모합니다.
+                    </p>
+                </div>
+            )}
+
+            <ImageSizeField
+                idPrefix={id('size')}
+                width={parameters.width}
+                height={parameters.height}
+                onChange={(size) => {
+                    onChange('width', size.width)
+                    onChange('height', size.height)
+                }}
+            />
 
             <LabeledSlider
                 label="스텝"
