@@ -1,11 +1,11 @@
 import type { GroupNode } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
+import { useNavigate, useRouter } from '@tanstack/react-router'
 import { Provider, useAtom } from 'jotai'
 
 import * as Base from '@/components/ui/sidebar'
-import { call, contract } from '@/lib/api'
-import { qk } from '@/lib/queries'
+import { useRouteIds } from '@/hooks/use-active-project-id'
+import { queries } from '@/lib/queries'
 
 import {
     type ActiveRenameTarget,
@@ -16,7 +16,7 @@ import {
 } from './atom'
 import { ProjectDialogs } from './project-dialogs'
 import { ProjectTree } from './project-tree'
-import { collectGroupProjects, getCurrentProjectId } from './project-tree-cache'
+import { collectGroupProjects } from './project-tree-cache'
 import { useProjectTree } from './use-project-tree'
 
 export function SidebarProject() {
@@ -30,7 +30,6 @@ export function SidebarProject() {
 function SidebarProjectContent() {
     const navigate = useNavigate()
     const router = useRouter()
-    const pathname = useRouterState({ select: (state) => state.location.pathname })
     const queryClient = useQueryClient()
     const {
         groupsQuery,
@@ -57,7 +56,7 @@ function SidebarProjectContent() {
     const createProjectGroup =
         projectDialog?.type === 'create-project' ? projectDialog.group : undefined
 
-    const currentProjectId = getCurrentProjectId(pathname)
+    const { projectId: currentProjectId } = useRouteIds()
 
     function startRename(target: ActiveRenameTarget, name: string) {
         setRenameTarget(target)
@@ -105,15 +104,8 @@ function SidebarProjectContent() {
             })
             .catch(() => undefined)
 
-        void queryClient.prefetchQuery({
-            queryKey: qk.projects.get(projectId),
-            queryFn: () => call(contract.projects.get, { params: { id: projectId } }),
-        })
-
-        void queryClient.prefetchQuery({
-            queryKey: qk.scenes.list(projectId),
-            queryFn: () => call(contract.scenes.list, { query: { projectId } }),
-        })
+        void queryClient.prefetchQuery(queries.projects.get(projectId))
+        void queryClient.prefetchQuery(queries.scenes.list(projectId))
     }
 
     async function handleDeleteGroup(group: GroupNode) {

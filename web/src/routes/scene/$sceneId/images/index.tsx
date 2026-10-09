@@ -17,8 +17,8 @@ import { ConfirmDeleteDialog } from '@/components/app/dialogs/confirm-delete-dia
 import { SortableImageItem } from '@/components/app/project/sortable-image-item'
 import { Button } from '@/components/ui/button'
 import { useSceneImageActions } from '@/hooks/use-scene-image-actions'
-import { assetUrl, call, contract } from '@/lib/api'
-import { qk } from '@/lib/queries'
+import { assetUrl } from '@/lib/api'
+import { queries } from '@/lib/queries'
 import { comparePosition, reorderById } from '@/lib/reorder'
 
 export const Route = createFileRoute('/scene/$sceneId/images/')({ component: ImagesPage })
@@ -34,15 +34,9 @@ function ImagesPage() {
     const navigate = useNavigate()
     const scenId = Number(sceneId)
 
-    const sceneQuery = useQuery({
-        queryKey: qk.scenes.get(scenId),
-        queryFn: () => call(contract.scenes.get, { params: { id: scenId } }),
-    })
+    const sceneQuery = useQuery(queries.scenes.get(scenId))
 
-    const imagesQuery = useQuery({
-        queryKey: qk.images.list(scenId),
-        queryFn: () => call(contract.images.list, { query: { sceneId: scenId } }),
-    })
+    const imagesQuery = useQuery(queries.images.list(scenId))
 
     const [deleteTarget, setDeleteTarget] = useState<Image | null>(null)
     const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false)

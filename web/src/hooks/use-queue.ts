@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { call, contract } from '@/lib/api'
 import { imageProgress, remainingSeconds, toServerNow } from '@/lib/generation-progress'
 import { restoreSnapshot, restoreSnapshots, snapshotQueries, snapshotQuery } from '@/lib/optimistic'
-import { qk } from '@/lib/queries'
+import { matchesKey, qk, queries } from '@/lib/queries'
 
 export const emptyQueueStatus: QueueStatus = {
     state: 'idle',
@@ -21,10 +21,7 @@ export const emptyQueueStatus: QueueStatus = {
 }
 
 export function useQueueStatus() {
-    const query = useQuery({
-        queryKey: qk.jobs.status(),
-        queryFn: () => call(contract.jobs.status),
-    })
+    const query = useQuery(queries.jobs.status())
 
     return {
         status: query.data ?? emptyQueueStatus,
@@ -35,10 +32,7 @@ export function useQueueStatus() {
 
 /** Finished jobs, newest first (kept in the database, so they survive restarts). */
 export function useJobHistory() {
-    return useQuery({
-        queryKey: qk.jobs.history(),
-        queryFn: () => call(contract.jobs.history, { query: { limit: 50 } }),
-    })
+    return useQuery(queries.jobs.history())
 }
 
 /** Server-clock time that ticks every second while `active`, for elapsed-time displays. */
@@ -75,10 +69,6 @@ export function useGenerationStatus() {
 
 function invalidateQueue(queryClient: QueryClient) {
     void queryClient.invalidateQueries({ queryKey: qk.jobs.all() })
-}
-
-function isJobList(queryKey: readonly unknown[]) {
-    return queryKey[0] === 'jobs' && queryKey[1] === 'list'
 }
 
 export function useQueueActions() {
@@ -128,11 +118,12 @@ export function useQueueActions() {
         mutationFn: () => call(contract.jobs.clear, { query: {} }),
         onMutate: async () => {
             const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) => isJobList(query.queryKey) || query.queryKey[0] === 'scenes',
+                predicate: (query) =>
+                    matchesKey(query.queryKey, qk.jobs.lists()) ||
+                    matchesKey(query.queryKey, qk.scenes.all()),
             })
-            queryClient.setQueriesData<Job[]>(
-                { predicate: (query) => isJobList(query.queryKey) },
-                (jobs) => jobs?.filter((job) => job.status === 'running'),
+            queryClient.setQueriesData<Job[]>({ queryKey: qk.jobs.lists() }, (jobs) =>
+                jobs?.filter((job) => job.status === 'running'),
             )
             queryClient.setQueriesData<SceneSummary[]>({ queryKey: qk.scenes.all() }, (scenes) =>
                 Array.isArray(scenes)

@@ -1,4 +1,4 @@
-import type { ProjectSettings, SceneSummary } from '@nai-factory/shared'
+import type { EnqueuePosition, ProjectSettings, SceneSummary } from '@nai-factory/shared'
 import { useNavigate } from '@tanstack/react-router'
 import { Provider, useAtom } from 'jotai'
 import { Check, Copy, Image, ListPlus, Loader, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
@@ -22,7 +22,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useGenerationStatus } from '@/hooks/use-queue'
-import { useSceneCardActions } from '@/hooks/use-scene-card-actions'
+import { useSceneMutations } from '@/hooks/use-scene-mutations'
 import { assetUrl } from '@/lib/api'
 import { formatSeconds } from '@/lib/generation-progress'
 import { cn } from '@/lib/utils'
@@ -116,7 +116,9 @@ function SceneCardContent({
 
     const currentThumbImg = cycleImages[currentThumbIndex] ?? null
 
-    const { deleteScene, duplicateScene, enqueue, clearQueue } = useSceneCardActions(scene)
+    const { remove, duplicate, enqueue, clearQueue } = useSceneMutations(scene.projectId)
+    const enqueueScene = (position: EnqueuePosition) =>
+        enqueue.mutate({ sceneIds: [scene.id], position })
 
     return (
         <>
@@ -150,15 +152,15 @@ function SceneCardContent({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" sideOffset={6}>
                             <DropdownMenuItem
-                                onClick={() => enqueue.mutate('front')}
+                                onClick={() => enqueueScene('front')}
                                 disabled={enqueue.isPending}
                             >
                                 <ListPlus className="mr-2 h-4 w-4" />큐 맨 앞 추가
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                                onClick={() => duplicateScene.mutate()}
-                                disabled={duplicateScene.isPending}
+                                onClick={() => duplicate.mutate(scene)}
+                                disabled={duplicate.isPending}
                             >
                                 <Copy className="mr-2 h-4 w-4" />
                                 복제
@@ -288,7 +290,7 @@ function SceneCardContent({
                             className="min-w-0 flex-1 shrink basis-0 gap-1 rounded-none px-1 text-xs"
                             aria-label="큐 추가"
                             onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => enqueue.mutate('back')}
+                            onClick={() => enqueueScene('back')}
                             disabled={enqueue.isPending}
                         >
                             <ListPlus className="h-3.5 w-3.5" />
@@ -303,7 +305,7 @@ function SceneCardContent({
                             className="min-w-0 flex-1 shrink basis-0 gap-1 rounded-none px-1 text-xs text-muted-foreground hover:text-destructive"
                             aria-label="큐 삭제"
                             onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => clearQueue.mutate()}
+                            onClick={() => clearQueue.mutate(scene)}
                             disabled={clearQueue.isPending || !inQueue}
                         >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -335,15 +337,15 @@ function SceneCardContent({
 
                 <ContextMenuContent>
                     <ContextMenuItem
-                        onClick={() => enqueue.mutate('front')}
+                        onClick={() => enqueueScene('front')}
                         disabled={enqueue.isPending}
                     >
                         <ListPlus className="mr-2 h-4 w-4" />큐 맨 앞 추가
                     </ContextMenuItem>
                     <ContextMenuSeparator />
                     <ContextMenuItem
-                        onClick={() => duplicateScene.mutate()}
-                        disabled={duplicateScene.isPending}
+                        onClick={() => duplicate.mutate(scene)}
+                        disabled={duplicate.isPending}
                     >
                         <Copy className="mr-2 h-4 w-4" />
                         복제
@@ -364,7 +366,7 @@ function SceneCardContent({
                 onOpenChange={setDeleteOpen}
                 title="씬 삭제"
                 description={`"${scene.name}" 씬과 모든 생성된 이미지를 삭제합니다. 되돌릴 수 없습니다.`}
-                onConfirm={() => deleteScene.mutate()}
+                onConfirm={() => remove.mutate([scene.id])}
             />
         </>
     )

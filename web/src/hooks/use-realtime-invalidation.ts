@@ -1,14 +1,18 @@
 import { EVENTS_PATH, type QueueStatus, type RealtimeEvent } from '@nai-factory/shared'
-import type { QueryClient, QueryKey } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 
-import { qk } from '@/lib/queries'
+import { matchesKey, qk } from '@/lib/queries'
 
-const REALTIME_ROOTS = new Set(['jobs', 'images', 'scenes', 'playground', 'settings', 'debug'])
-
-function isNovelAIStatus(queryKey: QueryKey) {
-    return queryKey[0] === 'settings' && queryKey[1] === 'novelai-status'
-}
+/** Queries that realtime events keep fresh. */
+const REALTIME_KEYS = [
+    qk.jobs.all(),
+    qk.images.all(),
+    qk.scenes.all(),
+    qk.playground.all(),
+    qk.settings.all(),
+    qk.debug.all(),
+]
 
 /**
  * After a `resync` (missed events could not be replayed) refetch every active query that
@@ -18,8 +22,8 @@ export function syncActiveRealtimeQueries(queryClient: QueryClient) {
     void queryClient.invalidateQueries({
         predicate: (query) =>
             query.isActive() &&
-            REALTIME_ROOTS.has(String(query.queryKey[0])) &&
-            !isNovelAIStatus(query.queryKey),
+            REALTIME_KEYS.some((key) => matchesKey(query.queryKey, key)) &&
+            !matchesKey(query.queryKey, qk.settings.novelAIStatus()),
     })
 }
 

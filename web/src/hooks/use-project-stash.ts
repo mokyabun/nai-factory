@@ -9,9 +9,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAtom, useSetAtom } from 'jotai'
 
 import { call, contract } from '@/lib/api'
-import { restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
-import { optimisticSceneSummaries, tempId } from '@/lib/optimistic-scenes'
-import { matchesKey, qk } from '@/lib/queries'
+import { restoreSnapshots, snapshotQueries, tempId } from '@/lib/optimistic'
+import { optimisticSceneSummaries } from '@/lib/optimistic-scenes'
+import { matchesKey, qk, queries } from '@/lib/queries'
 import {
     projectPageDialogAtom,
     sceneItemsAtom,
@@ -25,10 +25,7 @@ export function useProjectStash(projectId: number) {
     const [selectedIds, setSelectedIds] = useAtom(selectedSceneIdsSetAtom)
     const setProjectDialog = useSetAtom(projectPageDialogAtom)
 
-    const stashQuery = useQuery({
-        queryKey: qk.stash.list(),
-        queryFn: () => call(contract.stash.list, { query: {} }),
-    })
+    const stashQuery = useQuery(queries.stash.list())
 
     const save = useMutation({
         mutationFn: (body: StashCreateBody) => call(contract.stash.create, { body }),
@@ -77,7 +74,7 @@ export function useProjectStash(projectId: number) {
                 predicate: (query) =>
                     matchesKey(query.queryKey, qk.projects.get(projectId)) ||
                     matchesKey(query.queryKey, qk.scenes.list(projectId)) ||
-                    query.queryKey[0] === 'jobs',
+                    matchesKey(query.queryKey, qk.jobs.all()),
             })
             const stashItem = stashQuery.data?.find((item) => item.id === id)
             if (stashItem?.type === 'prompt') {

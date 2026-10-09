@@ -20,7 +20,7 @@ import { Slider } from '@/components/ui/slider'
 import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
 import { assetUrl, call, contract } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
-import { qk } from '@/lib/queries'
+import { qk, queries } from '@/lib/queries'
 import type { OrderPatch } from '@/lib/reorder'
 
 import {
@@ -176,10 +176,7 @@ export function VibeTransferEditor({ projectId }: VibeTransferEditorProps) {
     const items = useAtomValue(vibeTransferItemsAtom)
     const setItems = useSetAtom(vibeTransferItemsAtom)
 
-    const query = useQuery({
-        queryKey: qk.projects.vibeTransfers(projectId),
-        queryFn: () => call(contract.projects.vibeTransfers, { params: { id: projectId } }),
-    })
+    const query = useQuery(queries.projects.vibeTransfers(projectId))
 
     useEffect(() => {
         if (query.data) setItems(query.data)

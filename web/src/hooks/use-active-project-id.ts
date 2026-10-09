@@ -1,23 +1,25 @@
 import { useQuery } from '@tanstack/react-query'
+import { useParams } from '@tanstack/react-router'
 
-import { call, contract } from '@/lib/api'
-import { qk } from '@/lib/queries'
+import { queries } from '@/lib/queries'
 
-function idFromPath(pathname: string, prefix: string) {
-    if (!pathname.startsWith(prefix)) return null
-
-    const id = Number(pathname.split('/')[2])
-    return Number.isFinite(id) && id > 0 ? id : null
+function toId(value: string | undefined) {
+    const id = Number(value)
+    return Number.isInteger(id) && id > 0 ? id : null
 }
 
-export function useActiveProjectId(pathname: string) {
-    const projectId = idFromPath(pathname, '/project/')
-    const sceneId = idFromPath(pathname, '/scene/')
+/** Project and scene ids of the current route, or null where the route has none. */
+export function useRouteIds() {
+    const params = useParams({ strict: false })
+    return { projectId: toId(params.projectId), sceneId: toId(params.sceneId) }
+}
 
+/** The project the current route belongs to: its own id, or the project of the open scene. */
+export function useActiveProjectId() {
+    const { projectId, sceneId } = useRouteIds()
     const sceneQuery = useQuery({
-        queryKey: qk.scenes.get(sceneId ?? 0),
-        queryFn: () => call(contract.scenes.get, { params: { id: sceneId as number } }),
-        enabled: sceneId !== null,
+        ...queries.scenes.get(sceneId ?? 0),
+        enabled: projectId === null && sceneId !== null,
     })
 
     return projectId ?? sceneQuery.data?.projectId ?? null

@@ -15,8 +15,7 @@ import { useProjectSettings } from '@/hooks/use-project-settings'
 import { useProjectStash } from '@/hooks/use-project-stash'
 import { useQueueStatus } from '@/hooks/use-queue'
 import { useSceneSelection } from '@/hooks/use-scene-selection'
-import { call, contract } from '@/lib/api'
-import { qk } from '@/lib/queries'
+import { queries } from '@/lib/queries'
 
 import {
     hasScenesAtom,
@@ -42,14 +41,8 @@ function ProjectPageContent() {
     const { projectId } = Route.useParams()
     const projId = Number(projectId)
 
-    const projectQuery = useQuery({
-        queryKey: qk.projects.get(projId),
-        queryFn: () => call(contract.projects.get, { params: { id: projId } }),
-    })
-    const scenesQuery = useQuery({
-        queryKey: qk.scenes.list(projId),
-        queryFn: () => call(contract.scenes.list, { query: { projectId: projId } }),
-    })
+    const projectQuery = useQuery(queries.projects.get(projId))
+    const scenesQuery = useQuery(queries.scenes.list(projId))
     const { status: queueStatus } = useQueueStatus()
 
     const [items, setItems] = useAtom(sceneItemsAtom)
@@ -62,10 +55,7 @@ function ProjectPageContent() {
 
     const settings = useProjectSettings(projectQuery.data)
     const selection = useSceneSelection(items, selectedIds)
-    const { createScene, moveScene, enqueueScenes, deleteScenes } = useProjectSceneActions(
-        projId,
-        scenesQuery.data,
-    )
+    const sceneActions = useProjectSceneActions(projId)
     const stash = useProjectStash(projId)
 
     // Mirror the server list locally so drags render immediately; drop stale selections.
@@ -92,13 +82,11 @@ function ProjectPageContent() {
                 selectMode={selectMode}
                 selectedCount={selectedCount}
                 projectLoaded={!!projectQuery.data}
-                enqueuePending={enqueueScenes.isPending}
-                deletePending={deleteScenes.isPending}
+                enqueuePending={sceneActions.enqueuePending}
+                deletePending={sceneActions.deletePending}
                 onSelectAll={selection.selectAll}
                 onClearSelection={selection.clear}
-                onEnqueue={(position) =>
-                    enqueueScenes.mutate({ sceneIds: selectedSceneIds, position })
-                }
+                onEnqueue={(position) => sceneActions.enqueueScenes(selectedSceneIds, position)}
                 onOpenDialog={setProjectDialog}
             />
 
@@ -118,10 +106,7 @@ function ProjectPageContent() {
                     processingSceneId={current?.kind === 'scene' ? current.sceneId : null}
                     slideshowCount={settings.slideshowImageCount}
                     cardSize={settings.sceneCardSize}
-                    onReorder={(reordered, patch) => {
-                        setItems(reordered)
-                        moveScene.mutate(patch)
-                    }}
+                    onReorder={sceneActions.moveScene}
                     onToggleSelect={selection.toggle}
                     onSelectDragStart={selection.selectDragStart}
                     onSelectDragEnter={selection.selectDragEnter}
@@ -132,14 +117,14 @@ function ProjectPageContent() {
             <CreateSceneDialog
                 open={projectDialog?.type === 'create-scene'}
                 onOpenChange={closeDialog}
-                onCreate={(name) => createScene.mutate(name)}
+                onCreate={sceneActions.createScene}
             />
             <ConfirmDeleteDialog
                 open={projectDialog?.type === 'delete-selected'}
                 onOpenChange={closeDialog}
                 title="선택 씬 삭제"
                 description={`선택한 씬 ${selectedCount}개와 모든 생성된 이미지를 삭제합니다. 되돌릴 수 없습니다.`}
-                onConfirm={() => deleteScenes.mutateAsync(selectedSceneIds)}
+                onConfirm={() => sceneActions.deleteScenes(selectedSceneIds)}
             />
             <ExportDialog
                 open={projectDialog?.type === 'export'}

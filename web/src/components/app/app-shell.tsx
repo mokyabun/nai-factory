@@ -1,6 +1,6 @@
 import { SceneJsonData, type SceneJsonData as SceneJsonDataType } from '@nai-factory/shared'
 import { useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useRouterState } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { useAtom } from 'jotai'
 import { FileJson } from 'lucide-react'
 import { useEffect, useLayoutEffect, useState } from 'react'
@@ -28,8 +28,7 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
     const queryClient = useQueryClient()
     const navigate = useNavigate()
-    const pathname = useRouterState({ select: (state) => state.location.pathname })
-    const activeProjectId = useActiveProjectId(pathname)
+    const activeProjectId = useActiveProjectId()
     const { isDragOver, pendingFile, dragHandlers, clearPendingFile } = useJsonDrop()
     const [importDialogOpen, setImportDialogOpen] = useAtom(importDialogOpenAtom)
     const [storedProjectId, setStoredProjectId] = useAtom(activeProjectIdAtom)

@@ -361,11 +361,3 @@ function sortProjects(projects: ProjectSummary[]) {
 function sortGroups(groups: GroupNode[]) {
     return [...groups].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id)
 }
-
-export function getCurrentProjectId(pathname: string) {
-    const match = pathname.match(/^\/project\/([^/]+)/)
-    if (!match) return null
-
-    const projectId = Number(match[1])
-    return Number.isFinite(projectId) ? projectId : null
-}

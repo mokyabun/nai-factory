@@ -1,14 +1,8 @@
 import type { PromptVariable, SceneSummary } from '@nai-factory/shared'
 
+import { tempId } from './optimistic'
+
 type SceneDraft = { name: string; variations: { variables: PromptVariable }[] }
-
-let nextTempId = -1
-
-/** Negative ids mark optimistic rows until the server's response replaces them. */
-export function tempId() {
-    nextTempId -= 1
-    return nextTempId
-}
 
 /** Placeholder summaries shown while imported scenes are being created. */
 export function optimisticSceneSummaries(projectId: number, items: SceneDraft[]): SceneSummary[] {

@@ -7,7 +7,7 @@ import {
     type GenerationSettings,
     type SeedMode,
 } from '@/lib/generation-settings'
-import { qk } from '@/lib/queries'
+import { qk, queries } from '@/lib/queries'
 
 type ApplyRequest = {
     settings: GenerationSettings
@@ -23,10 +23,7 @@ export function useApplyGenerationSettings() {
 
     const toPlayground = useMutation({
         mutationFn: async ({ settings, seedMode }: ApplyRequest) => {
-            const current = await queryClient.ensureQueryData({
-                queryKey: qk.playground.state(),
-                queryFn: () => call(contract.playground.state),
-            })
+            const current = await queryClient.ensureQueryData(queries.playground.state())
             return call(contract.playground.updateState, {
                 body: {
                     prompt: settings.prompt ?? current.prompt,
@@ -46,10 +43,7 @@ export function useApplyGenerationSettings() {
             settings,
             seedMode,
         }: ApplyRequest & { projectId: number }) => {
-            const current = await queryClient.ensureQueryData({
-                queryKey: qk.projects.get(projectId),
-                queryFn: () => call(contract.projects.get, { params: { id: projectId } }),
-            })
+            const current = await queryClient.ensureQueryData(queries.projects.get(projectId))
 
             // Only parameters: the project prompt is a template, while metadata holds its output.
             return call(contract.projects.update, {

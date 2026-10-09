@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { assetUrl, call, contract, errorMessage } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
-import { qk } from '@/lib/queries'
+import { qk, queries } from '@/lib/queries'
 import { cn, debounce } from '@/lib/utils'
 
 type DirectoryPicker = () => Promise<{
@@ -60,10 +60,7 @@ function OutputImagesSettings({ project, scenes }: OutputImagesSettingsProps) {
     const [pendingMethod, setPendingMethod] = useState<ExportMethod | null>(null)
     const [message, setMessage] = useState('')
     const [serverFolder, setServerFolder] = useState('')
-    const settingsQuery = useQuery({
-        queryKey: qk.settings.get(),
-        queryFn: () => call(contract.settings.get),
-    })
+    const settingsQuery = useQuery(queries.settings.get())
     const serverExportEnabled = settingsQuery.data?.export.serverExportEnabled ?? false
     const sourceExtension = settingsQuery.data?.image.sourceType.type ?? 'png'
 

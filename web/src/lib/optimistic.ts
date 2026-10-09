@@ -1,5 +1,13 @@
 import type { QueryClient, QueryFilters, QueryKey } from '@tanstack/react-query'
 
+let nextTempId = -1
+
+/** Negative ids mark optimistic rows until the server's response replaces them. */
+export function tempId() {
+    nextTempId -= 1
+    return nextTempId
+}
+
 export type QuerySnapshot<T = unknown> = {
     queryKey: QueryKey
     data: T | undefined

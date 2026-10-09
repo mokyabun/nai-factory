@@ -8,17 +8,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { call, contract } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
-import { qk } from '@/lib/queries'
+import { qk, queries } from '@/lib/queries'
 import { formatDateTime } from '@/lib/time'
 
 export const Route = createFileRoute('/log')({ component: LogPage })
 
 function LogPage() {
     const queryClient = useQueryClient()
-    const requestsQuery = useQuery({
-        queryKey: qk.debug.requests(),
-        queryFn: () => call(contract.debug.requests),
-    })
+    const requestsQuery = useQuery(queries.debug.requests())
     const clearRequests = useMutation({
         mutationFn: () => call(contract.debug.clearRequests),
         onMutate: async () => {

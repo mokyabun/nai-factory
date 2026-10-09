@@ -13,41 +13,29 @@ import {
 } from '@/components/ui/breadcrumb'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { call, contract } from '@/lib/api'
-import { qk } from '@/lib/queries'
+import { useRouteIds } from '@/hooks/use-active-project-id'
+import { queries } from '@/lib/queries'
 
 export function Header() {
     const pathname = useRouterState({ select: (s) => s.location.pathname })
-    const projectId = Number(pathname.match(/^\/project\/(\d+)/)?.[1] ?? NaN)
-    const sceneId = Number(pathname.match(/^\/scene\/(\d+)/)?.[1] ?? NaN)
-    const projectPathId = Number.isFinite(projectId) ? projectId : null
-    const scenePathId = Number.isFinite(sceneId) ? sceneId : null
+    const { projectId, sceneId } = useRouteIds()
 
     const projectQuery = useQuery({
-        queryKey: qk.projects.get(projectPathId ?? 0),
-        queryFn: () => call(contract.projects.get, { params: { id: projectPathId as number } }),
-        enabled: projectPathId !== null,
+        ...queries.projects.get(projectId ?? 0),
+        enabled: projectId !== null,
     })
-    const sceneQuery = useQuery({
-        queryKey: qk.scenes.get(scenePathId ?? 0),
-        queryFn: () => call(contract.scenes.get, { params: { id: scenePathId as number } }),
-        enabled: scenePathId !== null,
-    })
+    const sceneQuery = useQuery({ ...queries.scenes.get(sceneId ?? 0), enabled: sceneId !== null })
     const sceneProjectId = sceneQuery.data?.projectId ?? null
     const sceneProjectQuery = useQuery({
-        queryKey: qk.projects.get(sceneProjectId ?? 0),
-        queryFn: () => call(contract.projects.get, { params: { id: sceneProjectId as number } }),
+        ...queries.projects.get(sceneProjectId ?? 0),
         enabled: sceneProjectId !== null,
     })
-    // No polling: generations and NovelAI settings changes refresh it through realtime events.
-    const statusQuery = useQuery({
-        queryKey: qk.settings.novelAIStatus(),
-        queryFn: () => call(contract.settings.novelAIStatus),
-        staleTime: 5 * 60_000,
-    })
+    const statusQuery = useQuery(queries.settings.novelAIStatus())
 
     const parts = createBreadcrumbParts({
         pathname,
+        projectId,
+        sceneId,
         projectName: projectQuery.data?.name ?? null,
         sceneName: sceneQuery.data?.name ?? null,
         sceneProjectId,
@@ -92,12 +80,16 @@ type BreadcrumbPart = {
 
 function createBreadcrumbParts({
     pathname,
+    projectId,
+    sceneId,
     projectName,
     sceneName,
     sceneProjectId,
     sceneProjectName,
 }: {
     pathname: string
+    projectId: number | null
+    sceneId: number | null
     projectName: string | null
     sceneName: string | null
     sceneProjectId: number | null
@@ -106,9 +98,9 @@ function createBreadcrumbParts({
     if (pathname === '/') return [{ key: '/', label: 'Home' }]
 
     const segments = pathname.slice(1).split('/')
-    const [root, id, child] = segments
 
-    if (root === 'project' && id) {
+    if (projectId !== null) {
+        const id = String(projectId)
         return [
             { key: '/project', label: 'Project' },
             {
@@ -119,7 +111,8 @@ function createBreadcrumbParts({
         ]
     }
 
-    if (root === 'scene' && id) {
+    if (sceneId !== null) {
+        const id = String(sceneId)
         const parts: BreadcrumbPart[] = [
             sceneProjectId === null
                 ? { key: '/project', label: 'Project' }
@@ -138,7 +131,7 @@ function createBreadcrumbParts({
             },
         ]
 
-        if (child === 'images') {
+        if (segments[2] === 'images') {
             parts.push({
                 key: `/scene/${id}/images`,
                 label: 'Images',

@@ -15,10 +15,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
 import { call, contract } from '@/lib/api'
-import { restoreSnapshots, snapshotQueries } from '@/lib/optimistic'
-import { tempId } from '@/lib/optimistic-scenes'
+import { restoreSnapshots, snapshotQueries, tempId } from '@/lib/optimistic'
 import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
-import { matchesKey, qk } from '@/lib/queries'
+import { matchesKey, qk, queries } from '@/lib/queries'
 
 export const Route = createFileRoute('/scene/$sceneId/')({ component: SceneEditPage })
 
@@ -28,15 +27,10 @@ function SceneEditPage() {
     const queryClient = useQueryClient()
     const scenId = Number(sceneId)
 
-    const sceneQuery = useQuery({
-        queryKey: qk.scenes.get(scenId),
-        queryFn: () => call(contract.scenes.get, { params: { id: scenId } }),
-    })
+    const sceneQuery = useQuery(queries.scenes.get(scenId))
 
-    const previewKey = [...qk.scenes.get(scenId), 'preview'] as const
     const previewQuery = useQuery({
-        queryKey: previewKey,
-        queryFn: () => call(contract.scenes.preview, { params: { id: scenId }, query: {} }),
+        ...queries.scenes.preview(scenId),
         enabled: !!sceneQuery.data,
     })
 
@@ -89,7 +83,7 @@ function SceneEditPage() {
                 }
             })
             void queryClient.invalidateQueries({ queryKey: qk.scenes.list(scene.projectId) })
-            void queryClient.invalidateQueries({ queryKey: previewKey })
+            void queryClient.invalidateQueries({ queryKey: qk.scenes.preview(scenId) })
         },
     })
 

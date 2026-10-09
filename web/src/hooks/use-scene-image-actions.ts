@@ -50,7 +50,7 @@ export function useSceneImageActions({
             const imageIdSet = new Set(imageIds)
             const snapshots = await snapshotQueries(queryClient, {
                 predicate: (query) =>
-                    query.queryKey[0] === 'images' ||
+                    matchesKey(query.queryKey, qk.images.all()) ||
                     matchesKey(query.queryKey, qk.scenes.get(sceneId)) ||
                     (projectId !== undefined &&
                         matchesKey(query.queryKey, qk.scenes.list(projectId))),
@@ -96,7 +96,7 @@ export function useSceneImageActions({
         onMutate: async ({ items }) => {
             const snapshots = await snapshotQueries(queryClient, {
                 predicate: (query) =>
-                    query.queryKey[0] === 'images' ||
+                    matchesKey(query.queryKey, qk.images.all()) ||
                     matchesKey(query.queryKey, qk.scenes.get(sceneId)) ||
                     (projectId !== undefined &&
                         matchesKey(query.queryKey, qk.scenes.list(projectId))),

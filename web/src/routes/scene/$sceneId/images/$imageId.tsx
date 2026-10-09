@@ -8,8 +8,8 @@ import { ImageMetadataSheet } from '@/components/app/images/image-metadata-sheet
 import { ImageReuseMenu } from '@/components/app/images/image-reuse-menu'
 import { ImageSurface } from '@/components/app/images/image-surface'
 import { Button } from '@/components/ui/button'
-import { assetUrl, call, contract } from '@/lib/api'
-import { qk } from '@/lib/queries'
+import { assetUrl } from '@/lib/api'
+import { queries } from '@/lib/queries'
 import { comparePosition } from '@/lib/reorder'
 
 export const Route = createFileRoute('/scene/$sceneId/images/$imageId')({
@@ -22,10 +22,7 @@ function ImageViewerPage() {
     const scenId = Number(sceneId)
     const [metadataOpen, setMetadataOpen] = useState(false)
 
-    const imagesQuery = useQuery({
-        queryKey: qk.images.list(scenId),
-        queryFn: () => call(contract.images.list, { query: { sceneId: scenId } }),
-    })
+    const imagesQuery = useQuery(queries.images.list(scenId))
 
     const images = useMemo(
         () => [...(imagesQuery.data ?? [])].sort(comparePosition),

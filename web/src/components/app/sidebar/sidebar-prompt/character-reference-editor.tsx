@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { call, contract } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
-import { qk } from '@/lib/queries'
+import { qk, queries } from '@/lib/queries'
 import type { OrderPatch } from '@/lib/reorder'
 
 import { characterReferenceItemsAtom, reorderItems } from './atom'
@@ -32,10 +32,7 @@ export function CharacterReferenceEditor({ projectId }: CharacterReferenceEditor
     const items = useAtomValue(characterReferenceItemsAtom)
     const setItems = useSetAtom(characterReferenceItemsAtom)
 
-    const query = useQuery({
-        queryKey: qk.projects.characterReferences(projectId),
-        queryFn: () => call(contract.projects.characterReferences, { params: { id: projectId } }),
-    })
+    const query = useQuery(queries.projects.characterReferences(projectId))
 
     useEffect(() => {
         if (query.data) setItems(query.data)

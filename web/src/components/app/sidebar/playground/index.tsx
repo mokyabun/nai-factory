@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react'
 import { useQueueStatus } from '@/hooks/use-queue'
 import { call, contract } from '@/lib/api'
 import { restoreSnapshot, restoreSnapshots, snapshotQueries, snapshotQuery } from '@/lib/optimistic'
-import { qk } from '@/lib/queries'
+import { qk, queries } from '@/lib/queries'
 import { debounce } from '@/lib/utils'
 
 import { DEFAULT_PLAYGROUND_STATE, playgroundSettingsAtom } from './atom'
@@ -24,10 +24,7 @@ export function SidebarPlayground() {
     const latestSettingsRef = useRef<PlaygroundState>(DEFAULT_PLAYGROUND_STATE)
     const dirtyRef = useRef(false)
 
-    const settingsQuery = useQuery({
-        queryKey: qk.playground.state(),
-        queryFn: () => call(contract.playground.state),
-    })
+    const settingsQuery = useQuery(queries.playground.state())
 
     const saveSettingsRef = useRef(
         // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
@@ -97,7 +94,7 @@ export function SidebarPlayground() {
         },
         onMutate: async ({ startNow }) => {
             const snapshots = await snapshotQueries(queryClient, {
-                predicate: (query) => query.queryKey[0] === 'jobs',
+                queryKey: qk.jobs.all(),
             })
             queryClient.setQueryData<QueueStatus>(qk.jobs.status(), (status) =>
                 status

@@ -2,8 +2,8 @@ import type { GroupNode, GroupTreeItem, Project } from '@nai-factory/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { call, contract } from '@/lib/api'
-import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
-import { qk } from '@/lib/queries'
+import { restoreSnapshot, snapshotQuery, tempId } from '@/lib/optimistic'
+import { qk, queries } from '@/lib/queries'
 
 import type { ProjectSummary } from './atom'
 import {
@@ -31,10 +31,7 @@ export function useProjectTree({
 }) {
     const queryClient = useQueryClient()
 
-    const groupsQuery = useQuery({
-        queryKey: qk.groups.tree(),
-        queryFn: () => call(contract.groups.tree),
-    })
+    const groupsQuery = useQuery(queries.groups.tree())
 
     function invalidateGroups() {
         void queryClient.invalidateQueries({ queryKey: qk.groups.all() })
@@ -50,7 +47,7 @@ export function useProjectTree({
             )
             const now = new Date().toISOString()
             const tempGroup: GroupNode = {
-                id: -Date.now(),
+                id: tempId(),
                 type: 'group',
                 parentId,
                 name,
@@ -127,13 +124,13 @@ export function useProjectTree({
                 queryClient,
                 qk.groups.tree(),
             )
-            const tempId = -Date.now()
-            const tempProject: ProjectSummary = { id: tempId, groupId, name }
+            const placeholderId = tempId()
+            const tempProject: ProjectSummary = { id: placeholderId, groupId, name }
             queryClient.setQueryData<GroupTreeItem[]>(qk.groups.tree(), (items) =>
                 items ? addProjectToTree(items, groupId, tempProject) : items,
             )
             onDialogClose()
-            return { previousGroups, tempId }
+            return { previousGroups, tempId: placeholderId }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousGroups)
@@ -240,19 +237,19 @@ export function useProjectTree({
                 qk.groups.tree(),
             )
             const sourceProject = findProjectInTree(previousGroups.data ?? [], projectId)
-            const tempId = -Date.now()
+            const placeholderId = tempId()
             if (sourceProject) {
                 queryClient.setQueryData<GroupTreeItem[]>(qk.groups.tree(), (items) =>
                     items
                         ? addProjectToTree(items, sourceProject.groupId, {
                               ...sourceProject,
-                              id: tempId,
+                              id: placeholderId,
                               name: `${sourceProject.name} Copy`,
                           })
                         : items,
                 )
             }
-            return { previousGroups, tempId }
+            return { previousGroups, tempId: placeholderId }
         },
         onError: (_error, _variables, context) => {
             restoreSnapshot(queryClient, context?.previousGroups)

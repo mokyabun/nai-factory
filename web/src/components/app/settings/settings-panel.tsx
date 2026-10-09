@@ -19,7 +19,7 @@ import { Switch } from '@/components/ui/switch'
 import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
 import { call, contract, errorMessage } from '@/lib/api'
 import { variableValidationMessage } from '@/lib/prompt-variables'
-import { qk } from '@/lib/queries'
+import { qk, queries } from '@/lib/queries'
 
 import {
     addGlobalVar,
@@ -51,10 +51,7 @@ function SettingsPanelContent() {
     const settingsPatch = useAtomValue(settingsPatchAtom)
     const { novelAIMode, globalVars, debugEnabled, debugRequestLimit, loaded } = draft
 
-    const settingsQuery = useQuery({
-        queryKey: qk.settings.get(),
-        queryFn: () => call(contract.settings.get),
-    })
+    const settingsQuery = useQuery(queries.settings.get())
     const lastSaved = useRef<FullSettingsPatch | null>(null)
 
     useEffect(() => {
@@ -187,9 +184,7 @@ function SettingsPanelContent() {
                                                     })
                                                 }
                                             />
-                                            <span className="text-xs text-muted-foreground">
-                                                =
-                                            </span>
+                                            <span className="text-xs text-muted-foreground">=</span>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
@@ -227,11 +222,7 @@ function SettingsPanelContent() {
                         </CardContent>
                     </Card>
 
-                    <ImageSettingsCard
-                       
-                        draft={draft}
-                        onChange={updateSettingsDraft}
-                    />
+                    <ImageSettingsCard draft={draft} onChange={updateSettingsDraft} />
 
                     <Card className="shrink-0">
                         <CardHeader>

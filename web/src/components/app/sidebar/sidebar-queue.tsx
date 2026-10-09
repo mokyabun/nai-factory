@@ -22,9 +22,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SidebarHeader } from '@/components/ui/sidebar'
 import { useGenerationStatus, useJobHistory, useQueueActions } from '@/hooks/use-queue'
-import { call, contract } from '@/lib/api'
 import { formatSeconds } from '@/lib/generation-progress'
-import { qk } from '@/lib/queries'
+import { queries } from '@/lib/queries'
 
 interface SidebarQueueProps {
     projectId?: number | null
@@ -68,10 +67,7 @@ export function SidebarQueue({ projectId }: SidebarQueueProps) {
     const { status, job, progress, jobElapsedMs, remainingSeconds } = useGenerationStatus()
     const { start, stop, clearAll, remove, retry } = useQueueActions()
 
-    const itemsQuery = useQuery({
-        queryKey: qk.jobs.list(projectId),
-        queryFn: () => call(contract.jobs.list, { query: projectId ? { projectId } : {} }),
-    })
+    const itemsQuery = useQuery(queries.jobs.list(projectId))
     const history = useJobHistory().data ?? []
 
     const items = (itemsQuery.data ?? []).filter((item) => item.status === 'queued')

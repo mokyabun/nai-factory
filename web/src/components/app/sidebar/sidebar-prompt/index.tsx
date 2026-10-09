@@ -10,7 +10,7 @@ import { useDebouncedPatch } from '@/hooks/use-debounced-patch'
 import { call, contract } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
-import { qk } from '@/lib/queries'
+import { qk, queries } from '@/lib/queries'
 
 import {
     createSidebarPromptDraft,
@@ -56,15 +56,9 @@ export function SidebarPromptContent({ projectId }: { projectId: number }) {
     const [parameterDraft] = useAtom(sidebarParameterParamsAtom)
     const { loadedProjectId, prompt, negativePrompt, variables } = draft
 
-    const projectQuery = useQuery({
-        queryKey: qk.projects.get(projectId),
-        queryFn: () => call(contract.projects.get, { params: { id: projectId } }),
-    })
+    const projectQuery = useQuery(queries.projects.get(projectId))
 
-    const settingsQuery = useQuery({
-        queryKey: qk.settings.get(),
-        queryFn: () => call(contract.settings.get),
-    })
+    const settingsQuery = useQuery(queries.settings.get())
 
     // The component is keyed by project, so pending edits always belong to `projectId`.
     const saveProject = useCallback(

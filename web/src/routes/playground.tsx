@@ -12,7 +12,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { useGenerationStatus } from '@/hooks/use-queue'
 import { assetUrl, call, contract } from '@/lib/api'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
-import { qk } from '@/lib/queries'
+import { qk, queries } from '@/lib/queries'
 
 export const Route = createFileRoute('/playground')({ component: PlaygroundPage })
 
@@ -25,10 +25,7 @@ function PlaygroundPage() {
     const [metadataOpen, setMetadataOpen] = useState(false)
     const { job, progress } = useGenerationStatus()
 
-    const imagesQuery = useQuery({
-        queryKey: qk.playground.images(),
-        queryFn: () => call(contract.playground.images, { query: { limit: 40 } }),
-    })
+    const imagesQuery = useQuery(queries.playground.images())
 
     const images = useMemo(() => imagesQuery.data ?? [], [imagesQuery.data])
     const latestImage = images[0] ?? null
