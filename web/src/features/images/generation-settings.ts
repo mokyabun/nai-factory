@@ -2,6 +2,7 @@ import {
     CHARACTER_GRID_STEPS,
     CharacterPrompt,
     DEFAULT_CHARACTER_CENTER,
+    type NovelAIModel,
     Parameters,
 } from '@nai-factory/shared'
 
@@ -25,6 +26,24 @@ export type GenerationSettings = {
 /** `image` reuses the image's seed, `random` clears it, `keep` leaves the current seed as is. */
 export type SeedMode = 'random' | 'image' | 'keep'
 
+/** Which recovered fields to apply; unselected fields keep their current value. */
+export type SettingsSelection = {
+    prompt: boolean
+    negativePrompt: boolean
+    characterPrompts: boolean
+    parameters: boolean
+    seed: SeedMode
+    /** `append` adds the recovered prompts after the current ones instead of replacing them. */
+    promptMode: 'replace' | 'append'
+}
+
+type PromptFields = {
+    prompt: string
+    negativePrompt: string
+    characterPrompts: CharacterPrompt[]
+    parameters: Parameters
+}
+
 function readRecord(value: unknown): Record<string, unknown> {
     return value && typeof value === 'object' && !Array.isArray(value)
         ? (value as Record<string, unknown>)
@@ -33,6 +52,10 @@ function readRecord(value: unknown): Record<string, unknown> {
 
 function count(value: unknown) {
     return Array.isArray(value) ? value.length : 0
+}
+
+function readArray(value: unknown): unknown[] {
+    return Array.isArray(value) ? value : []
 }
 
 const GRID_MIN = CHARACTER_GRID_STEPS[0]
@@ -80,6 +103,63 @@ export function readGenerationSettings(metadata: Record<string, unknown>): Gener
     }
 }
 
+function novelAIModel(source: string): NovelAIModel | undefined {
+    const text = source.toLowerCase()
+    const variant = text.includes('curated') ? 'curated' : 'full'
+    if (text.includes('v5')) return `nai-diffusion-5-${variant}`
+    if (text.includes('v4.5')) return `nai-diffusion-4-5-${variant}`
+    if (text.includes('v4')) return `nai-diffusion-4-${variant}`
+    return undefined
+}
+
+type Caption = { base_caption?: unknown; char_captions?: unknown }
+
+function captionOf(value: unknown): Caption {
+    return readRecord(readRecord(value).caption)
+}
+
+/**
+ * Converts the JSON NovelAI writes to a PNG's `Comment` chunk into nai-factory's metadata shape.
+ * `source` is the `Source` chunk, which names the model (`NovelAI Diffusion V4.5 …`).
+ */
+export function novelAIMetadata(comment: Record<string, unknown>, source: string | null) {
+    const caption = captionOf(comment.v4_prompt)
+    const negativeCaption = captionOf(comment.v4_negative_prompt)
+    const characterCaptions = readArray(caption.char_captions).map(readRecord)
+    const characterUcs = readArray(negativeCaption.char_captions).map(readRecord)
+    const recorded = (key: string, value: unknown) => (key in comment ? value : undefined)
+
+    return {
+        prompt: comment.prompt ?? caption.base_caption,
+        negativePrompt: comment.uc ?? negativeCaption.base_caption,
+        characterPrompts:
+            'v4_prompt' in comment
+                ? characterCaptions.map((character, index) => ({
+                      enabled: true,
+                      prompt: character.char_caption,
+                      uc: characterUcs[index]?.char_caption ?? '',
+                      center: readArray(character.centers)[0] ?? DEFAULT_CHARACTER_CENTER,
+                  }))
+                : undefined,
+        parameters: {
+            model: novelAIModel([source, comment.model_name].filter(Boolean).join(' ')),
+            width: comment.width,
+            height: comment.height,
+            steps: comment.steps,
+            promptGuidance: comment.scale,
+            promptGuidanceRescale: comment.cfg_rescale,
+            sampler: comment.sampler,
+            noiseSchedule: comment.noise_schedule,
+            seed: comment.seed,
+            varietyPlus: recorded('skip_cfg_above_sigma', comment.skip_cfg_above_sigma != null),
+            normalizeReferenceStrengthValues: comment.normalize_reference_strength_multiple,
+            useCharacterPositions: readRecord(comment.v4_prompt).use_coords,
+        },
+        vibeTransfers: readArray(comment.reference_strength_multiple),
+        characterReferences: readArray(comment.director_reference_strength_values),
+    }
+}
+
 /** Applies recovered parameters on top of `current`; seed 0 keeps generation random. */
 export function applyGenerationParameters(
     current: Parameters,
@@ -94,6 +174,36 @@ export function applyGenerationParameters(
               : 0
 
     return { ...current, ...settings.parameters, seed }
+}
+
+function joinPrompts(current: string, added: string) {
+    return [current.trim().replace(/,$/, ''), added.trim()].filter(Boolean).join(', ')
+}
+
+/** The fields `selection` changes, ready to send as a Playground or project patch. */
+export function generationSettingsPatch(
+    current: PromptFields,
+    settings: GenerationSettings,
+    selection: SettingsSelection,
+): Partial<PromptFields> {
+    const patch: Partial<PromptFields> = {}
+    const text = (value: string, recovered: string) =>
+        selection.promptMode === 'append' ? joinPrompts(value, recovered) : recovered
+
+    if (selection.prompt && settings.prompt !== null) {
+        patch.prompt = text(current.prompt, settings.prompt)
+    }
+    if (selection.negativePrompt && settings.negativePrompt !== null) {
+        patch.negativePrompt = text(current.negativePrompt, settings.negativePrompt)
+    }
+    if (selection.characterPrompts && settings.characterPrompts !== null) {
+        patch.characterPrompts = settings.characterPrompts
+    }
+    if (selection.parameters || selection.seed !== 'keep') {
+        const recovered = selection.parameters ? settings : { ...settings, parameters: {} }
+        patch.parameters = applyGenerationParameters(current.parameters, recovered, selection.seed)
+    }
+    return patch
 }
 
 /** Describes recorded inputs a Playground generation cannot reproduce, or null if none. */

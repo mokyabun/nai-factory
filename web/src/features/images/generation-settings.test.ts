@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
     applyGenerationParameters,
+    generationSettingsPatch,
     playgroundUnsupportedNotice,
     readGenerationSettings,
+    type SettingsSelection,
 } from './generation-settings'
 
 const metadata = {
@@ -83,5 +85,50 @@ describe('generation settings', () => {
             '바이브 1개는 프로젝트 전용이라 Playground에 적용되지 않습니다',
         )
         expect(playgroundUnsupportedNotice(readGenerationSettings({}))).toBeNull()
+    })
+
+    describe('generationSettingsPatch', () => {
+        const current = {
+            prompt: 'masterpiece,',
+            negativePrompt: '',
+            characterPrompts: [],
+            parameters: { ...DEFAULT_PROJECT_PARAMETERS, seed: 42 },
+        }
+        const nothing: SettingsSelection = {
+            prompt: false,
+            negativePrompt: false,
+            characterPrompts: false,
+            parameters: false,
+            seed: 'keep',
+            promptMode: 'replace',
+        }
+        const settings = readGenerationSettings(metadata)
+
+        it('changes only the selected fields', () => {
+            expect(generationSettingsPatch(current, settings, nothing)).toEqual({})
+            expect(
+                generationSettingsPatch(current, settings, { ...nothing, seed: 'image' }),
+            ).toEqual({ parameters: { ...DEFAULT_PROJECT_PARAMETERS, seed: 123456 } })
+        })
+
+        it('appends prompts after the current ones', () => {
+            const patch = generationSettingsPatch(current, settings, {
+                ...nothing,
+                prompt: true,
+                negativePrompt: true,
+                promptMode: 'append',
+            })
+            expect(patch).toEqual({ prompt: 'masterpiece, 1girl, smile', negativePrompt: 'lowres' })
+        })
+
+        it('replaces characters and keeps the current seed with parameters', () => {
+            const patch = generationSettingsPatch(current, settings, {
+                ...nothing,
+                characterPrompts: true,
+                parameters: true,
+            })
+            expect(patch.characterPrompts).toHaveLength(2)
+            expect(patch.parameters).toMatchObject({ width: 832, steps: 23, seed: 42 })
+        })
     })
 })

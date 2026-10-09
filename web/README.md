@@ -78,7 +78,8 @@ src/
 app ───────► every feature
 playground ► prompt, images, queue
 project ───► queue
-queue, images, prompt, scene, project-tree, import, settings, log ► (no features)
+import ────► images
+queue, images, prompt, scene, project-tree, settings, log ► (no features)
 ```
 
 Code used by one feature lives in that feature. Code used by several features moves down to

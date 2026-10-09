@@ -1,5 +1,13 @@
 import { useCallback, useRef, useState } from 'react'
 
+const IMAGE_EXTENSIONS = ['.png', '.webp', '.avif', '.jpg', '.jpeg']
+const IMPORTABLE_EXTENSIONS = ['.json', '.naif', ...IMAGE_EXTENSIONS]
+
+export function isImageFile(file: File) {
+    const name = file.name.toLowerCase()
+    return IMAGE_EXTENSIONS.some((extension) => name.endsWith(extension))
+}
+
 interface UseFileDropResult {
     isDragOver: boolean
     pendingFile: File | null
@@ -42,7 +50,7 @@ export function useFileDrop(): UseFileDropResult {
         setIsDragOver(false)
         const file = Array.from(e.dataTransfer.files).find((f) => {
             const name = f.name.toLowerCase()
-            return name.endsWith('.json') || name.endsWith('.naif')
+            return IMPORTABLE_EXTENSIONS.some((extension) => name.endsWith(extension))
         })
         if (file) setPendingFile(file)
     }

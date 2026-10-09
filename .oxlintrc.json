@@ -78,7 +78,6 @@
                 "web/src/features/prompt/**",
                 "web/src/features/scene/**",
                 "web/src/features/project-tree/**",
-                "web/src/features/import/**",
                 "web/src/features/settings/**",
                 "web/src/features/log/**"
             ],
@@ -119,6 +118,26 @@
                                     "!@/features/queue/**"
                                 ],
                                 "message": "playground may only import the images, prompt and queue features."
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "files": ["web/src/features/import/**"],
+            "rules": {
+                "no-restricted-imports": [
+                    "error",
+                    {
+                        "patterns": [
+                            {
+                                "group": ["@/app/**"],
+                                "message": "Features must not import from app/."
+                            },
+                            {
+                                "group": ["@/features/**", "!@/features/images/**"],
+                                "message": "import may only import the images feature."
                             }
                         ]
                     }

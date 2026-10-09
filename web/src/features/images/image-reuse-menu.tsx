@@ -16,12 +16,28 @@ import { errorMessage } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 import {
-    type GenerationSettings,
     playgroundUnsupportedNotice,
     readGenerationSettings,
     type SeedMode,
+    type SettingsSelection,
 } from './generation-settings'
 import { useApplyGenerationSettings } from './use-apply-generation-settings'
+
+const ALL_FIELDS = {
+    prompt: true,
+    negativePrompt: true,
+    characterPrompts: true,
+    parameters: true,
+    promptMode: 'replace',
+} satisfies Omit<SettingsSelection, 'seed'>
+
+// The project prompt is a template, while metadata holds its output.
+const PARAMETERS_ONLY = {
+    ...ALL_FIELDS,
+    prompt: false,
+    negativePrompt: false,
+    characterPrompts: false,
+} satisfies Omit<SettingsSelection, 'seed'>
 
 interface ImageReuseMenuProps {
     metadata: Record<string, unknown>
@@ -44,12 +60,19 @@ export function ImageReuseMenu({ metadata, source, triggerClassName }: ImageReus
         )
     }
 
-    function applyToPlayground(nextSettings: GenerationSettings, seedMode: SeedMode) {
-        const applied = toPlayground.mutateAsync({ settings: nextSettings, seedMode })
+    function applyToPlayground(seed: SeedMode) {
+        const applied = toPlayground.mutateAsync({ settings, selection: { ...ALL_FIELDS, seed } })
         report(applied, 'Playground에 불러왔습니다')
         if (source.type === 'scene') {
             void applied.then(() => navigate({ to: '/playground' }))
         }
+    }
+
+    function applyToProject(projectId: number, seed: SeedMode) {
+        report(
+            toProject.mutateAsync({ projectId, settings, selection: { ...PARAMETERS_ONLY, seed } }),
+            '프로젝트에 적용했습니다',
+        )
     }
 
     function copySeed() {
@@ -74,12 +97,12 @@ export function ImageReuseMenu({ metadata, source, triggerClassName }: ImageReus
             <DropdownMenuContent align="end" className="w-72">
                 <DropdownMenuGroup>
                     <DropdownMenuLabel>Playground</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => applyToPlayground(settings, 'random')}>
+                    <DropdownMenuItem onClick={() => applyToPlayground('random')}>
                         <FlaskConical />
                         프롬프트·설정 불러오기 (시드 랜덤)
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                        onClick={() => applyToPlayground(settings, 'image')}
+                        onClick={() => applyToPlayground('image')}
                         disabled={settings.seed === null}
                     >
                         <FlaskConical />
@@ -98,31 +121,13 @@ export function ImageReuseMenu({ metadata, source, triggerClassName }: ImageReus
                         <DropdownMenuGroup>
                             <DropdownMenuLabel>프로젝트 (프롬프트는 유지)</DropdownMenuLabel>
                             <DropdownMenuItem
-                                onClick={() =>
-                                    report(
-                                        toProject.mutateAsync({
-                                            projectId: source.projectId,
-                                            settings,
-                                            seedMode: 'keep',
-                                        }),
-                                        '프로젝트에 적용했습니다',
-                                    )
-                                }
+                                onClick={() => applyToProject(source.projectId, 'keep')}
                             >
                                 <SlidersHorizontal />
                                 파라미터 적용
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                                onClick={() =>
-                                    report(
-                                        toProject.mutateAsync({
-                                            projectId: source.projectId,
-                                            settings,
-                                            seedMode: 'image',
-                                        }),
-                                        '프로젝트에 적용했습니다',
-                                    )
-                                }
+                                onClick={() => applyToProject(source.projectId, 'image')}
                                 disabled={settings.seed === null}
                             >
                                 <SlidersHorizontal />

@@ -5,14 +5,14 @@ import { call, contract } from '@/lib/api'
 import { qk, queries } from '@/lib/queries'
 
 import {
-    applyGenerationParameters,
     type GenerationSettings,
-    type SeedMode,
+    generationSettingsPatch,
+    type SettingsSelection,
 } from './generation-settings'
 
 type ApplyRequest = {
     settings: GenerationSettings
-    seedMode: SeedMode
+    selection: SettingsSelection
 }
 
 /** Open editors pick the change up from the query cache like any other server update. */
@@ -20,15 +20,10 @@ export function useApplyGenerationSettings() {
     const queryClient = useQueryClient()
 
     const toPlayground = useMutation({
-        mutationFn: async ({ settings, seedMode }: ApplyRequest) => {
+        mutationFn: async ({ settings, selection }: ApplyRequest) => {
             const current = await queryClient.ensureQueryData(queries.playground.state())
             return call(contract.playground.updateState, {
-                body: {
-                    prompt: settings.prompt ?? current.prompt,
-                    negativePrompt: settings.negativePrompt ?? current.negativePrompt,
-                    characterPrompts: settings.characterPrompts ?? current.characterPrompts,
-                    parameters: applyGenerationParameters(current.parameters, settings, seedMode),
-                },
+                body: generationSettingsPatch(current, settings, selection),
             })
         },
         onSuccess: (data) => {
@@ -40,16 +35,12 @@ export function useApplyGenerationSettings() {
         mutationFn: async ({
             projectId,
             settings,
-            seedMode,
+            selection,
         }: ApplyRequest & { projectId: number }) => {
             const current = await queryClient.ensureQueryData(queries.projects.get(projectId))
-
-            // Only parameters: the project prompt is a template, while metadata holds its output.
             return call(contract.projects.update, {
                 params: { id: projectId },
-                body: {
-                    parameters: applyGenerationParameters(current.parameters, settings, seedMode),
-                },
+                body: generationSettingsPatch(current, settings, selection),
             })
         },
         onSuccess: (data, { projectId }) => {
