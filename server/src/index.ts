@@ -56,7 +56,8 @@ if (!isLoopback(config.host) && !config.accessToken) {
 async function shutdown(signal: string) {
     log.info({ event: 'server.stopping', signal }, 'Shutting down')
     stopBackgroundTasks()
-    await server.stop()
+    // Open SSE streams never finish on their own, so a graceful stop would wait forever.
+    await server.stop(true)
     await closeContext(ctx)
     process.exit(0)
 }
