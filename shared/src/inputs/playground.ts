@@ -1,10 +1,11 @@
 import * as z from 'zod'
 
-import { ParametersPatch } from '../schemas/common'
+import { CharacterPrompt, ParametersPatch } from '../schemas/common'
 
 export const PlaygroundStatePatch = z.object({
     prompt: z.string().optional(),
     negativePrompt: z.string().optional(),
+    characterPrompts: z.array(CharacterPrompt).optional(),
     parameters: ParametersPatch.optional(),
 })
 export type PlaygroundStatePatch = z.infer<typeof PlaygroundStatePatch>

@@ -1,11 +1,12 @@
 import * as z from 'zod'
 
-import { IsoDateTime, Parameters } from './common'
+import { CharacterPrompt, IsoDateTime, Parameters } from './common'
 import { ImageMetadata } from './image'
 
 export const PlaygroundState = z.object({
     prompt: z.string(),
     negativePrompt: z.string(),
+    characterPrompts: z.array(CharacterPrompt),
     parameters: Parameters,
     updatedAt: IsoDateTime,
 })
@@ -17,6 +18,7 @@ export const PlaygroundImage = z.object({
     thumbAssetId: z.number(),
     prompt: z.string(),
     negativePrompt: z.string(),
+    characterPrompts: z.array(CharacterPrompt),
     parameters: Parameters,
     seed: z.number().nullable(),
     metadata: ImageMetadata,

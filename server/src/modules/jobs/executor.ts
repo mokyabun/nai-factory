@@ -1,8 +1,8 @@
 import {
-    type CharacterPrompt,
     isNovelAIV5Model,
     type JobErrorKind,
     type Parameters,
+    PlaygroundJobPayload,
     type Prompt,
     SEED_MAX,
     supportsCharacterReference,
@@ -333,12 +333,11 @@ export async function runPlaygroundJob(
         requireApiKey(ctx)
         hooks.imageStarted(index, total)
         const startedAt = Date.now()
-        const snapshot = job.payload
-        const characterPrompts: CharacterPrompt[] = []
+        const snapshot = PlaygroundJobPayload.parse(job.payload)
         const input: GenerationInput = {
             prompt: snapshot.prompt,
             negativePrompt: snapshot.negativePrompt,
-            characterPrompts,
+            characterPrompts: snapshot.characterPrompts,
             parameters: { ...snapshot.parameters, seed: snapshot.parameters.seed || randomSeed() },
             vibes: [],
             characterReferences: [],
@@ -368,6 +367,7 @@ export async function runPlaygroundJob(
                     thumbAssetId: thumb.id,
                     prompt: snapshot.prompt,
                     negativePrompt: snapshot.negativePrompt,
+                    characterPrompts: snapshot.characterPrompts,
                     parameters: snapshot.parameters,
                     seed: input.parameters.seed,
                     metadata,

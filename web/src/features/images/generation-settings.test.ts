@@ -12,8 +12,9 @@ const metadata = {
     prompt: '1girl, smile',
     negativePrompt: 'lowres',
     characterPrompts: [
-        { prompt: 'a', uc: '', enabled: true },
-        { prompt: 'b', uc: '', enabled: false },
+        { prompt: 'a', uc: '', enabled: true, center: { x: 0.1, y: 0.7 } },
+        { prompt: 'b', uc: '', enabled: false, center: { x: 0, y: 0 } },
+        { prompt: 'no center' },
     ],
     parameters: {
         model: 'nai-diffusion-4-5-curated',
@@ -41,10 +42,17 @@ describe('generation settings', () => {
             steps: 23,
         })
         expect(settings.references).toEqual({
-            characterPrompts: 1,
             vibeTransfers: 1,
             characterReferences: 0,
         })
+    })
+
+    it('restores character prompts and moves off-grid centers to the middle', () => {
+        expect(readGenerationSettings(metadata).characterPrompts).toEqual([
+            { prompt: 'a', uc: '', enabled: true, center: { x: 0.1, y: 0.7 } },
+            { prompt: 'b', uc: '', enabled: false, center: { x: 0.5, y: 0.5 } },
+        ])
+        expect(readGenerationSettings({}).characterPrompts).toBeNull()
     })
 
     it('treats an unrecorded or zero seed as unknown', () => {
@@ -72,7 +80,7 @@ describe('generation settings', () => {
 
     it('lists inputs Playground cannot reproduce', () => {
         expect(playgroundUnsupportedNotice(readGenerationSettings(metadata))).toBe(
-            '캐릭터 프롬프트 1개, 바이브 1개는 Playground에 적용되지 않습니다',
+            '바이브 1개는 프로젝트 전용이라 Playground에 적용되지 않습니다',
         )
         expect(playgroundUnsupportedNotice(readGenerationSettings({}))).toBeNull()
     })

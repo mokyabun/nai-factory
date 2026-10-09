@@ -26,6 +26,7 @@ export function useApplyGenerationSettings() {
                 body: {
                     prompt: settings.prompt ?? current.prompt,
                     negativePrompt: settings.negativePrompt ?? current.negativePrompt,
+                    characterPrompts: settings.characterPrompts ?? current.characterPrompts,
                     parameters: applyGenerationParameters(current.parameters, settings, seedMode),
                 },
             })

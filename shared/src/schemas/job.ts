@@ -1,6 +1,6 @@
 import * as z from 'zod'
 
-import { IsoDateTime, Parameters } from './common'
+import { CharacterPrompt, IsoDateTime, Parameters } from './common'
 
 export const MAX_IMAGES_PER_JOB = 100
 
@@ -20,6 +20,8 @@ export type EnqueuePosition = z.infer<typeof EnqueuePosition>
 export const PlaygroundJobPayload = z.object({
     prompt: z.string(),
     negativePrompt: z.string(),
+    /** Missing from jobs queued before 0.4.0. */
+    characterPrompts: z.array(CharacterPrompt).default([]),
     parameters: Parameters,
 })
 export type PlaygroundJobPayload = z.infer<typeof PlaygroundJobPayload>

@@ -4,6 +4,7 @@ import { contract } from '@nai-factory/shared'
 
 import { jobs as jobsTable } from '@/db'
 import type { FetchLike } from '@/integrations/novelai/client'
+import type { NovelAIGenerateRequest } from '@/integrations/novelai/request'
 
 import { createTestApp, type TestApp } from '../helpers/app'
 import { createScene, deferred, novelaiZip, runQueue } from '../helpers/fixtures'
@@ -25,11 +26,15 @@ async function imageResponse() {
     return new Response(await novelaiZip())
 }
 
-function requestedPrompt(init: RequestInit) {
+function requestedBody(init: RequestInit) {
     // The multipart body carries the JSON request as its last part.
     const text = Buffer.from(init.body as Uint8Array).toString('utf8')
     const json = text.slice(text.indexOf('{"action"'), text.lastIndexOf('}') + 1)
-    return (JSON.parse(json) as { input: string }).input
+    return JSON.parse(json) as NovelAIGenerateRequest
+}
+
+function requestedPrompt(init: RequestInit) {
+    return requestedBody(init).input
 }
 
 async function jobsOf(t: TestApp) {
@@ -489,5 +494,35 @@ describe('image count when queueing', () => {
 
         await runQueue(t)
         expect(await t.call(contract.playground.images)).toHaveLength(3)
+    })
+})
+
+describe('playground character prompts', () => {
+    it('sends every character caption and keeps them on the image', async () => {
+        const requests: NovelAIGenerateRequest[] = []
+        const t = await track(
+            liveApp(async (_, init) => {
+                requests.push(requestedBody(init))
+                return imageResponse()
+            }),
+        )
+        const characterPrompts = [
+            { enabled: true, center: { x: 0.1, y: 0.5 }, prompt: 'girl', uc: '' },
+            { enabled: true, center: { x: 0.9, y: 0.5 }, prompt: 'boy', uc: '' },
+        ]
+        await t.call(contract.playground.updateState, { body: { characterPrompts } })
+        await t.call(contract.jobs.enqueuePlayground, {
+            body: { prompt: 'park', parameters: { useCharacterPositions: true } },
+        })
+        await runQueue(t)
+
+        const captions = requests[0]?.parameters.v4_prompt.caption.char_captions
+        expect(captions).toEqual([
+            { char_caption: 'girl', centers: [{ x: 0.1, y: 0.5 }] },
+            { char_caption: 'boy', centers: [{ x: 0.9, y: 0.5 }] },
+        ])
+        const [image] = await t.call(contract.playground.images)
+        expect(image?.characterPrompts).toEqual(characterPrompts)
+        expect(image?.metadata.characterPrompts).toEqual(characterPrompts)
     })
 })

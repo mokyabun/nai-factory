@@ -22,6 +22,7 @@ function toState(row: repo.StateRow): PlaygroundState {
     return {
         prompt: row.prompt,
         negativePrompt: row.negativePrompt,
+        characterPrompts: row.characterPrompts,
         parameters: Parameters.parse(row.parameters),
         updatedAt: toIso(row.updatedAt),
     }
@@ -34,6 +35,7 @@ function toImage(row: repo.ImageRow): PlaygroundImage {
         thumbAssetId: row.thumbAssetId,
         prompt: row.prompt,
         negativePrompt: row.negativePrompt,
+        characterPrompts: row.characterPrompts,
         parameters: row.parameters,
         seed: row.seed,
         metadata: row.metadata,
@@ -47,6 +49,7 @@ function loadState(db: DbOrTx) {
         repo.saveState(db, {
             prompt: '',
             negativePrompt: '',
+            characterPrompts: [],
             parameters: DEFAULT_PLAYGROUND_PARAMETERS,
         })
     )
@@ -56,13 +59,17 @@ export function getState(ctx: AppContext) {
     return toState(loadState(ctx.db))
 }
 
-export function mergeSnapshot(base: PlaygroundJobPayload, patch: PlaygroundStatePatch) {
+export function mergeSnapshot(
+    base: PlaygroundJobPayload,
+    patch: PlaygroundStatePatch,
+): PlaygroundJobPayload {
     const merged = deepMerge(base, patch)
     const parameters = Parameters.safeParse(merged.parameters)
     if (!parameters.success) throw badRequest('Invalid parameters', parameters.error.issues)
     return {
         prompt: merged.prompt,
         negativePrompt: merged.negativePrompt,
+        characterPrompts: merged.characterPrompts,
         parameters: parameters.data,
     }
 }

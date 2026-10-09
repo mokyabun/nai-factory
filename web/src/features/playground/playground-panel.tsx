@@ -1,4 +1,5 @@
 import {
+    type CharacterPrompt,
     DEFAULT_PLAYGROUND_PARAMETERS,
     type EnqueuePosition,
     type Parameters,
@@ -21,6 +22,7 @@ import { PlaygroundHeader } from './playground-header'
 const DEFAULT_PLAYGROUND_STATE: PlaygroundState = {
     prompt: '',
     negativePrompt: '',
+    characterPrompts: [],
     parameters: DEFAULT_PLAYGROUND_PARAMETERS,
     updatedAt: new Date(0).toISOString(),
 }
@@ -57,6 +59,7 @@ export function PlaygroundPanel() {
                     body: {
                         prompt: settings.prompt,
                         negativePrompt: settings.negativePrompt,
+                        characterPrompts: settings.characterPrompts,
                         parameters: settings.parameters,
                         position,
                     },
@@ -105,6 +108,13 @@ export function PlaygroundPanel() {
         draft.update({ [key]: value })
     }
 
+    function setCharacterPrompts(
+        characterPrompts: CharacterPrompt[],
+        options?: { immediate?: boolean },
+    ) {
+        draft.update({ characterPrompts }, options)
+    }
+
     function setParameter<K extends keyof Parameters>(key: K, value: Parameters[K]) {
         draft.update({ parameters: { [key]: value } })
     }
@@ -131,6 +141,7 @@ export function PlaygroundPanel() {
             <PlaygroundEditor
                 settings={settings}
                 onFieldChange={setField}
+                onCharacterPromptsChange={setCharacterPrompts}
                 onParameterChange={setParameter}
             />
         </div>
