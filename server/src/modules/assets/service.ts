@@ -13,6 +13,7 @@ import {
     type ImageFormat,
     sniffImageFormat,
 } from '@/lib/mime'
+import { toFileStamp } from '@/lib/time'
 import { escapeXml } from '@/lib/xml'
 
 import * as repo from './repo'
@@ -24,6 +25,9 @@ export const MAX_INPUT_PIXELS = 100_000_000
 /** Data folders the GC may clean; everything else in the data root is left alone. */
 export const MANAGED_DIRS = ['images', 'thumbs', 'playground', 'refs'] as const
 export const GC_GRACE_MS = 10 * 60 * 1000
+/** Untracked files go here instead of being deleted: the database may have been swapped or restored. */
+export const TRASH_DIR = 'trash'
+export const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 
 /** A file written to storage but not yet recorded in the database. */
 export type PreparedAsset = {
@@ -245,6 +249,29 @@ export async function serve(ctx: AppContext, idParam: string, ifNoneMatch: strin
     }
 }
 
+/** Keeps each file's path below `trash/<time>/`, so moving the folder contents back restores it. */
+async function moveToTrash(ctx: AppContext, relPaths: string[]) {
+    if (relPaths.length === 0) return null
+    const trashDir = `${TRASH_DIR}/${toFileStamp(new Date())}`
+    await Promise.all(
+        relPaths.map(async (relPath) => {
+            try {
+                await ctx.storage.move(relPath, `${trashDir}/${relPath}`)
+            } catch (error) {
+                ctx.log.warn({ relPath, err: error }, 'Failed to move file to trash')
+            }
+        }),
+    )
+    return trashDir
+}
+
+async function purgeTrash(ctx: AppContext) {
+    const cutoff = Date.now() - TRASH_RETENTION_MS
+    const expired = (await ctx.storage.listDirs(TRASH_DIR)).filter((dir) => dir.mtimeMs < cutoff)
+    await Promise.all(expired.map((dir) => ctx.storage.removeDir(dir.relPath)))
+    return expired.length
+}
+
 export async function collectGarbage(ctx: AppContext, options: { dryRun: boolean }) {
     const orphanAssets = repo.findUnreferenced(ctx.db)
     const known = repo.allRelPaths(ctx.db)
@@ -264,9 +291,17 @@ export async function collectGarbage(ctx: AppContext, options: { dryRun: boolean
                 orphanAssets.map((asset) => asset.id),
             ),
         )
-        await removeFiles(ctx, [...removed, ...orphanFiles])
+        await removeFiles(ctx, removed)
+        const trashDir = await moveToTrash(ctx, orphanFiles)
+        const purgedTrash = await purgeTrash(ctx)
         ctx.log.info(
-            { event: 'assets.gc', orphanAssets: removed.length, orphanFiles: orphanFiles.length },
+            {
+                event: 'assets.gc',
+                orphanAssets: removed.length,
+                orphanFiles: orphanFiles.length,
+                trashDir,
+                purgedTrash,
+            },
             'Asset garbage collection finished',
         )
     }

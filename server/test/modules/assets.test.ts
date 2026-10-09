@@ -147,8 +147,27 @@ describe('deletion and GC', () => {
 
         await t.call(contract.debug.gc, { query: { apply: true } })
         expect(assets.get(t.ctx, orphanRow.id)).toBeNull()
+        expect(existsSync(t.ctx.paths.resolve('images/orphan.png'))).toBe(false)
         expect(existsSync(stray)).toBe(false)
         expect(existsSync(fresh)).toBe(true)
         expect(assets.get(t.ctx, ref.sourceAssetId)).not.toBeNull()
+
+        const trashed = await t.ctx.storage.listFiles(assets.TRASH_DIR)
+        expect(trashed.map((file) => file.relPath)).toEqual([
+            expect.stringMatching(/^trash\/[^/]+\/images\/stray\/old\.png$/),
+        ])
+    })
+
+    it('purges trash folders older than the retention period', async () => {
+        const expired = t.ctx.paths.resolve(`${assets.TRASH_DIR}/expired`)
+        const recent = t.ctx.paths.resolve(`${assets.TRASH_DIR}/recent`)
+        await mkdir(join(expired, 'images'), { recursive: true })
+        await mkdir(join(recent, 'images'), { recursive: true })
+        const old = new Date(Date.now() - assets.TRASH_RETENTION_MS - 1000)
+        await utimes(expired, old, old)
+
+        await t.call(contract.debug.gc, { query: { apply: true } })
+        expect(existsSync(expired)).toBe(false)
+        expect(existsSync(recent)).toBe(true)
     })
 })

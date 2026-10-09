@@ -152,5 +152,23 @@ export function createStorage(paths: DataPaths, encryptionKey: string | null) {
             await walk(base)
             return result
         },
+
+        async listDirs(relDir: string) {
+            let entries
+            try {
+                entries = await fs.readdir(paths.resolve(relDir), { withFileTypes: true })
+            } catch {
+                return []
+            }
+            return Promise.all(
+                entries
+                    .filter((entry) => entry.isDirectory())
+                    .map(async (entry) => {
+                        const relPath = `${relDir}/${entry.name}`
+                        const stat = await fs.stat(paths.resolve(relPath))
+                        return { relPath, mtimeMs: stat.mtimeMs }
+                    }),
+            )
+        },
     }
 }
