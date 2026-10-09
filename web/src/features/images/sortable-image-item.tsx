@@ -44,7 +44,7 @@ export function SortableImageItem({
             style={style}
             {...attributes}
             {...listeners}
-            className={`group relative aspect-[3/4] cursor-grab ${selected ? 'ring-2 ring-primary ring-offset-2' : ''} ${isDragging ? 'opacity-40' : ''}`}
+            className={`group relative h-full cursor-grab ${selected ? 'ring-2 ring-primary ring-offset-2' : ''} ${isDragging ? 'opacity-40' : ''}`}
             onPointerEnter={() => onSelectDragEnter(index)}
         >
             <button

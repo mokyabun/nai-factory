@@ -2,6 +2,7 @@ import {
     closestCenter,
     DndContext,
     type DragEndEvent,
+    type DragStartEvent,
     PointerSensor,
     useSensor,
     useSensors,
@@ -23,6 +24,7 @@ import { comparePosition, reorderById } from '@/lib/reorder'
 
 import { SortableImageItem } from './sortable-image-item'
 import { useImageMutations } from './use-image-mutations'
+import { VirtualImageGrid } from './virtual-image-grid'
 
 export function ImagesPage({ sceneId }: { sceneId: number }) {
     const navigate = useNavigate()
@@ -33,6 +35,7 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
 
     const [deleteTarget, setDeleteTarget] = useState<Image | null>(null)
     const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false)
+    const [draggingId, setDraggingId] = useState<number | null>(null)
     const reorderRequestIdRef = useRef(0)
     const images = useMemo(
         () => [...(imagesQuery.data ?? [])].sort(comparePosition),
@@ -55,7 +58,15 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
         },
     })
 
+    const draggingIndex =
+        draggingId === null ? -1 : images.findIndex((img) => img.id === draggingId)
+
+    function handleDragStart(event: DragStartEvent) {
+        setDraggingId(Number(event.active.id))
+    }
+
     function handleDragEnd(event: DragEndEvent) {
+        setDraggingId(null)
         const { active, over } = event
         if (!over || active.id === over.id) return
 
@@ -86,7 +97,7 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
 
     return (
         <>
-            <div className="flex h-full flex-col gap-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-4">
                 <div className="flex items-center gap-2">
                     <Button
                         variant="ghost"
@@ -148,17 +159,19 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
+                        onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
+                        onDragCancel={() => setDraggingId(null)}
                     >
                         <SortableContext
                             items={images.map((img) => img.id)}
                             strategy={rectSortingStrategy}
                         >
-                            <div
-                                className="grid min-h-0 flex-1 content-start grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 pb-4"
-                                onPointerDown={selection.gridPointerDown}
-                            >
-                                {images.map((img, index) => (
+                            <VirtualImageGrid
+                                items={images}
+                                pinnedIndex={draggingIndex < 0 ? null : draggingIndex}
+                                onEmptyPointerDown={selection.gridPointerDown}
+                                renderItem={(img, index) => (
                                     <SortableImageItem
                                         key={img.id}
                                         img={img}
@@ -181,8 +194,8 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                                         onSelectDragStart={selection.selectDragStart}
                                         onSelectDragEnter={selection.selectDragEnter}
                                     />
-                                ))}
-                            </div>
+                                )}
+                            />
                         </SortableContext>
                     </DndContext>
                 )}
