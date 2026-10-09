@@ -23,11 +23,14 @@ const GC_INTERVAL_MS = 24 * 60 * 60 * 1000
 
 export function createContext(config: AppConfig, log: Logger, options: ContextOptions = {}) {
     const paths = createDataPaths(config.dataDir)
-    const { db, sqlite } = openDatabase({
+    const { db, sqlite, backupPath } = openDatabase({
         path: config.databasePath,
         cacheSize: config.databaseCacheSize,
         migrationsDir: config.migrationsDir,
     })
+    if (backupPath) {
+        log.info({ event: 'db.backup', backupPath }, 'Database backed up before migrations')
+    }
     const events = createRealtimeHub()
     const settings = createSettingsStore(db, config, events)
     const debugLog = createDebugLog(db, events, settings, log)

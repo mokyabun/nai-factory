@@ -4,7 +4,7 @@ import { dirname } from 'node:path'
 
 import { type BunSQLiteDatabase, drizzle } from 'drizzle-orm/bun-sqlite'
 
-import { runMigrations } from './migrate'
+import { backupBeforeMigrations, runMigrations } from './migrate'
 import * as schema from './schema'
 
 export type Db = BunSQLiteDatabase<typeof schema>
@@ -30,12 +30,16 @@ export function openDatabase({ path, cacheSize = 10000, migrationsDir }: OpenDat
     sqlite.run(`PRAGMA cache_size = ${Math.trunc(cacheSize)};`)
 
     const db = drizzle(sqlite, { schema })
+    let backupPath: string | null = null
     try {
+        if (path !== ':memory:') {
+            backupPath = backupBeforeMigrations(sqlite, path, migrationsDir ?? undefined)
+        }
         runMigrations(sqlite, db, migrationsDir ?? undefined)
     } catch (error) {
         sqlite.close()
         throw error
     }
 
-    return { db, sqlite }
+    return { db, sqlite, backupPath }
 }

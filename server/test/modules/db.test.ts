@@ -83,8 +83,16 @@ describe('database', () => {
         seedLegacyData(legacy.sqlite)
         legacy.sqlite.close()
 
-        const { sqlite } = openDatabase({ path })
+        const { sqlite, backupPath } = openDatabase({ path })
         try {
+            expect(backupPath).not.toBeNull()
+            const backup = new Database(backupPath!, { readonly: true })
+            const applied = backup.query('SELECT hash FROM __drizzle_migrations').all()
+            const backupImages = backup.query('SELECT id FROM images').all()
+            backup.close()
+            expect(applied).toHaveLength(1)
+            expect(backupImages).toHaveLength(3)
+
             const variationIds = sqlite
                 .query<{ variation_id: number | null }, []>(
                     'SELECT variation_id FROM images ORDER BY id',
@@ -123,6 +131,15 @@ describe('database', () => {
             expect(image?.variation_id).toBeNull()
         } finally {
             sqlite.close()
+        }
+    })
+
+    it('skips the backup when no migration is pending', () => {
+        const path = join(dir, 'current.db')
+        for (let open = 0; open < 2; open++) {
+            const { sqlite, backupPath } = openDatabase({ path })
+            sqlite.close()
+            expect(backupPath).toBeNull()
         }
     })
 
