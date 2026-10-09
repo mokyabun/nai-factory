@@ -18,8 +18,8 @@ import {
     replaceGroupInTree,
     replaceProjectInTree,
 } from './project-tree-cache'
-import type { ProjectSummary } from './project-tree-types'
-import type { ProjectGroupId } from './project-tree-types'
+import type { ProjectSummary } from './project-tree-model'
+import type { ProjectGroupId } from './project-tree-model'
 
 /** The group tree query and its mutations, each with an optimistic cache update. */
 export function useProjectTree({

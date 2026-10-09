@@ -7,9 +7,10 @@ import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 
-import { ProjectContextMenuContent, ProjectMenu, RenameInput } from './project-tree-parts'
-import type { ProjectSummary } from './project-tree-types'
-import type { ProjectGroupId } from './project-tree-types'
+import { ProjectContextMenuContent, ProjectMenu } from './project-menu'
+import type { ProjectSummary } from './project-tree-model'
+import type { ProjectGroupId } from './project-tree-model'
+import { RenameInput } from './rename-input'
 
 interface ProjectRowProps {
     project: ProjectSummary

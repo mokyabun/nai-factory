@@ -51,3 +51,7 @@ export interface ProjectGroupProps extends Omit<ProjectTreeProps, 'groups' | 'is
 export interface RootProjectsProps extends Omit<ProjectTreeProps, 'groups' | 'isLoading'> {
     projects: ProjectSummary[]
 }
+
+export function isSameRenameTarget(current: ActiveRenameTarget | null, target: ActiveRenameTarget) {
+    return current?.type === target.type && current.id === target.id
+}

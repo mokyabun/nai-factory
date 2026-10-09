@@ -39,7 +39,7 @@ const SidebarPlayground = lazyWithPreload<Record<string, never>>(() =>
     })),
 )
 const SidebarProject = lazyWithPreload<Record<string, never>>(() =>
-    import('./sidebar-project').then((mod) => ({
+    import('@/features/project-tree/project-tree-panel').then((mod) => ({
         default: mod.SidebarProject as ComponentType<Record<string, never>>,
     })),
 )

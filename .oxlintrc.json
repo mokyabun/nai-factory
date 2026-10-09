@@ -38,11 +38,11 @@
     "overrides": [
         {
             "files": [
-                "web/src/components/app/dialogs/create-project-dialog.tsx",
-                "web/src/components/app/dialogs/create-group-dialog.tsx",
+                "web/src/features/project-tree/create-project-dialog.tsx",
+                "web/src/features/project-tree/create-group-dialog.tsx",
                 "web/src/features/project/create-scene-dialog.tsx",
                 "web/src/components/app/dialogs/sd-studio-import-dialog.tsx",
-                "web/src/components/app/sidebar/sidebar-project/project-tree-parts.tsx"
+                "web/src/features/project-tree/rename-input.tsx"
             ],
             "rules": {
                 "jsx-a11y/no-autofocus": "off"

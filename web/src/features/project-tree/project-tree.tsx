@@ -19,9 +19,9 @@ import {
 } from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
 
+import { GroupDragPreview, ProjectDragPreview } from './drag-previews'
 import { ProjectGroup } from './project-group'
-import { GroupDragPreview, ProjectDragPreview, SidebarMessage } from './project-tree-parts'
-import type { ProjectGroupId, ProjectSummary, ProjectTreeProps } from './project-tree-types'
+import type { ProjectGroupId, ProjectSummary, ProjectTreeProps } from './project-tree-model'
 import { RootProjects } from './root-projects'
 
 export function ProjectTree({
@@ -192,4 +192,8 @@ function isDescendantGroup(group: GroupNode, groupId: number): boolean {
     return group.groups.some(
         (childGroup) => childGroup.id === groupId || isDescendantGroup(childGroup, groupId),
     )
+}
+
+function SidebarMessage({ children }: { children: string }) {
+    return <div className="px-2 py-4 text-center text-xs text-muted-foreground">{children}</div>
 }

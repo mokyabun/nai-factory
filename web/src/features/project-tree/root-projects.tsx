@@ -4,9 +4,9 @@ import * as Base from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 
 import { ProjectRow } from './project-row'
-import type { ProjectGroupId } from './project-tree-types'
-import type { RootProjectsProps } from './project-tree-types'
-import { isSameRenameTarget } from './project-tree-utils'
+import type { ProjectGroupId } from './project-tree-model'
+import type { RootProjectsProps } from './project-tree-model'
+import { isSameRenameTarget } from './project-tree-model'
 
 export function RootProjects({
     projects,

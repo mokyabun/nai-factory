@@ -8,11 +8,11 @@ import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import * as Base from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 
-import { useCollapsedGroups } from './collapsed-groups'
+import { GroupContextMenuContent, GroupMenu } from './group-menu'
 import { ProjectRow } from './project-row'
-import { GroupContextMenuContent, GroupMenu, RenameInput } from './project-tree-parts'
-import type { ProjectGroupProps } from './project-tree-types'
-import { isSameRenameTarget } from './project-tree-utils'
+import { isSameRenameTarget, type ProjectGroupProps } from './project-tree-model'
+import { RenameInput } from './rename-input'
+import { useCollapsedGroups } from './use-collapsed-groups'
 
 export function ProjectGroup({
     group,

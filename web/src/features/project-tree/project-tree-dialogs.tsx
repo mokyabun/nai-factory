@@ -1,10 +1,10 @@
 import type { GroupNode } from '@nai-factory/shared'
 
-import { CreateGroupDialog } from '@/components/app/dialogs/create-group-dialog'
-import { CreateProjectDialog } from '@/components/app/dialogs/create-project-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
-import type { DeleteTarget, ProjectDialog } from './project-tree-types'
+import { CreateGroupDialog } from './create-group-dialog'
+import { CreateProjectDialog } from './create-project-dialog'
+import type { DeleteTarget, ProjectDialog } from './project-tree-model'
 
 interface ProjectDialogsProps {
     projectDialog: ProjectDialog | null

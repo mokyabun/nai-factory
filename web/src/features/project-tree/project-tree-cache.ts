@@ -1,7 +1,7 @@
 import type { GroupNode, GroupTreeItem } from '@nai-factory/shared'
 
-import type { ProjectSummary } from './project-tree-types'
-import type { ProjectGroupId } from './project-tree-types'
+import type { ProjectSummary } from './project-tree-model'
+import type { ProjectGroupId } from './project-tree-model'
 
 /*
  * Pure updates of the cached group tree, used for optimistic UI while mutations are pending.

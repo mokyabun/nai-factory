@@ -7,10 +7,10 @@ import * as Base from '@/components/ui/sidebar'
 import { useRouteIds } from '@/hooks/use-active-project-id'
 import { queries } from '@/lib/queries'
 
-import { ProjectDialogs } from './project-dialogs'
 import { ProjectTree } from './project-tree'
 import { collectGroupProjects } from './project-tree-cache'
-import type { ActiveRenameTarget, ProjectDialog, ProjectSummary } from './project-tree-types'
+import { ProjectDialogs } from './project-tree-dialogs'
+import type { ActiveRenameTarget, ProjectDialog, ProjectSummary } from './project-tree-model'
 import { useProjectTree } from './use-project-tree'
 
 export function SidebarProject() {
