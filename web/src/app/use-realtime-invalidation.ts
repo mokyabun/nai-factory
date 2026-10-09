@@ -4,7 +4,6 @@ import { useEffect } from 'react'
 
 import { matchesKey, qk } from '@/lib/queries'
 
-/** Queries that realtime events keep fresh. */
 const REALTIME_KEYS = [
     qk.jobs.all(),
     qk.images.all(),
