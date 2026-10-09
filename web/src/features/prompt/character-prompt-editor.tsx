@@ -24,7 +24,8 @@ import { CodeEditor } from '@/components/code-editor/code-editor'
 import { StatusMessage } from '@/components/status-message'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { createPromptCompletionSource } from '@/lib/tag-autocomplete'
+
+import { createPromptCompletionSource } from './tag-autocomplete'
 
 interface SortableItemProps {
     id: number

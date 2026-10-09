@@ -1,7 +1,7 @@
 import type { Parameters, PlaygroundState } from '@nai-factory/shared'
 
-import { ParametersForm } from '../parameters-form'
-import { PromptEditor } from '../prompt-editor'
+import { ParametersForm } from '@/features/prompt/parameters-form'
+import { PromptEditor } from '@/features/prompt/prompt-editor'
 
 interface PlaygroundEditorProps {
     settings: PlaygroundState

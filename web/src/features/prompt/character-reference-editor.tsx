@@ -20,7 +20,7 @@ import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk, queries } from '@/lib/queries'
 import { type OrderPatch, reorderById } from '@/lib/reorder'
 
-import { SortableCharacterReferenceItem } from './character-reference-item'
+import { SortableCharacterReferenceItem } from './sortable-character-reference-item'
 
 interface CharacterReferenceEditorProps {
     projectId: number

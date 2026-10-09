@@ -5,7 +5,8 @@ import { CodeEditor } from '@/components/code-editor/code-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { variableValidationMessage } from '@/lib/prompt-variables'
-import { tagCompletionSource } from '@/lib/tag-autocomplete'
+
+import { tagCompletionSource } from './tag-autocomplete'
 
 type PromptVariableEditorProps = {
     variables: PromptVariable

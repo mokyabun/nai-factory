@@ -44,7 +44,7 @@ const SidebarProject = lazyWithPreload<Record<string, never>>(() =>
     })),
 )
 const SidebarPrompt = lazyWithPreload<{ projectId: number | null }>(() =>
-    import('./sidebar-prompt').then((mod) => ({
+    import('@/features/prompt/prompt-panel').then((mod) => ({
         default: mod.SidebarPrompt as ComponentType<{ projectId: number | null }>,
     })),
 )

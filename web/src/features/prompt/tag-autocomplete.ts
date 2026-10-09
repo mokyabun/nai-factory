@@ -7,7 +7,7 @@ import {
 } from '@codemirror/autocomplete'
 import type { PromptVariable, Tag } from '@nai-factory/shared'
 
-import { call, contract } from './api'
+import { call, contract } from '@/lib/api'
 
 // Delimiters that separate tags in a NAI prompt
 const DELIMITERS = new Set([',', '{', '}', '[', ']', '|', '\n'])

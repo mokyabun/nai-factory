@@ -3,10 +3,11 @@ import { EditorState, type TransactionSpec } from '@codemirror/state'
 import { contract } from '@nai-factory/shared'
 import { describe, expect, it, vi } from 'vitest'
 
-import { call } from './api'
+import { call } from '@/lib/api'
+
 import { createPromptCompletionSource, tagCompletionSource } from './tag-autocomplete'
 
-vi.mock('./api', async () => {
+vi.mock('@/lib/api', async () => {
     const shared =
         await vi.importActual<typeof import('@nai-factory/shared')>('@nai-factory/shared')
     return {

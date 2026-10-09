@@ -17,17 +17,17 @@ import { call, contract } from '@/lib/api'
 import { normalizeVariableDraft, variableValidationMessage } from '@/lib/prompt-variables'
 import { qk, queries } from '@/lib/queries'
 
-import { ParametersForm } from '../parameters-form'
-import { PromptEditor } from '../prompt-editor'
 import { CharacterPromptEditor } from './character-prompt-editor'
 import { CharacterReferenceEditor } from './character-reference-editor'
-import { PromptVariableEditor } from './prompt-variable-editor'
+import { ParametersForm } from './parameters-form'
+import { PromptEditor } from './prompt-editor'
 import {
     SidebarPromptTabs,
     SidebarPromptTabsContent,
     SidebarPromptTabsList,
     SidebarPromptTabsTrigger,
-} from './sidebar-prompt-tabs'
+} from './prompt-tabs'
+import { PromptVariableEditor } from './prompt-variable-editor'
 import { VibeTransferEditor } from './vibe-transfer-editor'
 
 const NO_VARIABLES: PromptVariable = []
