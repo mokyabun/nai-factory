@@ -59,3 +59,7 @@ production, a write-only API key, files served by id only, and an optional acces
 `GET /api/events` streams server-sent events with increasing ids and a heartbeat. The server keeps
 the last 500 events; a reconnecting client sends `Last-Event-ID` and receives what it missed, or a
 `resync` event when that is no longer possible.
+
+## Web
+
+The web source layout, layer rules and code style are in [`web/README.md`](../web/README.md#source-layout).

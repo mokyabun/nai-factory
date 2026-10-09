@@ -47,6 +47,103 @@
             "rules": {
                 "jsx-a11y/no-autofocus": "off"
             }
+        },
+        {
+            "files": ["web/src/**"],
+            "rules": {
+                "import/no-cycle": "error",
+                "import/no-relative-parent-imports": "error"
+            }
+        },
+        {
+            "files": ["web/src/components/**", "web/src/hooks/**", "web/src/lib/**"],
+            "rules": {
+                "no-restricted-imports": [
+                    "error",
+                    {
+                        "patterns": [
+                            {
+                                "group": ["@/features/**", "@/app/**"],
+                                "message": "components/, hooks/ and lib/ must not import from features/ or app/."
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "files": [
+                "web/src/features/queue/**",
+                "web/src/features/images/**",
+                "web/src/features/prompt/**",
+                "web/src/features/scene/**",
+                "web/src/features/project-tree/**",
+                "web/src/features/import/**",
+                "web/src/features/settings/**",
+                "web/src/features/log/**"
+            ],
+            "rules": {
+                "no-restricted-imports": [
+                    "error",
+                    {
+                        "patterns": [
+                            {
+                                "group": ["@/app/**"],
+                                "message": "Features must not import from app/."
+                            },
+                            {
+                                "group": ["@/features/**"],
+                                "message": "This feature has no dependencies on other features (see web/README.md)."
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "files": ["web/src/features/playground/**"],
+            "rules": {
+                "no-restricted-imports": [
+                    "error",
+                    {
+                        "patterns": [
+                            {
+                                "group": ["@/app/**"],
+                                "message": "Features must not import from app/."
+                            },
+                            {
+                                "group": [
+                                    "@/features/**",
+                                    "!@/features/images/**",
+                                    "!@/features/prompt/**",
+                                    "!@/features/queue/**"
+                                ],
+                                "message": "playground may only import the images, prompt and queue features."
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "files": ["web/src/features/project/**"],
+            "rules": {
+                "no-restricted-imports": [
+                    "error",
+                    {
+                        "patterns": [
+                            {
+                                "group": ["@/app/**"],
+                                "message": "Features must not import from app/."
+                            },
+                            {
+                                "group": ["@/features/**", "!@/features/queue/**"],
+                                "message": "project may only import the queue feature."
+                            }
+                        ]
+                    }
+                ]
+            }
         }
     ]
 }
