@@ -38,8 +38,7 @@ export function CodeEditor({
     const containerRef = useRef<HTMLDivElement>(null)
     const viewRef = useRef<EditorView | null>(null)
 
-    // Keep mutable callbacks/sources in refs so the editor closure never goes stale,
-    // and the React Compiler cannot add them as effect dependencies.
+    // Refs keep the editor closure fresh without becoming effect dependencies.
     const onChangeRef = useRef(onChange)
     // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
     onChangeRef.current = onChange
@@ -48,12 +47,9 @@ export function CodeEditor({
     // eslint-disable-next-line react/refs -- The ref is used by event handlers and debounced callbacks, not to render UI.
     completionSourceRef.current = completionSource
 
-    // Capture the initial value so the React Compiler does not track the `value`
-    // prop as a dependency of the setup effect (which would recreate the editor
-    // on every keystroke and prevent autocompletion from ever triggering).
+    // Read once so typing never recreates the editor.
     const initialValueRef = useRef(value)
 
-    // one-time editor initialization
     useEffect(() => {
         if (!containerRef.current) return
 
@@ -67,8 +63,6 @@ export function CodeEditor({
             EditorView.lineWrapping,
             cmPlaceholder(placeholder),
             autocompletion({
-                // Wrap in a stable closure so the React Compiler never sees
-                // `completionSource` as a captured reactive value in this effect.
                 override: [(ctx) => completionSourceRef.current?.(ctx) ?? null],
                 activateOnTyping: true,
                 activateOnTypingDelay: 35,
@@ -98,8 +92,7 @@ export function CodeEditor({
         }
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Sync external value changes (skip when the editor has focus to avoid
-    // overwriting content mid-edit and resetting the cursor position).
+    // Skipped while focused so typing is not overwritten and the cursor stays put.
     useEffect(() => {
         const view = viewRef.current
         if (!view || view.hasFocus) return

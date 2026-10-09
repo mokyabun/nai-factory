@@ -15,8 +15,7 @@ export type LatestImageRow = {
 
 export const LATEST_IMAGE_COUNT = 10
 
-// Subqueries use the literal `scenes.id`: drizzle renders interpolated columns unqualified here,
-// which would bind to the inner table instead.
+// Literal `scenes.id` in subqueries: drizzle renders interpolated columns unqualified here.
 const summaryColumns = {
     id: scenes.id,
     projectId: scenes.projectId,

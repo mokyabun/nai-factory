@@ -52,15 +52,11 @@ export const qk = {
     },
 }
 
-/** Whether `queryKey` starts with `prefix` (for predicates over several related queries). */
 export function matchesKey(queryKey: readonly unknown[], prefix: readonly unknown[]) {
     return prefix.every((part, index) => queryKey[index] === part)
 }
 
-/**
- * Query definitions (key + fetcher) for `useQuery`, `prefetchQuery` and `ensureQueryData`.
- * Spread one and add options where needed: `useQuery({ ...queries.scenes.get(id), enabled })`.
- */
+/** Spread one and add options: `useQuery({ ...queries.scenes.get(id), enabled })`. */
 export const queries = {
     groups: {
         tree: () =>

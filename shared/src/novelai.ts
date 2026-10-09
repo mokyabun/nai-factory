@@ -1,6 +1,5 @@
 import * as z from 'zod'
 
-/** Novel AI Model */
 export const NOVEL_AI_MODELS = [
     'nai-diffusion-5-full',
     'nai-diffusion-5-curated',
@@ -17,7 +16,6 @@ export function isNovelAIV5Model(model: string): boolean {
     return model === 'nai-diffusion-5-full' || model === 'nai-diffusion-5-curated'
 }
 
-/** Character Reference is only available on V4.5 models. */
 export function supportsCharacterReference(model: string): boolean {
     return model.includes('4-5')
 }
@@ -31,7 +29,6 @@ export const NOVEL_AI_MODEL_OPTIONS = [
     { label: 'NAI Diffusion 4 Curated', value: 'nai-diffusion-4-curated' },
 ] as const satisfies readonly { label: string; value: NovelAIModel }[]
 
-/** Noise Schedule */
 export const NOVEL_AI_NOISE_SCHEDULES = [
     'native',
     'karras',
@@ -49,7 +46,6 @@ export const NOVEL_AI_NOISE_SCHEDULE_OPTIONS = [
     { label: 'Polyexponential', value: 'polyexponential' },
 ] as const satisfies readonly { label: string; value: NovelAINoiseSchedule }[]
 
-/** Sampler */
 export const NOVEL_AI_SAMPLERS = [
     'k_euler_ancestral',
     'k_euler',

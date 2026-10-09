@@ -11,12 +11,10 @@ import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
-/** Two decimals, for 0–1 strengths. */
 export function formatRatio(value: number) {
     return value.toFixed(2)
 }
 
-/** Single-thumb slider with its label and current value above it. */
 export function LabeledSlider({
     label,
     value,

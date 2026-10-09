@@ -104,10 +104,7 @@ async function readBody(c: Context<AppEnv>, endpoint: EndpointDef) {
     }
 }
 
-/**
- * Registers a contract endpoint. Params, query and body are validated with the contract
- * schemas; outside production the response is checked against the response schema too.
- */
+/** Outside production the response is also checked against the contract. */
 export function route<E extends EndpointDef>(
     app: Hono<AppEnv>,
     endpoint: E,

@@ -14,10 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { call, contract, errorMessage, onApiError } from '@/lib/api'
 
-/**
- * Shown when the server requires `NAI_FACTORY_ACCESS_TOKEN` and the browser has no valid
- * token cookie yet. The server sets the cookie (HttpOnly) after a successful login.
- */
+/** The server sets the HttpOnly token cookie after a successful login. */
 export function AccessTokenDialog() {
     const queryClient = useQueryClient()
     const [open, setOpen] = useState(false)

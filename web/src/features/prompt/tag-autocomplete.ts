@@ -9,8 +9,7 @@ import type { PromptVariable, Tag } from '@nai-factory/shared'
 
 import { call, contract } from '@/lib/api'
 
-// Delimiters that separate tags in a NAI prompt
-const DELIMITERS = new Set([',', '{', '}', '[', ']', '|', '\n'])
+const TAG_DELIMITERS = new Set([',', '{', '}', '[', ']', '|', '\n'])
 const TAG_CACHE_LIMIT = 200
 const VARIABLE_TOKEN_RE = /(?:^|[\s(])([^\s()]*)$/
 const WEIGHTED_TAG_RE = /^([+-]?(?:\d+(?:\.\d+)?|\.\d+)::)([^:]*)$/
@@ -98,7 +97,7 @@ function tagCompletionToken(
 ): { from: number; query: string; weighted: boolean } | null {
     let tokenStart = 0
     for (let i = textBefore.length - 1; i >= 0; i--) {
-        if (DELIMITERS.has(textBefore[i])) {
+        if (TAG_DELIMITERS.has(textBefore[i])) {
             tokenStart = i + 1
             break
         }

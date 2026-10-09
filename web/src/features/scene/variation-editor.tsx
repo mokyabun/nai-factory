@@ -106,7 +106,7 @@ function SortableVariation({
                     <div className="flex flex-col gap-2">
                         {variation.variables.map(({ key, value }, keyIdx) => (
                             <div
-                                // variable draft rows can share empty keys until edited.
+                                // Index keys: draft rows can share empty keys until edited.
                                 key={keyIdx}
                                 className="flex flex-col gap-1"
                             >

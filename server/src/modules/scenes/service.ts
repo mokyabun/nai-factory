@@ -127,7 +127,6 @@ export function summary(ctx: AppContext, id: number) {
     return toSummary(row, repo.variationsByScene(ctx.db, [id]).map(toVariation))
 }
 
-/** The prompts a scene renders with the given (or all) variations. */
 export function renderPrompts(
     ctx: AppContext,
     project: {
@@ -194,11 +193,7 @@ export function create(ctx: AppContext, body: SceneCreateBody) {
     })
 }
 
-/**
- * Replaces a scene's variation list in one transaction: removed ids are deleted (their queued
- * jobs cascade), known ids are updated, new items inserted, and every position is reassigned
- * in list order. Positions are not unique, so no intermediate state can conflict.
- */
+/** Positions are not unique, so reassigning them in list order never conflicts. */
 export function syncVariations(tx: DbOrTx, sceneId: number, drafts: ScenePatch['variations'] & {}) {
     const existing = new Set(repo.variationsByScene(tx, [sceneId]).map((row) => row.id))
     const keep = new Set(
@@ -317,10 +312,7 @@ export function duplicate(ctx: AppContext, id: number) {
     })
 }
 
-/**
- * Adds scenes to a project inside `tx`. In `replace` mode the existing scenes go first; the
- * returned paths are files to remove once the transaction commits.
- */
+/** In `replace` mode the existing scenes go first; returned paths are removed after commit. */
 export function importScenes(
     tx: DbOrTx,
     projectId: number,

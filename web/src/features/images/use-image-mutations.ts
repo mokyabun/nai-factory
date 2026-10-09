@@ -22,7 +22,6 @@ function toSceneImage(img: Image): ImageThumb {
     }
 }
 
-/** Delete and reorder mutations of a scene's image grid. */
 export function useImageMutations({
     sceneId,
     projectId,

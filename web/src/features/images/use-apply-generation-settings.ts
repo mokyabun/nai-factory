@@ -15,10 +15,7 @@ type ApplyRequest = {
     seedMode: SeedMode
 }
 
-/**
- * Writes settings recovered from an image to the server and the query cache. Open editors pick the
- * change up from the cache the same way they pick up any other server update.
- */
+/** Open editors pick the change up from the query cache like any other server update. */
 export function useApplyGenerationSettings() {
     const queryClient = useQueryClient()
 

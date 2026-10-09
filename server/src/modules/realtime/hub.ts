@@ -12,11 +12,7 @@ function coalesceKey(event: RealtimeEvent) {
 
 export type RealtimeHub = ReturnType<typeof createRealtimeHub>
 
-/**
- * Publishes events to SSE clients. Identical events published in the same tick are merged,
- * and the last {@link DEFAULT_BUFFER_SIZE} events are kept so reconnecting clients can catch
- * up from their `Last-Event-ID`.
- */
+/** Merges identical events in a tick and buffers recent ones for `Last-Event-ID` catch-up. */
 export function createRealtimeHub(bufferSize = DEFAULT_BUFFER_SIZE) {
     const buffer: RealtimeMessage[] = []
     const listeners = new Set<Listener>()
@@ -54,10 +50,7 @@ export function createRealtimeHub(bufferSize = DEFAULT_BUFFER_SIZE) {
             return lastId
         },
 
-        /**
-         * Events after `afterId`, or null when some of them were already dropped from the
-         * buffer (or the id is from another server run) and the client must resync.
-         */
+        /** Null when some events were dropped or the id is from another run; the client must resync. */
         since(afterId: number): RealtimeMessage[] | null {
             if (afterId > lastId) return null
             if (afterId === lastId) return []

@@ -2,10 +2,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/**
- * Recursively merges `patch` into `base`. Plain objects merge key by key; arrays and other
- * values replace; `undefined` leaves the base value untouched.
- */
+/** Arrays replace instead of merging; `undefined` keeps the base value. */
 export function deepMerge<T>(base: T, patch: unknown): T {
     if (!isPlainObject(base) || !isPlainObject(patch)) {
         return (patch === undefined ? base : patch) as T

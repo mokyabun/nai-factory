@@ -30,10 +30,7 @@ function addPendingCount(queryClient: QueryClient, delta: number) {
     )
 }
 
-/**
- * Scene mutations of a project, each with an optimistic update of its scene list. Shared by the
- * project grid and the scene cards, so both show the same cache changes.
- */
+/** Shared by the grid and the scene cards so both show the same optimistic updates. */
 export function useSceneMutations(projectId: number) {
     const queryClient = useQueryClient()
     const scenesKey = qk.scenes.list(projectId)

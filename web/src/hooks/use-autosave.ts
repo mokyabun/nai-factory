@@ -10,17 +10,7 @@ interface AutosaveOptions<T, P> {
     delay?: number
 }
 
-/**
- * Edits server data and saves the changes once input pauses.
- *
- * `value` is `data` with the edits that are not saved yet laid over it: editors show what was
- * typed, while refetches still update every field nobody is editing. When a save finishes and
- * nothing was edited meanwhile, the overlay is dropped and `value` is the server's copy again. A
- * failed save keeps the edits on screen and sends them again with the next change.
- *
- * Saves run one at a time, so responses cannot arrive out of order, and pending edits are saved
- * on unmount. One autosave belongs to one entity: key its owner by the entity id.
- */
+/** Edits overlay `data` until saved; saves run serially. Key the owner by the entity id. */
 export function useAutosave<T extends object, P extends object>({
     data,
     save,

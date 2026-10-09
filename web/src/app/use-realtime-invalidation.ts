@@ -13,10 +13,7 @@ const REALTIME_KEYS = [
     qk.debug.all(),
 ]
 
-/**
- * After a `resync` (missed events could not be replayed) refetch every active query that
- * realtime events keep fresh. The NovelAI account status is left alone: it calls NovelAI.
- */
+/** Skips the NovelAI account status: refetching it calls NovelAI. */
 export function syncActiveRealtimeQueries(queryClient: QueryClient) {
     void queryClient.invalidateQueries({
         predicate: (query) =>
@@ -84,10 +81,7 @@ function parseEvent(data: string): RealtimeEvent | null {
     return null
 }
 
-/**
- * Subscribes to server events. EventSource reconnects on its own and sends `Last-Event-ID`,
- * so the server replays what was missed and only asks for a full refetch when it cannot.
- */
+/** EventSource resends `Last-Event-ID`, so the server replays missed events or sends `resync`. */
 export function useRealtimeInvalidation(queryClient: QueryClient) {
     useEffect(() => {
         const source = new EventSource(EVENTS_PATH)

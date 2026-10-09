@@ -44,11 +44,9 @@ interface Props {
     open: boolean
     onOpenChange: (open: boolean) => void
     file: File | null
-    /** null when dropped outside a project page */
+    /** Null when dropped outside a project page. */
     projectId: number | null
 }
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export function SdStudioImportDialog({ open, onOpenChange, file, projectId }: Props) {
     const navigate = useNavigate()
@@ -92,8 +90,6 @@ export function SdStudioImportDialog({ open, onOpenChange, file, projectId }: Pr
             cancelled = true
         }
     }, [file])
-
-    // ─── Mutations ────────────────────────────────────────────────────────────
 
     const importMutation = useMutation({
         mutationFn: async () => {
@@ -167,8 +163,6 @@ export function SdStudioImportDialog({ open, onOpenChange, file, projectId }: Pr
         },
     })
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
-
     const isLoading = importMutation.isPending || createAndImportMutation.isPending
 
     function toggleOption(key: keyof SdStudioImportOptionsDraft) {
@@ -180,12 +174,9 @@ export function SdStudioImportDialog({ open, onOpenChange, file, projectId }: Pr
         onOpenChange(false)
     }
 
-    // ─── Render ───────────────────────────────────────────────────────────────
-
     return (
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="max-w-md">
-                {/* Error state */}
                 {parseError && (
                     <>
                         <DialogHeader>
@@ -198,14 +189,12 @@ export function SdStudioImportDialog({ open, onOpenChange, file, projectId }: Pr
                     </>
                 )}
 
-                {/* Loading state */}
                 {!parseError && !parsed && (
                     <DialogHeader>
                         <DialogTitle>파일 읽는 중...</DialogTitle>
                     </DialogHeader>
                 )}
 
-                {/* Step: choose mode (inside project) */}
                 {!parseError && parsed && step === 'choose' && (
                     <>
                         <DialogHeader>
@@ -248,7 +237,6 @@ export function SdStudioImportDialog({ open, onOpenChange, file, projectId }: Pr
                     </>
                 )}
 
-                {/* Step: choose import options (current project) */}
                 {!parseError && parsed && step === 'options' && (
                     <>
                         <DialogHeader>
@@ -323,7 +311,6 @@ export function SdStudioImportDialog({ open, onOpenChange, file, projectId }: Pr
                     </>
                 )}
 
-                {/* Step: new project name */}
                 {!parseError && parsed && step === 'project-name' && (
                     <>
                         <DialogHeader>
@@ -378,5 +365,3 @@ export function SdStudioImportDialog({ open, onOpenChange, file, projectId }: Pr
         </Dialog>
     )
 }
-
-// ─── OptionRow ────────────────────────────────────────────────────────────────

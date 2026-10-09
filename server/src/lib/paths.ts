@@ -9,10 +9,6 @@ export class UnsafePathError extends Error {
     }
 }
 
-/**
- * Validates a `/`-separated relative path: no absolute paths, drive letters, backslashes,
- * NUL bytes, empty segments, `.` or `..`.
- */
 export function assertSafeRelPath(relPath: string) {
     if (
         relPath.length === 0 ||
@@ -38,7 +34,6 @@ function isInside(root: string, target: string) {
     return target === root || target.startsWith(root.endsWith(sep) ? root : `${root}${sep}`)
 }
 
-/** Joins a single validated name below `base`, e.g. an export folder below the export root. */
 export function resolveInside(base: string, relPath: string) {
     assertSafeRelPath(relPath)
     const root = resolve(base)
@@ -70,7 +65,6 @@ export function createDataPaths(dataDir: string) {
             return real
         },
 
-        /** Converts an absolute path below the root into a `/`-separated relative path. */
         toRelPath(absolutePath: string) {
             const target = resolve(absolutePath)
             if (!isInside(root, target) || target === root) {

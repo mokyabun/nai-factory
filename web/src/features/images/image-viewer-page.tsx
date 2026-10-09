@@ -45,7 +45,6 @@ export function ImageViewerPage({ sceneId, imageId }: { sceneId: number; imageId
         if (currentIndex < images.length - 1) goTo(images[currentIndex + 1])
     }, [currentIndex, images, goTo])
 
-    // Keyboard navigation
     useEffect(() => {
         function onKey(e: KeyboardEvent) {
             // Keys inside an open menu belong to the menu (arrow navigation, Esc to close it).
@@ -69,7 +68,6 @@ export function ImageViewerPage({ sceneId, imageId }: { sceneId: number; imageId
 
     return (
         <div className="fixed inset-0 z-50 flex flex-col bg-black/95">
-            {/* Top bar */}
             <div className="flex items-center justify-between px-4 py-3">
                 <Button
                     variant="ghost"
@@ -127,7 +125,6 @@ export function ImageViewerPage({ sceneId, imageId }: { sceneId: number; imageId
                 </div>
             </div>
 
-            {/* Image */}
             <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
                 {current ? (
                     <ImageSurface image={current} tone="dark" />
@@ -157,7 +154,6 @@ export function ImageViewerPage({ sceneId, imageId }: { sceneId: number; imageId
                 )}
             </div>
 
-            {/* Thumbnail strip */}
             {images.length > 1 && (
                 <div className="flex gap-2 overflow-x-auto px-4 py-3">
                     {images.map((img, i) => (

@@ -33,10 +33,7 @@ interface ImageProgressBarProps {
     fillClassName?: string
 }
 
-/**
- * Estimated progress of the image currently generating. NovelAI reports no real progress, so this
- * fills over the average image duration and holds short of full until the image is saved.
- */
+/** NovelAI reports no progress, so the bar fills over the average image duration. */
 export function ImageProgressBar({ progress, className, fillClassName }: ImageProgressBarProps) {
     const ratio = progress?.ratio ?? null
     const indeterminate = ratio === null || progress?.overrun === true

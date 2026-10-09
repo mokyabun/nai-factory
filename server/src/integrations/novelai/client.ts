@@ -60,7 +60,6 @@ function sleep(ms: number, signal?: AbortSignal) {
     })
 }
 
-/** Parses `Retry-After` as seconds or an HTTP date. */
 export function parseRetryAfter(value: string | null, now = Date.now()) {
     if (!value) return null
     const seconds = Number(value)
@@ -95,7 +94,6 @@ export function createNovelAIClient(options: NovelAIClientOptions) {
     const timeouts = { ...DEFAULT_TIMEOUTS, ...options.timeouts }
     const log = options.log.child({ module: 'novelai' })
 
-    /** One HTTP attempt with a timeout combined with the caller's abort signal. */
     async function attempt(
         operation: string,
         url: string,
@@ -121,7 +119,6 @@ export function createNovelAIClient(options: NovelAIClientOptions) {
         }
     }
 
-    /** Sends a request, retrying rate limits and gateway errors with exponential backoff. */
     async function send(
         operation: string,
         path: string,

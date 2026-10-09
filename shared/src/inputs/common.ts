@@ -5,17 +5,14 @@ export const IdParam = z.coerce.number().int().positive()
 export const IdParams = z.object({ id: IdParam })
 export type IdParams = z.infer<typeof IdParams>
 
-/**
- * Moves an item between two siblings. `beforeId` is the sibling that ends up directly before
- * the item and `afterId` the one directly after it; null means the start or end of the list.
- */
+/** `beforeId` and `afterId` are the new neighbors; null means the start or end of the list. */
 export const MoveBody = z.object({
     beforeId: z.number().int().positive().nullable(),
     afterId: z.number().int().positive().nullable(),
 })
 export type MoveBody = z.infer<typeof MoveBody>
 
-/** A multipart file field. Blob covers both browser File objects and Bun's File. */
+/** Blob covers both browser File objects and Bun's File. */
 export const UploadFile = z.custom<Blob>(
     (value) => typeof Blob !== 'undefined' && value instanceof Blob,
     'A file is required.',

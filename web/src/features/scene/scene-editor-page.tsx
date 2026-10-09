@@ -64,8 +64,7 @@ function SceneEditor({ scene: loadedScene }: { scene: Scene }) {
         },
         onSuccess: (scene: Scene, patch) => {
             queryClient.setQueryData(qk.scenes.get(sceneId), scene)
-            // New variations were sent with temporary negative ids. Remember the server's ids so
-            // later saves update them; local ids stay unchanged to keep editor rows mounted.
+            // Server ids replace the temporary negative ids; local ids keep editor rows mounted.
             patch.variations?.forEach((draft, index) => {
                 const saved = scene.variations[index]
                 if (draft.id !== undefined && draft.id < 0 && saved) {
@@ -101,7 +100,6 @@ function SceneEditor({ scene: loadedScene }: { scene: Scene }) {
 
     return (
         <div className="flex h-full flex-col gap-4">
-            {/* Header */}
             <div className="flex items-center gap-3">
                 <Button
                     variant="ghost"
@@ -127,7 +125,6 @@ function SceneEditor({ scene: loadedScene }: { scene: Scene }) {
                 </span>
             </div>
 
-            {/* Variations */}
             <div className="flex-1 overflow-auto">
                 {variations.length === 0 ? (
                     <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">

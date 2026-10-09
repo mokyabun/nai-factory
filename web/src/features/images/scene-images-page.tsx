@@ -203,7 +203,6 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
     return (
         <>
             <div className="flex h-full flex-col gap-4">
-                {/* Header */}
                 <div className="flex items-center gap-2">
                     <Button
                         variant="ghost"
@@ -257,7 +256,6 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                     )}
                 </div>
 
-                {/* Image grid */}
                 {imagesQuery.isPending ? (
                     <StatusMessage>불러오는 중...</StatusMessage>
                 ) : images.length === 0 ? (
@@ -306,10 +304,8 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                 )}
             </div>
 
-            {/* Image viewer overlay */}
             <Outlet />
 
-            {/* Delete dialog */}
             <ConfirmDeleteDialog
                 open={deleteTarget !== null}
                 onOpenChange={(open) => !open && setDeleteTarget(null)}

@@ -14,11 +14,7 @@ interface ImageSurfaceProps {
 
 type LoadState = { url: string; status: 'loaded' | 'failed' }
 
-/**
- * Shows an image's thumbnail right away and swaps in the original once it has loaded, so switching
- * images never flashes an empty frame. A failed original keeps the thumbnail and offers a retry.
- * Both layers fill the surface with `object-contain`, so they line up regardless of resolution.
- */
+/** The thumbnail shows until the original loads, so switching images never flashes an empty frame. */
 export function ImageSurface({ image, alt = '', className, tone = 'light' }: ImageSurfaceProps) {
     const sourceUrl = assetUrl(image.assetId)
     const thumbnailUrl = image.thumbAssetId === null ? sourceUrl : assetUrl(image.thumbAssetId)

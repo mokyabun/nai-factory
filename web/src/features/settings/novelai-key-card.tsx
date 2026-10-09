@@ -13,10 +13,7 @@ interface NovelAIKeyCardProps {
     settings: SettingsView | undefined
 }
 
-/**
- * The key is write-only: the server verifies and stores it, and only ever returns a masked
- * hint such as `****abcd`.
- */
+/** Write-only: the server only ever returns a masked hint such as `****abcd`. */
 export function NovelAIKeyCard({ settings }: NovelAIKeyCardProps) {
     const queryClient = useQueryClient()
     const [editing, setEditing] = useState(false)

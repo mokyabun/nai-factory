@@ -42,10 +42,7 @@ function createPatchQueue<T>(initialSave: (patch: T) => void, delay: number) {
     }
 }
 
-/**
- * Collects partial updates and saves them once input pauses. Updates queued before the save
- * are merged, so only changed fields are sent; anything pending is saved on unmount.
- */
+/** Merges queued updates so only changed fields are sent; pending ones save on unmount. */
 export function useDebouncedPatch<T extends object>(save: (patch: T) => void, delay = 600) {
     const [queue] = useState(() => createPatchQueue(save, delay))
 

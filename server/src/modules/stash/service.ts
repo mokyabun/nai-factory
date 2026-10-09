@@ -19,7 +19,6 @@ import * as scenes from '@/modules/scenes/service'
 
 import * as repo from './repo'
 
-/** Validates stored payloads against the entity schema of their type. */
 function toEntity(row: repo.StashRow): StashItem {
     return StashItem.parse({
         id: row.id,

@@ -36,7 +36,6 @@ function extensionOf(relPath: string) {
     return /^[a-z0-9]{1,8}$/.test(ext) ? ext : 'bin'
 }
 
-/** Builds the manifest and the list of files to stream for a project archive. */
 export function buildArchive(ctx: AppContext, projectId: number, body: ArchiveExportBody) {
     const include = { ...DEFAULT_ARCHIVE_INCLUDE, ...body.include }
     const project = projects.get(ctx, projectId)
@@ -160,7 +159,6 @@ function checkEntryName(name: string) {
     }
 }
 
-/** Where an imported asset of each kind is stored. */
 function importDir(kind: AssetKind, batch: string) {
     switch (kind) {
         case 'image':
@@ -178,10 +176,7 @@ function importDir(kind: AssetKind, batch: string) {
     }
 }
 
-/**
- * Imports a `.naif` archive as a new project. Entries are read as a stream; asset files are
- * verified and written first, then every row is inserted in one transaction.
- */
+/** Verifies and stores every asset file before inserting all rows in one transaction. */
 export async function importArchive(ctx: AppContext, file: Blob) {
     const batch = randomUUID()
     const stagingDir = `tmp/import-${batch}`

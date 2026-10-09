@@ -12,7 +12,6 @@ const MAX_ENTRIES = 500
 const SENSITIVE_KEYS = ['api', 'authorization', 'token', 'secret', 'cookie', 'header']
 const BINARY_KEYS = new Set(['data', 'image'])
 
-/** Removes secrets, headers and large binary fields from logged payloads. */
 export function redact(value: unknown): unknown {
     if (Array.isArray(value)) return value.map(redact)
     if (value instanceof Uint8Array) return `[${value.byteLength} bytes]`

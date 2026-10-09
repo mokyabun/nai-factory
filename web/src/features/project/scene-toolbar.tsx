@@ -4,7 +4,6 @@ import { Archive, Check, Download, ListPlus, Plus, Settings, Trash2, X } from 'l
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
-/** The dialogs the project page opens from its toolbar. */
 export type ProjectPageDialog =
     | { type: 'create-scene' }
     | { type: 'delete-selected' }
@@ -57,7 +56,6 @@ function ToolbarIconButton({
     )
 }
 
-/** Selection actions on the left, project actions on the right. */
 export function SceneToolbar({
     sceneCount,
     hasScenes,

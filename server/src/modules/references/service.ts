@@ -82,8 +82,6 @@ function toCharRef(row: repo.CharRefRow): CharacterReference {
     }
 }
 
-// Vibe transfers
-
 export function listVibes(ctx: AppContext, projectId: number) {
     projects.assertExists(ctx.db, projectId)
     return repo.vibes.list(ctx.db, projectId).map(toVibe)
@@ -145,8 +143,6 @@ export async function removeVibe(ctx: AppContext, id: number) {
     })
     await assets.removeFiles(ctx, removedPaths)
 }
-
-// Character references
 
 export function listCharRefs(ctx: AppContext, projectId: number) {
     projects.assertExists(ctx.db, projectId)
@@ -255,8 +251,6 @@ export async function removeCharRef(ctx: AppContext, id: number) {
     })
     await assets.removeFiles(ctx, removedPaths)
 }
-
-// Shared
 
 export function vibeRows(db: DbOrTx, projectId: number) {
     return repo.vibes.list(db, projectId)
@@ -388,10 +382,7 @@ async function ensureProcessed(ctx: AppContext, row: repo.CharRefRow) {
     return processed.data
 }
 
-/**
- * Loads the enabled references of a project for one generation. Encodes vibes when needed
- * and attaches files for references whose NovelAI cache entry has expired.
- */
+/** Encodes vibes when needed and reattaches files whose NovelAI cache entry expired. */
 export async function prepareForGeneration(
     ctx: AppContext,
     projectId: number,

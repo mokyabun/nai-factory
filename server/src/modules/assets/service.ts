@@ -138,7 +138,6 @@ export async function prepareImage(
     })
 }
 
-/** Validates an uploaded image by its magic bytes and returns its bytes and format. */
 export async function readUploadedImage(file: Blob) {
     const data = new Uint8Array(await file.arrayBuffer())
     const format = sniffImageFormat(data)
@@ -188,10 +187,7 @@ export async function discard(ctx: AppContext, prepared: (PreparedAsset | null |
     )
 }
 
-/**
- * Deletes asset rows that are no longer referenced. Call inside the transaction that removed
- * their owners, then pass the returned paths to {@link removeFiles} after it commits.
- */
+/** Call inside the transaction that removed the owners; pass the paths to {@link removeFiles} after commit. */
 export function deleteUnreferenced(tx: DbOrTx, ids: (number | null | undefined)[]) {
     const unique = [...new Set(ids.filter((id): id is number => typeof id === 'number'))]
     const orphans = repo.findUnreferenced(tx, unique)

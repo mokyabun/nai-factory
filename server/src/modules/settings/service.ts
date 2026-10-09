@@ -42,10 +42,7 @@ export function maskApiKey(apiKey: string) {
 
 export type SettingsStore = ReturnType<typeof createSettingsStore>
 
-/**
- * Global settings with an in-memory cache, plus the NovelAI API key kept in the secrets
- * table. The key never leaves this store except through {@link SettingsStore.apiKey}.
- */
+/** The API key leaves this store only through {@link SettingsStore.apiKey}. */
 export function createSettingsStore(
     db: Db,
     config: Pick<AppConfig, 'encryptionKey' | 'exportDir' | 'initialNovelAIMode'>,
@@ -101,7 +98,6 @@ export function createSettingsStore(
             }
         },
 
-        /** Deep-merges the patch, validates the result and stores it. */
         update(patch: SettingsPatch) {
             const merged = GlobalSettings.parse(deepMerge(cache, patch))
             const sections = Object.keys(patch).filter(

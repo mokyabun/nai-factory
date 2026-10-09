@@ -141,7 +141,6 @@ export function SceneCard({
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    {/* Selection checkbox */}
                     {onToggleSelect && (
                         <button
                             type="button"
@@ -168,7 +167,6 @@ export function SceneCard({
                         </button>
                     )}
 
-                    {/* Image area */}
                     <button
                         type="button"
                         className="group/thumb relative aspect-[3/4] w-full overflow-hidden bg-muted text-left"
@@ -203,7 +201,6 @@ export function SceneCard({
                             />
                         )}
 
-                        {/* Bottom overlay */}
                         <div className="absolute right-0 bottom-0 left-0 flex items-end justify-between gap-1 bg-gradient-to-t from-black/65 to-transparent px-1.5 pt-8 pb-1.5">
                             <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                                 {(inQueue || isProcessing) && (
@@ -225,7 +222,7 @@ export function SceneCard({
                                 <div className="flex shrink-0 gap-1">
                                     {cycleImages.map((_, i) => (
                                         <div
-                                            // dots are positional decorations for the slideshow.
+                                            // Index keys: the dots are positional.
                                             key={i}
                                             className={cn(
                                                 'h-1 w-1 rounded-full transition-colors',
@@ -247,7 +244,6 @@ export function SceneCard({
                         {isProcessing && <SceneCardGenerationBar />}
                     </button>
 
-                    {/* Actions */}
                     <div className="flex border-t">
                         <Button
                             variant="ghost"

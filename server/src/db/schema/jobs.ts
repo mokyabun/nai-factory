@@ -5,10 +5,7 @@ import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-cor
 import { createdAt } from '../columns'
 import { projects, scenes, sceneVariations } from './projects'
 
-/**
- * Scene and playground jobs share one queue. Scene jobs reference their scene by id and are
- * compiled from the latest data when they run; playground jobs store a prompt snapshot.
- */
+/** Scene jobs compile the latest scene data when they run; playground jobs store a snapshot. */
 export const jobs = sqliteTable(
     'jobs',
     {

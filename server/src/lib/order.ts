@@ -36,10 +36,7 @@ export class MoveError extends Error {
     }
 }
 
-/**
- * Plans the position updates for moving `id` between `beforeId` and `afterId` among `items`.
- * Returns a single update normally, or new keys for every sibling when keys grow too long.
- */
+/** Rebalances every sibling instead of returning one update when keys grow too long. */
 export function planMove(
     items: Positioned[],
     id: number,

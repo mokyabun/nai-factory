@@ -56,7 +56,6 @@ export function getState(ctx: AppContext) {
     return toState(loadState(ctx.db))
 }
 
-/** Merges a patch into a playground snapshot and validates the parameters. */
 export function mergeSnapshot(base: PlaygroundJobPayload, patch: PlaygroundStatePatch) {
     const merged = deepMerge(base, patch)
     const parameters = Parameters.safeParse(merged.parameters)

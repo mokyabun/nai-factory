@@ -6,7 +6,6 @@ import { useAutosave } from '@/hooks/use-autosave'
 import { call, contract } from '@/lib/api'
 import { qk } from '@/lib/queries'
 
-/** Display settings of a project page, shown at once and saved after a pause. */
 export function useProjectSettings(projectId: number, project: Project | undefined) {
     const queryClient = useQueryClient()
 

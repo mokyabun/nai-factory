@@ -91,7 +91,6 @@ async function readError(response: Response) {
     return new ApiError(response.status, 'error', text || response.statusText || 'Request failed')
 }
 
-/** Calls an API endpoint from the shared contract and returns its typed response. */
 export async function call<E extends EndpointDef>(
     endpoint: E,
     ...[input]: CallArgs<E>

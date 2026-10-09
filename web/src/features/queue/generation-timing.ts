@@ -1,12 +1,7 @@
 /** Estimated progress is capped below 100% until the server confirms the image is saved. */
 const MAX_ESTIMATED_RATIO = 0.95
 
-/**
- * Converts the local clock to the server clock.
- *
- * `receivedAt` is when the status carrying `serverTime` arrived. Never reading the clock earlier
- * than that keeps elapsed times from going negative before the first local tick.
- */
+/** Never reads the clock before `receivedAt`, so elapsed times never go negative. */
 export function toServerNow(localNow: number, serverTime: string | undefined, receivedAt: number) {
     if (!serverTime) return localNow
 

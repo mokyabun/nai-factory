@@ -30,10 +30,7 @@ export function renderOutputTemplate(
         : `${sanitized}.${values.extension}`
 }
 
-/**
- * Returns `filename`, or `name-2.ext`, `name-3.ext`… — the first name not in `used`. The
- * final name is recorded, so generated names never collide with later template results (C10).
- */
+/** Records the final name so later template results never collide with generated ones. */
 export function uniqueFilename(filename: string, used: Set<string>) {
     const key = (name: string) => name.toLowerCase()
     let candidate = filename

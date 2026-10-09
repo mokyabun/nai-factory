@@ -49,7 +49,6 @@ function useServerNow(status: QueueStatus, receivedAt: number, active: boolean) 
     return toServerNow(localNow, status.serverTime, receivedAt)
 }
 
-/** Queue status plus client-side derived timing for the job currently generating. */
 export function useGenerationStatus() {
     const { status, receivedAt } = useQueueStatus()
     const job = status.current

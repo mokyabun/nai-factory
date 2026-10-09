@@ -14,7 +14,6 @@ import { matchesKey, qk, queries } from '@/lib/queries'
 
 import type { ProjectPageCallbacks } from './use-project-scene-actions'
 
-/** Stash items and the mutations to save, delete and apply them to a project. */
 export function useProjectStash(
     projectId: number,
     { takeSelection, closeDialog }: ProjectPageCallbacks,

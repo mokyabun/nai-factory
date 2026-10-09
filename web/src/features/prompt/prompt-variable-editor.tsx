@@ -38,7 +38,7 @@ export function PromptVariableEditor({ variables, onChange }: PromptVariableEdit
         <div className="flex flex-col gap-2">
             {variables.map(({ key, value }, i) => (
                 <div
-                    // draft variable rows can share empty keys until edited.
+                    // Index keys: draft rows can share empty keys until edited.
                     key={i}
                     className="flex flex-col gap-1"
                 >

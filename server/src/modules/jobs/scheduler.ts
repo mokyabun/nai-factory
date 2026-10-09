@@ -59,10 +59,7 @@ export type EstimateInput = {
     current: Pick<CurrentJob, 'kind' | 'total' | 'done' | 'imageStartedAt'> | null
 }
 
-/**
- * Milliseconds until the queue drains, or null without samples. Waiting jobs are estimated
- * per job because their image counts are only known once they are compiled.
- */
+/** Waiting jobs are estimated per job because their image counts are only known once compiled. */
 export function estimateRemainingMs(input: EstimateInput): number | null {
     const jobMs = (kind: JobKind) => input.avgJobMs[kind] ?? input.avgImageMs
     let total = 0
@@ -95,11 +92,7 @@ export function estimateRemainingMs(input: EstimateInput): number | null {
 
 export type Scheduler = ReturnType<typeof createScheduler>
 
-/**
- * Runs queued jobs one at a time. Picking the next job and deciding to stop happen in the
- * same synchronous step (SQLite is synchronous), so a job queued while the loop winds down is
- * never stranded.
- */
+/** Picking the next job and deciding to stop happen in one synchronous step, so no job is stranded. */
 export function createScheduler(ctx: AppContext) {
     const log = ctx.log.child({ module: 'scheduler' })
     const imageDurations = new RollingSamples(SAMPLE_SIZE)
@@ -216,7 +209,7 @@ export function createScheduler(ctx: AppContext) {
 
     async function loop() {
         while (true) {
-            // No await between the check and `processing = false` (C5).
+            // No await between this check and `processing = false`, so wake() never misses a job.
             const next = running ? repo.nextQueued(ctx.db) : null
             if (!next) {
                 processing = false
@@ -272,7 +265,6 @@ export function createScheduler(ctx: AppContext) {
 
         wake,
 
-        /** Aborts the running job if it is `jobId`. Returns whether it was running. */
         cancel(jobId: number) {
             if (current?.jobId !== jobId) return false
             current.abortReason = 'cancel'

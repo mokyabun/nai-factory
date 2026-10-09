@@ -37,7 +37,6 @@ export function createLogger(config: AppConfig['log'], env: AppConfig['env']): L
 
 const bootConfig = loadConfig()
 
-/** Process-wide logger configured from the environment. */
 const logger = createLogger(bootConfig.log, bootConfig.env)
 
 export default logger

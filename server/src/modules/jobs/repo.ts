@@ -11,6 +11,8 @@ export const FINISHED_STATUSES: JobStatus[] = ['completed', 'failed', 'cancelled
 
 const withLabel = { job: jobs, sceneName: scenes.name }
 
+const runningFirst = sql`CASE ${jobs.status} WHEN 'running' THEN 0 ELSE 1 END`
+
 function flatten(row: { job: JobRow; sceneName: string | null }): JobWithLabel {
     return { ...row.job, sceneName: row.sceneName }
 }
@@ -40,12 +42,7 @@ export function list(db: DbOrTx, statuses: JobStatus[], projectId?: number) {
                 projectId === undefined ? undefined : eq(jobs.projectId, projectId),
             ),
         )
-        .orderBy(
-            // The running job first, then the queue order.
-            sql`CASE ${jobs.status} WHEN 'running' THEN 0 ELSE 1 END`,
-            asc(jobs.priorityKey),
-            asc(jobs.id),
-        )
+        .orderBy(runningFirst, asc(jobs.priorityKey), asc(jobs.id))
         .all()
         .map(flatten)
 }
@@ -83,7 +80,6 @@ export function nextQueued(db: DbOrTx) {
     )
 }
 
-/** First and last priority keys among queued jobs. */
 export function queueBounds(db: DbOrTx) {
     const row = db
         .select({

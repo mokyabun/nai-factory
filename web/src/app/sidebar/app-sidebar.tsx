@@ -266,7 +266,6 @@ export function AppSidebar({ projectId }: AppSidebarProps) {
             collapsible="icon"
             className="overflow-hidden [&>[data-sidebar=sidebar]]:flex-row"
         >
-            {/* Icon rail */}
             <Base.Sidebar
                 collapsible="none"
                 className="!w-[calc(var(--sidebar-width-icon)_+_1px)] border-e"
@@ -274,7 +273,6 @@ export function AppSidebar({ projectId }: AppSidebarProps) {
                 {renderIconRail()}
             </Base.Sidebar>
 
-            {/* Panel */}
             {isSidebarOpen && (
                 <Base.Sidebar
                     collapsible="none"

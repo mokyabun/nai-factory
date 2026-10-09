@@ -30,7 +30,6 @@ export const DEFAULT_ARCHIVE_INCLUDE: ArchiveInclude = {
     vibeTransfers: true,
 }
 
-/** Archive entry names may only use safe relative segments. */
 export const ArchiveEntryPath = z
     .string()
     .regex(/^assets\/[A-Za-z0-9_-]+\/[A-Za-z0-9._-]+$/, 'Invalid archive asset path')

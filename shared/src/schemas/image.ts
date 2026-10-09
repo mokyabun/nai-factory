@@ -17,7 +17,6 @@ export const Image = z.object({
 })
 export type Image = z.infer<typeof Image>
 
-/** The lightweight image shape embedded in scene summaries. */
 export const ImageThumb = Image.pick({
     id: true,
     position: true,

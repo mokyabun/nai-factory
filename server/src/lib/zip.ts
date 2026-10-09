@@ -7,10 +7,7 @@ export type ZipEntry = {
     compress: boolean
 }
 
-/**
- * Streams a zip archive, pulling one entry at a time so only the current file is held in
- * memory.
- */
+/** Pulls one entry at a time so only the current file is held in memory. */
 export function createZipStream(entries: AsyncIterable<ZipEntry>): ReadableStream<Uint8Array> {
     const iterator = entries[Symbol.asyncIterator]()
     let zip: Zip | null = null
@@ -74,10 +71,7 @@ function concat(chunks: Uint8Array[], size: number) {
     return result
 }
 
-/**
- * Reads a zip stream entry by entry, enforcing entry count and total uncompressed size limits
- * while inflating (zip bomb protection).
- */
+/** Enforces entry count and total size limits while inflating (zip bomb protection). */
 export async function readZipStream(source: ReadableStream<Uint8Array>, options: UnzipOptions) {
     let failure: unknown = null
     let entries = 0

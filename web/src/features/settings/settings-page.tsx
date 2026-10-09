@@ -59,7 +59,6 @@ function SettingsTitle() {
     )
 }
 
-/** The settings form; the draft starts from `settings` and every change is saved after a pause. */
 function SettingsEditor({ settings }: { settings: SettingsView }) {
     const queryClient = useQueryClient()
     const [draft, setDraft] = useState(() => createSettingsDraft(settings))
@@ -70,7 +69,6 @@ function SettingsEditor({ settings }: { settings: SettingsView }) {
     const saveSettings = useMutation({
         mutationFn: (patch: SettingsPatch) => call(contract.settings.update, { body: patch }),
         onSuccess: (data: SettingsView) => queryClient.setQueryData(qk.settings.get(), data),
-        // Resend every section with the next change after a failed save.
         onError: () => {
             lastSaved.current = null
         },
@@ -84,7 +82,6 @@ function SettingsEditor({ settings }: { settings: SettingsView }) {
 
     function changeDraft(next: SettingsDraft) {
         setDraft(next)
-        // Send only the sections that changed since the last save.
         const nextPatch = createSettingsPatch(next)
         const patch = changedSettings(lastSaved.current, nextPatch)
         if (Object.keys(patch).length === 0) return
@@ -166,7 +163,7 @@ function SettingsEditor({ settings }: { settings: SettingsView }) {
                         <div className="flex flex-col gap-2">
                             {globalVars.map(({ key, value }, i) => (
                                 <div
-                                    // draft settings rows can share empty keys until edited.
+                                    // Index keys: draft rows can share empty keys until edited.
                                     key={i}
                                     className="flex items-center gap-2"
                                 >

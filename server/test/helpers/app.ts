@@ -36,10 +36,7 @@ function toQueryString(query: unknown) {
     return text ? `?${text}` : ''
 }
 
-/**
- * An app with its own temporary data folder (in-memory database by default) and NovelAI in
- * mock mode unless overridden.
- */
+/** Uses its own temporary data folder, an in-memory database and mock NovelAI by default. */
 export async function createTestApp(
     options: { env?: Env; inMemory?: boolean } & ContextOptions = {},
 ) {

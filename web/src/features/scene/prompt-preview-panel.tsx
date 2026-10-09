@@ -39,7 +39,7 @@ export function PromptPreviewPanel({
                 <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
                     {preview.prompts.map((prompt, index) => (
                         <section
-                            // preview order follows variation order.
+                            // Index keys: the preview order follows the variation order.
                             key={index}
                             className="rounded border bg-background/40 p-2"
                         >

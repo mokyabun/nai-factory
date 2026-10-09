@@ -21,7 +21,6 @@ export type ContextOptions = {
 
 const GC_INTERVAL_MS = 24 * 60 * 60 * 1000
 
-/** Opens the database, runs migrations and wires every service. */
 export function createContext(config: AppConfig, log: Logger, options: ContextOptions = {}) {
     const paths = createDataPaths(config.dataDir)
     const { db, sqlite } = openDatabase({
@@ -56,7 +55,6 @@ export function createContext(config: AppConfig, log: Logger, options: ContextOp
     return ctx
 }
 
-/** Startup work: recover interrupted jobs, clear staging files and schedule the asset GC. */
 export async function startBackgroundTasks(ctx: AppContext) {
     ctx.scheduler.recover()
     await ctx.storage.removeDir('tmp')

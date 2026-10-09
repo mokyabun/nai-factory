@@ -2,10 +2,7 @@ import type * as z from 'zod'
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
-/**
- * One API endpoint, shared by the server (route registration and validation) and the web
- * client (typed calls). Paths are relative to `/api` and use `:name` placeholders.
- */
+/** Paths are relative to `/api` and use `:name` placeholders. */
 export interface EndpointDef {
     method: HttpMethod
     path: string
@@ -38,7 +35,6 @@ export type EndpointResponse<E extends EndpointDef> = E['response'] extends z.Zo
       ? Blob
       : null
 
-/** Fills `:name` placeholders in an endpoint path. */
 export function buildPath(path: string, params: Record<string, unknown> | undefined) {
     return path.replace(/:([A-Za-z_]\w*)/g, (_, name: string) => {
         const value = params?.[name]

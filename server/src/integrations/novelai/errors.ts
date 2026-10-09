@@ -7,7 +7,6 @@ export type NovelAIErrorKind =
     | 'network'
     | 'aborted'
 
-/** Failure talking to NovelAI, classified by HTTP status or transport error. */
 export class NovelAIError extends Error {
     constructor(
         readonly kind: NovelAIErrorKind,

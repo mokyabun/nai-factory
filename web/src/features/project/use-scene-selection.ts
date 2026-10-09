@@ -17,10 +17,6 @@ function isEditableTarget(target: EventTarget | null) {
     )
 }
 
-/**
- * Scene selection for the project grid: click to toggle, drag across cards to select a range,
- * Ctrl/⌘+A to select all and Escape to clear.
- */
 export function useSceneSelection(items: SceneSummary[]) {
     const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set())
     const dragRef = useRef<SelectionDragState | null>(null)

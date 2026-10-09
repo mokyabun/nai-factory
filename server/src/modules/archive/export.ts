@@ -69,7 +69,6 @@ export function zipFilename(projectName: string) {
     return `${sanitizeFilename(projectName)}-export.zip`
 }
 
-/** Writes images to a folder below `NAI_FACTORY_EXPORT_DIR` (S3). */
 export async function exportToServer(
     ctx: AppContext,
     projectId: number,

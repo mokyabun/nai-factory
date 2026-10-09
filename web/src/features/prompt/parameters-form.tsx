@@ -15,7 +15,6 @@ interface ParametersFormProps {
     scope: 'project' | 'playground'
 }
 
-/** Generation parameters shared by the project prompt panel and Playground. */
 export function ParametersForm({ parameters, onChange, scope }: ParametersFormProps) {
     const isV5 = isNovelAIV5Model(parameters.model)
     const id = (field: string) => `${scope}-parameter-${field}`

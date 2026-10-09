@@ -62,11 +62,11 @@ export interface ParsedScenePack {
 
 export interface ParsedSceneItem {
     name: string
-    /** Each variation maps to one image generation (key: prompt variable name, e.g. { prompt: "..." }) */
+    /** One image generation per variation. */
     variations: PromptVariable[]
 }
 
-// Matches <library_name.piece_name> refs in prompts
+/** Matches `<library.piece>` references in prompts. */
 const LIB_REF_RE = /<([^.>]+)\.([^>]+)>/g
 
 export function parseSdStudioFile(raw: unknown): ParsedScenePack {
@@ -75,7 +75,6 @@ export function parseSdStudioFile(raw: unknown): ParsedScenePack {
         throw new Error('Invalid SD Studio file: missing name or scenes')
     }
 
-    // Build library lookup: "libKey.pieceName" → prompt value
     const pieceValues = new Map<string, string>()
     if (file.library) {
         for (const [libKey, lib] of Object.entries(file.library)) {
@@ -90,7 +89,6 @@ export function parseSdStudioFile(raw: unknown): ParsedScenePack {
         scenes.push(expandScene(scene.name || key, scene, pieceValues))
     }
 
-    // Find the selected preset
     let preset: SdPreset | undefined
     if (file.selectedWorkflow && file.presets) {
         const { workflowType, presetName } = file.selectedWorkflow
@@ -267,11 +265,7 @@ function skipJsonArray(text: string, start: number) {
     throw new Error('Unterminated JSON array')
 }
 
-/**
- * One SD Studio scene → one app Scene with N variations.
- * Each slot group is treated as an independent variable dimension;
- * all enabled alternatives are combined via Cartesian product.
- */
+/** Each enabled slot group is a variable dimension; variations are their Cartesian product. */
 function expandScene(
     name: string,
     scene: SdScene,

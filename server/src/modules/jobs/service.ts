@@ -123,7 +123,6 @@ export function enqueueScenes(ctx: AppContext, body: SceneEnqueueBody) {
     return afterEnqueue(ctx, ids)
 }
 
-/** Queues a snapshot of the playground state, with any unsaved fields from the request. */
 export function enqueuePlayground(ctx: AppContext, body: PlaygroundEnqueueBody) {
     const { position, ...overrides } = body
     const ids = ctx.db.transaction((tx) => {
@@ -162,7 +161,7 @@ export function move(ctx: AppContext, id: number, body: MoveBody) {
     return toEntity(job)
 }
 
-/** Requeues a failed or cancelled job; it resumes after the images it already saved (C1). */
+/** Requeues a failed or cancelled job; it resumes after the images it already saved. */
 export function retry(ctx: AppContext, id: number) {
     const job = ctx.db.transaction((tx) => {
         const row = requireEntity(repo.getById(tx, id), 'Job')
@@ -177,7 +176,7 @@ export function retry(ctx: AppContext, id: number) {
     return toEntity(job)
 }
 
-/** Deletes a job, or cancels it when it is running (C2). */
+/** Deletes a job, or cancels it when it is running. */
 export function remove(ctx: AppContext, id: number) {
     const row = requireEntity(repo.getById(ctx.db, id), 'Job')
     if (row.status === 'running' && ctx.scheduler.cancel(id)) return

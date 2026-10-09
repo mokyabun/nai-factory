@@ -22,7 +22,6 @@ export const JobHistoryQuery = z.object({
 })
 export type JobHistoryQuery = z.infer<typeof JobHistoryQuery>
 
-/** Exactly one of `variationIds`, `sceneIds` or `projectId` selects what to queue. */
 export const SceneEnqueueBody = z
     .object({
         sceneIds: z.array(z.number().int().positive()).min(1).optional(),
@@ -40,10 +39,7 @@ export const SceneEnqueueBody = z
     )
 export type SceneEnqueueBody = z.infer<typeof SceneEnqueueBody>
 
-/**
- * Queues the playground. Fields given here override the stored playground state, so unsaved
- * editor changes are included in the snapshot.
- */
+/** Overrides the stored playground state so unsaved editor changes are queued. */
 export const PlaygroundEnqueueBody = z.object({
     prompt: z.string().optional(),
     negativePrompt: z.string().optional(),

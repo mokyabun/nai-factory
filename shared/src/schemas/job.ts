@@ -45,12 +45,7 @@ export const Job = z.object({
 })
 export type Job = z.infer<typeof Job>
 
-/**
- * - `running`: jobs are being processed.
- * - `pausing`: a stop was requested; the current image finishes before the queue halts.
- * - `paused`: halted with jobs still waiting (by the user or after a failure).
- * - `idle`: nothing is waiting.
- */
+/** `pausing`: the current image finishes before the queue halts. */
 export const QueueState = z.enum(['idle', 'running', 'pausing', 'paused'])
 export type QueueState = z.infer<typeof QueueState>
 
@@ -81,7 +76,6 @@ export const QueueStatus = z.object({
     /** Estimated seconds until every queued job finishes; null without duration samples. */
     estimatedSeconds: z.number().nullable(),
     current: QueueCurrentJob.nullable(),
-    /** Average duration of a single image generation. */
     avgImageMs: z.number().nullable(),
     sampleSize: z.number(),
     completedCount: z.number(),

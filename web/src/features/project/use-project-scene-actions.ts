@@ -10,10 +10,7 @@ export interface ProjectPageCallbacks {
     closeDialog: () => void
 }
 
-/**
- * Scene actions of the project page: the shared scene mutations plus the page's own state.
- * Queueing and deleting clear the selection, and restore it when the request fails.
- */
+/** Queueing and deleting clear the selection and restore it when the request fails. */
 export function useProjectSceneActions(
     projectId: number,
     { takeSelection, closeDialog }: ProjectPageCallbacks,

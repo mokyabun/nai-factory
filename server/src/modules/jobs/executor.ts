@@ -163,7 +163,7 @@ type SceneContext = {
     prompts: Prompt[]
 }
 
-/** Loads the latest project, scene and variation, so edits after enqueueing apply (D4). */
+/** Loads the latest project, scene and variation, so edits after enqueueing apply. */
 function loadSceneContext(ctx: AppContext, job: repo.JobRow): SceneContext | null {
     if (job.sceneId === null || job.variationId === null || job.projectId === null) return null
     const projectRow = projects.getRow(ctx.db, job.projectId)

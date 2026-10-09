@@ -124,7 +124,6 @@ export function createStorage(paths: DataPaths, encryptionKey: string | null) {
             await fs.rm(paths.resolve(relDir), { recursive: true, force: true })
         },
 
-        /** Lists every file below `relDir` as relative paths with their modification time. */
         async listFiles(relDir: string) {
             const base = paths.resolve(relDir)
             const result: { relPath: string; mtimeMs: number }[] = []

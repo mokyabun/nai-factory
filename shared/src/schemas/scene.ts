@@ -57,7 +57,6 @@ export type SceneJsonScene = z.infer<typeof SceneJsonScene>
 export const SceneJsonFile = z.object({ scenes: z.array(SceneJsonScene) })
 export type SceneJsonFile = z.infer<typeof SceneJsonFile>
 
-/** Accepted import shapes: `{ scenes }`, a bare array, or a single scene. */
 export const SceneJsonData = z.union([SceneJsonFile, z.array(SceneJsonScene), SceneJsonScene])
 export type SceneJsonData = z.infer<typeof SceneJsonData>
 

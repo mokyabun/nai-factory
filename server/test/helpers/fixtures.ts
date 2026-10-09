@@ -51,7 +51,6 @@ export async function createScene(
     return { projectId, scene: updated }
 }
 
-/** Starts the queue and waits until it stops. */
 export async function runQueue(t: TestApp) {
     await t.call(contract.jobs.start)
     await t.ctx.scheduler.idle()

@@ -20,7 +20,6 @@ export type AppEnv = {
     }
 }
 
-/** Everything a request handler or background task needs; created once per server. */
 export type AppContext = {
     config: AppConfig
     log: Logger

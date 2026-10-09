@@ -25,10 +25,7 @@ export function isLoopback(host: string) {
     return LOOPBACK_NAMES.has(name) || name.startsWith('127.')
 }
 
-/**
- * Hosts allowed in the `Host` header: loopback names, any IP literal (LAN access by IP) and
- * configured names. Unknown domain names are refused to block DNS rebinding.
- */
+/** IP literals allow LAN access; unknown domain names are refused to block DNS rebinding. */
 export function isAllowedHost(host: string | undefined, allowed: string[]) {
     if (!host) return false
     const name = hostnameOf(host)
@@ -73,7 +70,6 @@ function reject(error: AppError) {
     })
 }
 
-/** Host, Origin and optional token checks for everything served by the app. */
 export function securityMiddleware(config: AppConfig): MiddlewareHandler<AppEnv> {
     const extraOrigins = config.env === 'production' ? [] : [config.devWebOrigin]
     const publicPaths = new Set(['/healthz', '/api/healthz', '/api/auth/login'])

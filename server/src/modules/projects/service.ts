@@ -104,7 +104,6 @@ export function create(ctx: AppContext, body: ProjectCreateBody) {
     })
 }
 
-/** Applies a deep-merged patch and validates the merged project before saving. */
 export function applyPatch(tx: DbOrTx, id: number, patch: ProjectPatch) {
     const current = toEntity(requireRow(tx, id))
     assertGroup(tx, patch.groupId)

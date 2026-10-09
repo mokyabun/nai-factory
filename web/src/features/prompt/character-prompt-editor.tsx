@@ -179,7 +179,7 @@ export function CharacterPromptEditor({
                         <div className="flex flex-col gap-3">
                             {characterPrompts.map((cp, i) => (
                                 <SortableItem
-                                    // character prompts are ordered value objects without persisted ids.
+                                    // Index keys: character prompts have no persisted ids.
                                     key={i}
                                     id={i}
                                     cp={cp}

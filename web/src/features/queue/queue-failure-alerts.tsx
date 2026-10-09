@@ -7,7 +7,6 @@ import { useSidebar } from '@/components/ui/sidebar'
 
 import { useJobHistory } from './use-queue'
 
-/** Shows a toast for every job that fails while the app is open. */
 export function QueueFailureAlerts() {
     const navigate = useNavigate()
     const { isMobile, setOpen, setOpenMobile } = useSidebar()
