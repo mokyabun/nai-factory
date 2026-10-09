@@ -36,14 +36,17 @@ Cached vibe transfer images can be reused without re-uploading them every time.
 
 - Project, group, scene, and variation management
 - Prompt and negative prompt editing
+- Character prompts with positions on NovelAI's 5×5 grid, in projects and Playground
 - Global and scene-level variables
 - Tag autocomplete
-- NovelAI image generation queue
+- NovelAI image generation queue with an image count per queue action and a confirmation
+  before large batches
+- Size presets and an "Anlas 소모" warning when a size or step count is not free for Opus
 - NovelAI Diffusion V5 Full and Curated, alongside V4.5 and V4
 - Playground mode for quick generations
 - Character reference and vibe transfer support
 - Cached vibe transfer images
-- Local image and thumbnail storage
+- Local image and thumbnail storage; images record the variation that produced them
 - SD Studio import
 - Local SQLite database
 

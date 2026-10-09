@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+Database migrations run at startup and upgrade 0.3.0 data folders in place.
+
+- Character prompts can be placed on NovelAI's 5×5 grid. Each character card has a position
+  button in its bottom-right corner that turns "캐릭터 위치 사용" on or off (it moved there from
+  the parameters) and picks the cell. New characters start at the center (`C3`). Characters
+  saved by 0.3.0 at `{ x: 0, y: 0 }` (in projects and prompt stash items) are moved to the
+  center by the migration.
+- Scene queue actions take an image count per variation. Projects have a "기본 이미지 수"
+  setting (default 1), the scene selection bar has a count input with the resulting total, and
+  batches above 200 images ask for confirmation, including how many of them cost Anlas.
+  `POST /jobs/playground` also accepts `count`; the Playground UI queues one image.
+- Size presets (portrait, landscape, square, custom) and an "Anlas 소모" badge when the size
+  is above 1024×1024 pixels or steps are above 28.
+- The generation dock and queue panel show the remaining images; the time estimate is based
+  on them instead of on job counts.
+- Images store their variation (`images.variation_id`, backfilled from metadata where the
+  variation still exists). `GET /images` accepts `variationId`. Project archives record it as
+  an index into the scene's variations; archives from 0.3.0 still import.
+- Playground supports character prompts, and "재사용" restores them from scene and Playground
+  images.
+
 ## 0.3.0
 
 First public release. Data folders from earlier development versions are not compatible: start
