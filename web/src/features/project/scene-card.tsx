@@ -34,6 +34,8 @@ interface SceneCardProps {
     isProcessing?: boolean
     slideshowCount?: number
     cardSize?: ProjectSettings['sceneCardSize']
+    /** Width over height of the project's current resolution. */
+    thumbAspectRatio: number
     /** Actions for the whole selection; the menu of a selected card uses them. */
     selectionActions?: SceneSelectionActions | null
     onEnqueue: (position: EnqueuePosition) => void
@@ -61,6 +63,7 @@ export function SceneCard({
     isProcessing = false,
     slideshowCount = 4,
     cardSize = 'md',
+    thumbAspectRatio,
     selectionActions = null,
     onEnqueue,
     onToggleSelect,
@@ -173,7 +176,8 @@ export function SceneCard({
 
                     <button
                         type="button"
-                        className="group/thumb relative aspect-[3/4] w-full overflow-hidden bg-muted text-left"
+                        className="group/thumb relative w-full overflow-hidden bg-muted text-left"
+                        style={{ aspectRatio: thumbAspectRatio }}
                         onClick={() => {
                             if (selectMode && onToggleSelect) {
                                 onToggleSelect(scene.id)

@@ -22,6 +22,7 @@ interface SceneGridProps {
     processingSceneId: number | null
     slideshowCount: number
     cardSize: ProjectSettings['sceneCardSize']
+    thumbAspectRatio: number
     selectionActions: SceneSelectionActions | null
     onEnqueueScene: (sceneId: number, position: EnqueuePosition) => void
     onReorder: (items: SceneSummary[], patch: OrderPatch) => void
@@ -39,6 +40,7 @@ export function SceneGrid({
     processingSceneId,
     slideshowCount,
     cardSize,
+    thumbAspectRatio,
     selectionActions,
     onEnqueueScene,
     onReorder,
@@ -78,6 +80,7 @@ export function SceneGrid({
                             isProcessing={scene.id === processingSceneId}
                             slideshowCount={slideshowCount}
                             cardSize={cardSize}
+                            thumbAspectRatio={thumbAspectRatio}
                             selectionActions={selectionActions}
                             onEnqueueScene={onEnqueueScene}
                             onToggleSelect={onToggleSelect}

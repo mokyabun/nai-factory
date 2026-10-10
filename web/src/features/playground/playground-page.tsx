@@ -10,6 +10,7 @@ import { ImageSurface } from '@/features/images/image-surface'
 import { ImageProgressBar, imageTimingLabel } from '@/features/queue/generation-progress'
 import { useGenerationStatus } from '@/features/queue/use-queue'
 import { assetUrl, call, contract } from '@/lib/api'
+import { aspectRatio } from '@/lib/aspect-ratio'
 import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
 import { qk, queries } from '@/lib/queries'
 
@@ -161,9 +162,10 @@ export function PlaygroundPage() {
                         key={image.id}
                         type="button"
                         className={[
-                            'group relative aspect-square w-full overflow-hidden border bg-muted transition-colors',
+                            'group relative w-full shrink-0 overflow-hidden border bg-muted transition-colors',
                             selectedImage?.id === image.id ? 'border-primary' : 'hover:border-ring',
                         ].join(' ')}
+                        style={{ aspectRatio: aspectRatio(image.parameters) }}
                         onClick={() => selectImage(image)}
                     >
                         <img

@@ -19,12 +19,15 @@ import { StatusMessage } from '@/components/status-message'
 import { Button } from '@/components/ui/button'
 import { useDragSelection } from '@/hooks/use-drag-selection'
 import { assetUrl } from '@/lib/api'
+import { recordedAspectRatio } from '@/lib/aspect-ratio'
 import { queries } from '@/lib/queries'
 import { comparePosition, reorderById } from '@/lib/reorder'
 
 import { SortableImageItem } from './sortable-image-item'
 import { useImageMutations } from './use-image-mutations'
 import { VirtualImageGrid } from './virtual-image-grid'
+
+const imageAspectRatio = (img: Image) => recordedAspectRatio(img.metadata)
 
 export function ImagesPage({ sceneId }: { sceneId: number }) {
     const navigate = useNavigate()
@@ -171,12 +174,14 @@ export function ImagesPage({ sceneId }: { sceneId: number }) {
                                 items={images}
                                 pinnedIndex={draggingIndex < 0 ? null : draggingIndex}
                                 onEmptyPointerDown={selection.gridPointerDown}
+                                getAspectRatio={imageAspectRatio}
                                 renderItem={(img, index) => (
                                     <SortableImageItem
                                         key={img.id}
                                         img={img}
                                         index={index}
                                         imageUrl={assetUrl(img.thumbAssetId)}
+                                        aspectRatio={imageAspectRatio(img)}
                                         selected={selectedIds.has(img.id)}
                                         onView={(img) =>
                                             selectMode

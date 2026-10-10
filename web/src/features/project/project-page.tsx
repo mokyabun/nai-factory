@@ -7,6 +7,7 @@ import { StatusMessage } from '@/components/status-message'
 import { useQueueStatus } from '@/features/queue/use-queue'
 import { useDragSelection } from '@/hooks/use-drag-selection'
 import { useLocalOrder } from '@/hooks/use-local-order'
+import { aspectRatio } from '@/lib/aspect-ratio'
 import { queries } from '@/lib/queries'
 
 import { CreateSceneDialog } from './create-scene-dialog'
@@ -102,6 +103,9 @@ function ProjectPageContent({ projectId }: { projectId: number }) {
                     processingSceneId={current?.kind === 'scene' ? current.sceneId : null}
                     slideshowCount={settings.slideshowImageCount}
                     cardSize={settings.sceneCardSize}
+                    thumbAspectRatio={
+                        projectQuery.data ? aspectRatio(projectQuery.data.parameters) : 1
+                    }
                     selectionActions={selectionActions}
                     onEnqueueScene={(sceneId, position) =>
                         sceneActions.enqueueScenes([sceneId], position)
