@@ -89,7 +89,8 @@ You can also run the app with Docker:
 docker compose up --build
 ```
 
-Published images are available from GitHub Container Registry:
+Published images are available from GitHub Container Registry. Each release is tagged `latest`,
+`v1`, `v1.0` and `v1.0.0`; pin one of the version tags to control upgrades.
 
 ```sh
 docker pull ghcr.io/mokyabun/nai-factory:latest
