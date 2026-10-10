@@ -9,6 +9,7 @@ interface SortableImageItemProps {
     img: Image
     index: number
     imageUrl: string
+    aspectRatio: number
     selected: boolean
     onView: (img: Image) => void
     onDelete: (img: Image) => void
@@ -21,6 +22,7 @@ export function SortableImageItem({
     img,
     index,
     imageUrl,
+    aspectRatio,
     selected,
     onView,
     onDelete,
@@ -34,8 +36,10 @@ export function SortableImageItem({
     })
 
     const style = {
-        transform: CSS.Transform.toString(transform),
+        // Translate only: the sorting strategy would scale items to the size of the slot they move into.
+        transform: CSS.Translate.toString(transform),
         transition: 'none',
+        aspectRatio,
     }
 
     return (
@@ -44,7 +48,7 @@ export function SortableImageItem({
             style={style}
             {...attributes}
             {...listeners}
-            className={`group relative h-full cursor-grab ${selected ? 'ring-2 ring-primary ring-offset-2' : ''} ${isDragging ? 'opacity-40' : ''}`}
+            className={`group relative cursor-grab ${selected ? 'ring-2 ring-primary ring-offset-2' : ''} ${isDragging ? 'opacity-40' : ''}`}
             onPointerEnter={() => onSelectDragEnter(index)}
         >
             <button

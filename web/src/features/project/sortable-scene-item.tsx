@@ -14,6 +14,7 @@ interface SortableSceneItemProps {
     isProcessing: boolean
     slideshowCount: number
     cardSize: ProjectSettings['sceneCardSize']
+    thumbAspectRatio: number
     selectionActions: SceneSelectionActions | null
     onEnqueueScene: (sceneId: number, position: EnqueuePosition) => void
     onToggleSelect: (id: number) => void
@@ -29,6 +30,7 @@ export function SortableSceneItem({
     isProcessing,
     slideshowCount,
     cardSize,
+    thumbAspectRatio,
     selectionActions,
     onEnqueueScene,
     onToggleSelect,
@@ -60,6 +62,7 @@ export function SortableSceneItem({
                 isProcessing={isProcessing}
                 slideshowCount={slideshowCount}
                 cardSize={cardSize}
+                thumbAspectRatio={thumbAspectRatio}
                 selectionActions={selectionActions}
                 onEnqueue={(position) => onEnqueueScene(scene.id, position)}
                 onToggleSelect={onToggleSelect}
