@@ -8,8 +8,7 @@ on:
 concurrency:
     group: release-${{ github.ref }}
 
-permissions:
-    contents: read
+permissions: {}
 
 env:
     IMAGE_NAME: ghcr.io/${{ github.repository }}
@@ -17,7 +16,9 @@ env:
 jobs:
     ci:
         name: CI
-        uses: ./.github/workflows/ci.yml
+        uses: $/.github/workflows/ci.yml
+        permissions:
+            contents: read
 
     build:
         name: Build ${{ matrix.arch }} image
@@ -33,49 +34,77 @@ jobs:
         permissions:
             contents: read
             packages: write
+            id-token: write
+            attestations: write
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v5
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
             - name: Extract Docker metadata
               id: meta
-              uses: docker/metadata-action@v6
+              uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
               with:
                   images: ${{ env.IMAGE_NAME }}
 
             - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v4
+              uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
             - name: Log in to GitHub Container Registry
-              uses: docker/login-action@v4
+              uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
               with:
                   registry: ghcr.io
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
 
             # Pushed untagged; the publish job tags the multi-arch index that references it.
+            # No build cache: a release must not restore layers a less trusted workflow could have written.
+            # BuildKit attestations would show up as unknown/unknown images on GHCR; GitHub attestations replace them.
             - name: Build and push by digest
               id: build
-              uses: docker/build-push-action@v7
+              uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
               with:
                   context: .
                   platforms: linux/${{ matrix.arch }}
                   labels: ${{ steps.meta.outputs.labels }}
                   outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
-                  cache-from: type=gha,scope=${{ matrix.arch }}
-                  cache-to: type=gha,scope=${{ matrix.arch }},mode=max
+                  provenance: false
+                  sbom: false
+
+            - name: Generate SBOM
+              uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+              with:
+                  image: ${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+                  registry-username: ${{ github.actor }}
+                  registry-password: ${{ secrets.GITHUB_TOKEN }}
+                  format: spdx-json
+                  output-file: ${{ runner.temp }}/nai-factory-${{ github.ref_name }}-linux-${{ matrix.arch }}.spdx.json
+                  upload-artifact: false
+                  upload-release-assets: false
+
+            - name: Attest SBOM
+              uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+              with:
+                  subject-name: ${{ env.IMAGE_NAME }}
+                  subject-digest: ${{ steps.build.outputs.digest }}
+                  sbom-path: ${{ runner.temp }}/nai-factory-${{ github.ref_name }}-linux-${{ matrix.arch }}.spdx.json
 
             - name: Save digest
-              run: echo "$DIGEST" > "$RUNNER_TEMP/digest-${{ matrix.arch }}"
+              run: echo "$DIGEST" > "$RUNNER_TEMP/digest-$ARCH"
               env:
                   DIGEST: ${{ steps.build.outputs.digest }}
+                  ARCH: ${{ matrix.arch }}
 
-            - name: Upload digest
-              uses: actions/upload-artifact@v7
+            - name: Upload digest and SBOM
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
-                  name: digest-${{ matrix.arch }}
-                  path: ${{ runner.temp }}/digest-${{ matrix.arch }}
+                  name: build-${{ matrix.arch }}
+                  path: |
+                      ${{ runner.temp }}/digest-${{ matrix.arch }}
+                      ${{ runner.temp }}/*.spdx.json
+                  if-no-files-found: error
                   retention-days: 1
 
     publish:
@@ -83,46 +112,60 @@ jobs:
         needs: build
         runs-on: ubuntu-latest
         permissions:
-            contents: read
             packages: write
+            id-token: write
+            attestations: write
+        outputs:
+            digest: ${{ steps.index.outputs.digest }}
 
         steps:
             - name: Download digests
-              uses: actions/download-artifact@v8
+              uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               with:
-                  path: ${{ runner.temp }}/digests
-                  pattern: digest-*
+                  path: ${{ runner.temp }}/build
+                  pattern: build-*
                   merge-multiple: true
 
+            # release follows the newest stable version, so pre-releases skip it and vX.
             - name: Extract Docker metadata
               id: meta
-              uses: docker/metadata-action@v6
+              uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
               env:
                   # GHCR reads the package description from the index annotations of multi-arch images.
                   DOCKER_METADATA_ANNOTATIONS_LEVELS: index
               with:
                   images: ${{ env.IMAGE_NAME }}
+                  flavor: latest=false
                   tags: |
                       type=semver,pattern=v{{version}}
-                      type=semver,pattern=v{{major}}.{{minor}}
-                      type=semver,pattern=v{{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+                      type=semver,pattern=v{{major}}
+                      type=raw,value=release,enable=${{ !contains(github.ref_name, '-') }}
 
             - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v4
+              uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
             - name: Log in to GitHub Container Registry
-              uses: docker/login-action@v4
+              uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
               with:
                   registry: ghcr.io
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Create multi-arch image
+              id: index
               run: |
                   mapfile -t tags < <(jq -r '.tags[] | "--tag=" + .' <<< "$DOCKER_METADATA_OUTPUT_JSON")
                   mapfile -t annotations < <(jq -r '.annotations[] | "--annotation=" + .' <<< "$DOCKER_METADATA_OUTPUT_JSON")
-                  mapfile -t sources < <(sed "s|^|$IMAGE_NAME@|" "$RUNNER_TEMP"/digests/*)
+                  mapfile -t sources < <(sed "s|^|$IMAGE_NAME@|" "$RUNNER_TEMP"/build/digest-*)
                   docker buildx imagetools create "${tags[@]}" "${annotations[@]}" "${sources[@]}"
+                  digest=$(docker buildx imagetools inspect "$IMAGE_NAME:$DOCKER_METADATA_OUTPUT_VERSION" --format '{{json .Manifest}}' | jq -r .digest)
+                  echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+            - name: Attest build provenance
+              uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+              with:
+                  subject-name: ${{ env.IMAGE_NAME }}
+                  subject-digest: ${{ steps.index.outputs.digest }}
 
     cleanup:
         name: Delete untagged images
@@ -134,7 +177,7 @@ jobs:
         steps:
             # Keeps platform images that a tagged multi-arch index still references.
             - name: Delete untagged images
-              uses: dataaxiom/ghcr-cleanup-action@v1
+              uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
               with:
                   delete-untagged: true
 
@@ -147,20 +190,30 @@ jobs:
             pull-requests: read
 
         steps:
-            # A release drafted in the GitHub UI (which also creates the tag) is left as is.
+            - name: Download SBOMs
+              uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              with:
+                  path: ${{ runner.temp }}/build
+                  pattern: build-*
+                  merge-multiple: true
+
+            # Immutable releases lock assets on publish, so the SBOMs are attached while it is still a draft.
+            # Notes come from the release PR body, or are generated when the tag was pushed outside a PR.
             - name: Create release
               run: |
-                  if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-                      exit 0
-                  fi
                   notes=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0].body // empty')
                   if [ -n "$notes" ]; then
                       notes_args=(--notes "$notes")
                   else
                       notes_args=(--generate-notes)
                   fi
-                  gh release create "$GITHUB_REF_NAME" --verify-tag \
-                      --title "NAI Factory ${GITHUB_REF_NAME#v}" "${notes_args[@]}"
+                  if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+                      notes_args+=(--prerelease)
+                  fi
+                  gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
+                      --title "NAI Factory ${GITHUB_REF_NAME#v}" "${notes_args[@]}" \
+                      "$RUNNER_TEMP"/build/*.spdx.json
+                  gh release edit "$GITHUB_REF_NAME" --draft=false
               env:
                   GH_TOKEN: ${{ github.token }}
                   GH_REPO: ${{ github.repository }}
