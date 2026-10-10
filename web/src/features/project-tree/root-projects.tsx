@@ -1,0 +1,65 @@
+import { useDroppable } from '@dnd-kit/core'
+
+import * as Base from '@/components/ui/sidebar'
+import { cn } from '@/lib/utils'
+
+import type { ProjectGroupProps } from './project-group'
+import { ProjectRow } from './project-row'
+import type { ProjectGroupId, ProjectSummary } from './project-tree-model'
+import { isSameRenameTarget } from './project-tree-model'
+
+interface RootProjectsProps extends Omit<ProjectGroupProps, 'group' | 'depth'> {
+    projects: ProjectSummary[]
+}
+
+export function RootProjects({
+    projects,
+    currentProjectId,
+    rename,
+    actions,
+    onRenameValueChange,
+    onCommitRename,
+    onCancelRename,
+}: RootProjectsProps) {
+    const { isOver, setNodeRef } = useDroppable({
+        id: 'project-root',
+        data: { groupId: null satisfies ProjectGroupId },
+    })
+
+    if (projects.length === 0) {
+        return (
+            <Base.SidebarMenuItem ref={setNodeRef}>
+                <div className={cn('mt-1 min-h-4 transition-colors', isOver && 'bg-primary/10')} />
+            </Base.SidebarMenuItem>
+        )
+    }
+
+    return (
+        <Base.SidebarMenuItem ref={setNodeRef}>
+            <div className={cn('mt-1 flex flex-col gap-0.5', isOver && 'bg-primary/10')}>
+                {projects.map((project) => (
+                    <ProjectRow
+                        key={project.id}
+                        project={project}
+                        variant="root"
+                        dropGroupId={null}
+                        isActive={currentProjectId === project.id}
+                        isRenaming={isSameRenameTarget(rename.target, {
+                            type: 'project',
+                            id: project.id,
+                        })}
+                        renameValue={rename.value}
+                        onRenameValueChange={onRenameValueChange}
+                        onCommitRename={() => onCommitRename({ type: 'project', id: project.id })}
+                        onCancelRename={onCancelRename}
+                        onPreload={() => actions.preloadProject(project)}
+                        onSelect={() => actions.selectProject(project)}
+                        onRename={() => actions.renameProject(project)}
+                        onDuplicate={() => actions.duplicateProject(project)}
+                        onDelete={() => actions.deleteProject(project)}
+                    />
+                ))}
+            </div>
+        </Base.SidebarMenuItem>
+    )
+}

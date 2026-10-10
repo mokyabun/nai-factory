@@ -1,4 +1,4 @@
-FROM oven/bun:1-alpine AS base
+FROM oven/bun:1.4-alpine AS base
 
 WORKDIR /app
 
@@ -26,21 +26,21 @@ FROM deps AS build
 
 COPY . .
 
-ARG VITE_API_URL=/api
-ENV VITE_API_URL=$VITE_API_URL
-
+# build:prod bundles the server (the tag search index is embedded) and copies the drizzle
+# migrations to dist/migrations; the web app is served from dist/public.
 RUN bun --filter @nai-factory/web build \
     && bun --filter @nai-factory/server build:prod \
-    && rm -rf server/dist/public server/dist/assets \
-    && mv web/dist server/dist/public \
-    && mkdir -p server/dist/assets \
-    && cp server/assets/db.csv server/dist/assets/db.csv
+    && rm -rf server/dist/public \
+    && mv web/dist server/dist/public
 
 FROM base AS runtime
 
 ENV NODE_ENV=production
 ENV BUN_ENV=production
+# Listen on all interfaces inside the container; publish the port on 127.0.0.1 (see compose).
+ENV HOST=0.0.0.0
 ENV PORT=3000
+# Absolute data folder: stored paths are relative to it, so it can move freely.
 ENV NAI_FACTORY_DATA_DIR=/app/server/data
 
 EXPOSE 3000

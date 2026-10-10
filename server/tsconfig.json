@@ -3,14 +3,9 @@
     "compilerOptions": {
         "types": ["@types/bun", "@types/node"],
         "strict": true,
-        "jsx": "react-jsx",
-        "jsxImportSource": "hono/jsx",
         "paths": {
             "@/*": ["./src/*"]
         }
     },
-    "include": [
-        "src/**/*",
-        "test/**/*"
-    ]
+    "include": ["src/**/*", "test/**/*", "scripts/**/*", "drizzle.config.ts"]
 }

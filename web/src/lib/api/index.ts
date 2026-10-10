@@ -1,4 +1,3 @@
-export { apiClient, http, request, requestBlob } from './client'
-export { api } from './resources'
-export * from './types'
-export { BASE_URL, imageUrl } from './utils'
+export { contract } from '@nai-factory/shared'
+
+export { ApiError, assetUrl, call, type CallInput, errorMessage, onApiError } from './client'

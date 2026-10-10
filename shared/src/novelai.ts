@@ -1,7 +1,8 @@
 import * as z from 'zod'
 
-/** Novel AI Model */
 export const NOVEL_AI_MODELS = [
+    'nai-diffusion-5-full',
+    'nai-diffusion-5-curated',
     'nai-diffusion-4-5-full',
     'nai-diffusion-4-5-curated',
     'nai-diffusion-4-full',
@@ -11,14 +12,23 @@ export const NOVEL_AI_MODELS = [
 export const NovelAIModel = z.enum(NOVEL_AI_MODELS)
 export type NovelAIModel = z.infer<typeof NovelAIModel>
 
+export function isNovelAIV5Model(model: string): boolean {
+    return model === 'nai-diffusion-5-full' || model === 'nai-diffusion-5-curated'
+}
+
+export function supportsCharacterReference(model: string): boolean {
+    return model.includes('4-5')
+}
+
 export const NOVEL_AI_MODEL_OPTIONS = [
+    { label: 'NAI Diffusion 5 Full', value: 'nai-diffusion-5-full' },
+    { label: 'NAI Diffusion 5 Curated', value: 'nai-diffusion-5-curated' },
     { label: 'NAI Diffusion 4.5 Full', value: 'nai-diffusion-4-5-full' },
     { label: 'NAI Diffusion 4.5 Curated', value: 'nai-diffusion-4-5-curated' },
     { label: 'NAI Diffusion 4 Full', value: 'nai-diffusion-4-full' },
     { label: 'NAI Diffusion 4 Curated', value: 'nai-diffusion-4-curated' },
 ] as const satisfies readonly { label: string; value: NovelAIModel }[]
 
-/** Noise Schedule */
 export const NOVEL_AI_NOISE_SCHEDULES = [
     'native',
     'karras',
@@ -36,7 +46,6 @@ export const NOVEL_AI_NOISE_SCHEDULE_OPTIONS = [
     { label: 'Polyexponential', value: 'polyexponential' },
 ] as const satisfies readonly { label: string; value: NovelAINoiseSchedule }[]
 
-/** Sampler */
 export const NOVEL_AI_SAMPLERS = [
     'k_euler_ancestral',
     'k_euler',
@@ -68,209 +77,30 @@ export const NovelAICharacterPrompt = z.object({
 })
 export type NovelAICharacterPrompt = z.infer<typeof NovelAICharacterPrompt>
 
-export interface NovelAICaption {
-    base_caption: string
-    char_captions: {
-        char_caption: string
-        centers: { x: number; y: number }[]
-    }[]
+/** Cell centers of NovelAI's 5×5 character position grid, per axis. */
+export const CHARACTER_GRID_STEPS = [0.1, 0.3, 0.5, 0.7, 0.9] as const
+
+export const DEFAULT_CHARACTER_CENTER = { x: 0.5, y: 0.5 }
+
+const CHARACTER_GRID_COLUMNS = ['A', 'B', 'C', 'D', 'E'] as const
+
+function nearestGridIndex(value: number) {
+    const index = Math.round((value - CHARACTER_GRID_STEPS[0]) / 0.2)
+    return Math.min(CHARACTER_GRID_STEPS.length - 1, Math.max(0, index))
 }
 
-export interface NovelAIV4Prompt {
-    caption: NovelAICaption
-    use_coords: boolean
-    use_order: boolean
+/** Grid cell of a center as NovelAI names it: column `A`–`E` from the left, row `1`–`5` from the top. */
+export function characterGridCell(center: { x: number; y: number }) {
+    return `${CHARACTER_GRID_COLUMNS[nearestGridIndex(center.x)]}${nearestGridIndex(center.y) + 1}`
 }
 
-export interface NovelAIV4NegativePrompt {
-    caption: NovelAICaption
-    legacy_uc: boolean
-}
+export const FREE_GENERATION_MAX_PIXELS = 1024 * 1024
+export const FREE_GENERATION_MAX_STEPS = 28
 
-export interface SimpleNovelAIParameters {
-    prompt: string
-    negativePrompt: string
-    characterPrompts: NovelAICharacterPrompt[]
-
-    vibeTransfers: NovelAIVibeImage[]
-    characterReferences: NovelAICharacterReferenceImage[]
-
-    model: NovelAIModel
-
-    width: number
-    height: number
-
-    steps: number
-    promptGuidance: number
-    varietyPlus: boolean
-    seed: number
-    sampler: NovelAISampler
-    promptGuidanceRescale: number
-    noiseSchedule: NovelAINoiseSchedule
-
-    normalizeReferenceStrengthValues: boolean
-    useCharacterPositions: boolean
-
-    qualityToggle: boolean
-}
-
-export interface NovelAIParameters {
-    params_version: number
-
-    /** Prompts */
-    characterPrompts: NovelAICharacterPrompt[]
-    negative_prompt: string
-
-    /** Image Generation Settings */
-    width: number
-    height: number
-
-    qualityToggle: boolean
-    image_format: 'png'
-
-    /** AI Settings */
-    steps: number
-    scale: number
-    seed: number
-    sampler: NovelAISampler
-    cfg_rescale: number
-    noise_schedule: NovelAINoiseSchedule
-
-    /** Vibe Transfer */
-    normalize_reference_strength_multiple: boolean
-    reference_image_multiple?: string[]
-    reference_image_multiple_cached?: NovelAICachedImage[]
-    reference_strength_multiple?: number[]
-    reference_information_extracted_multiple?: number[]
-
-    /** Character Reference */
-    director_reference_images_cached?: NovelAICachedImage[]
-    director_reference_descriptions?: Array<{
-        caption: {
-            base_caption: string
-            char_captions: []
-        }
-        legacy_uc: false
-    }>
-    director_reference_information_extracted?: number[]
-    director_reference_strength_values?: number[]
-    director_reference_secondary_strength_values?: number[]
-
-    /** miscellaneous */
-    autoSmea: boolean
-    n_samples: number
-    ucPreset: number
-    controlnet_strength: number
-    dynamic_thresholding: boolean
-    prefer_brownian: boolean
-
-    use_coords: boolean
-    add_original_image: boolean
-    inpaintImg2ImgStrength: number
-    skip_cfg_above_sigma: 58 | null
-
-    v4_prompt: NovelAIV4Prompt
-    v4_negative_prompt: NovelAIV4NegativePrompt
-
-    legacy: boolean
-    legacy_v3_extend: boolean
-    legacy_uc: boolean
-
-    deliberate_euler_ancestral_bug?: boolean
-}
-
-export interface NovelAIRequest {
-    action: 'generate' | 'inpaint' | 'i2i'
-    model: NovelAIModel
-    input: string
-    parameters: NovelAIParameters
-    use_new_shared_trial?: boolean
-}
-
-export interface NovelAICachedImage {
-    cache_secret_key: string
-    data?: string
-}
-
-export interface NovelAIVibeImage {
-    id?: number
-    cacheSecretKey: string
-    uploadFieldName?: string
-    filePath?: string
-    strength: number
-}
-
-export interface NovelAICharacterReferenceImage {
-    id?: number
-    cacheSecretKey: string
-    uploadFieldName?: string
-    filePath?: string
-    strength: number
-    fidelity: number
-    mode: string
-}
-
-export interface EncodeVibeRequest {
-    image: string
-    information_extracted: number
-    model: NovelAIModel
-}
-
-export interface UserData {
-    priority: {
-        maxPriorityActions: number
-        nextRefillAt: number
-        taskPriority: number
-    }
-    subscription: {
-        tier: number
-        active: boolean
-        paymentProcessor: number
-        expiresAt: number
-        perks: {
-            maxPriorityActions: number
-            startPriority: number
-            moduleTrainingSteps: number
-            unlimitedMaxPriority: boolean
-            voiceGeneration: boolean
-            imageGeneration: boolean
-            unlimited: boolean
-            unlimitedLimits: {
-                resolution: number
-                maxPrompts: number
-            }[]
-            contextTokens: number
-        }
-        paymentProcessorData: {
-            r: string
-            s: string
-            t: number
-            plan_id: string
-            next_billing_at: number
-        }
-        trainingStepsLeft: {
-            fixedTrainingStepsLeft: number
-            purchasedTrainingSteps: number
-        }
-        accountType: number
-        isGracePeriod: boolean
-    }
-    keystore: {
-        keystore: string | null
-        changeIndex: number
-    }
-    settings: string | null
-    information: {
-        emailVerified: boolean
-        emailVerificationLetterSent: boolean
-        hasPlaintextEmail: boolean
-        plainTextEmail: string | null
-        allowMarketingEmails: boolean
-        trialActivated: boolean
-        trialActionsLeft: number
-        trialImagesLeft: number
-        accountCreatedAt: number
-        banStatus: 'not_banned' | 'banned' | 'permanently_banned'
-        banMessage: string
-    }
+/** Opus rule from docs.novelai.net/en/subscription: one image, at most 1024×1024 pixels and 28 steps. */
+export function isFreeGeneration(parameters: { width: number; height: number; steps: number }) {
+    return (
+        parameters.width * parameters.height <= FREE_GENERATION_MAX_PIXELS &&
+        parameters.steps <= FREE_GENERATION_MAX_STEPS
+    )
 }

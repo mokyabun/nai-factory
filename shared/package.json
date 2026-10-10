@@ -1,23 +1,26 @@
 {
     "name": "@nai-factory/shared",
-    "version": "0.2.0",
+    "version": "1.0.0",
     "module": "src/index.ts",
     "types": "src/index.ts",
     "type": "module",
     "scripts": {
+        "test": "bun test",
         "check:type": "tsc --noEmit",
-        "check": "biome check .",
-        "check:fix": "biome check --write .",
-        "format": "biome format .",
-        "format:fix": "biome format --write .",
-        "lint": "biome lint .",
-        "lint:fix": "biome lint --write ."
+        "check": "bun run --parallel --no-exit-on-error format:check lint typecheck",
+        "check:fix": "bun run lint:fix && bun run format && bun run typecheck",
+        "format": "oxfmt .",
+        "format:fix": "bun run format",
+        "lint": "oxlint .",
+        "lint:fix": "oxlint --fix .",
+        "typecheck": "bun run check:type",
+        "format:check": "oxfmt --check ."
     },
     "dependencies": {
         "zod": "^4.4.3"
     },
     "devDependencies": {
-        "@biomejs/biome": "^2.4.15",
-        "@tsconfig/bun": "^1.0.10"
+        "@tsconfig/bun": "^1.0.10",
+        "@types/bun": "^1.3.14"
     }
 }

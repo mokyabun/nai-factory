@@ -1,39 +1,31 @@
 import pino from 'pino'
-import { envConfig } from './config'
 
-const baseOptions: pino.LoggerOptions = {
-    level: envConfig.LOG_LEVEL,
-    base: {
-        service: 'nai-factory-server',
-        env: envConfig.NODE_ENV,
-    },
-    timestamp: pino.stdTimeFunctions.isoTime,
-    formatters: {
-        level(label) {
-            return { level: label }
+import { type AppConfig, loadConfig } from './config'
+
+export type Logger = pino.Logger
+
+export function createLogger(config: AppConfig['log'], env: AppConfig['env']): Logger {
+    const options: pino.LoggerOptions = {
+        level: config.level,
+        base: { service: 'nai-factory-server', env },
+        timestamp: pino.stdTimeFunctions.isoTime,
+        formatters: {
+            level(label) {
+                return { level: label }
+            },
         },
-    },
-    redact: {
-        paths: envConfig.LOG_REDACT_PATHS,
-        censor: '[redacted]',
-    },
-    serializers: {
-        err: pino.stdSerializers.err,
-        error: pino.stdSerializers.err,
-    },
-}
-
-const logger = (() => {
-    if (!envConfig.LOG_PRETTY) {
-        return pino(baseOptions)
+        redact: { paths: config.redactPaths, censor: '[redacted]' },
+        serializers: { err: pino.stdSerializers.err, error: pino.stdSerializers.err },
     }
 
+    if (!config.pretty) return pino(options)
+
     return pino({
-        ...baseOptions,
+        ...options,
         transport: {
             target: 'pino-pretty',
             options: {
-                colorize: envConfig.LOG_COLORIZE,
+                colorize: config.colorize,
                 ignore: 'service,env',
                 messageFormat: '[{module}] {msg}',
                 singleLine: true,
@@ -41,6 +33,10 @@ const logger = (() => {
             },
         },
     })
-})()
+}
+
+const bootConfig = loadConfig()
+
+const logger = createLogger(bootConfig.log, bootConfig.env)
 
 export default logger

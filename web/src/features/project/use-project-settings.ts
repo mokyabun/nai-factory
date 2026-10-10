@@ -1,0 +1,39 @@
+import type { Project, ProjectSettings, ProjectSettingsPatch } from '@nai-factory/shared'
+import { useQueryClient } from '@tanstack/react-query'
+import { useCallback } from 'react'
+
+import { clampImageCount } from '@/components/image-count-input'
+import { useAutosave } from '@/hooks/use-autosave'
+import { call, contract } from '@/lib/api'
+import { qk } from '@/lib/queries'
+
+export function useProjectSettings(projectId: number, project: Project | undefined) {
+    const queryClient = useQueryClient()
+
+    const save = useCallback(
+        async (patch: ProjectSettingsPatch) => {
+            const data = await call(contract.projects.update, {
+                params: { id: projectId },
+                body: { settings: patch },
+            })
+            queryClient.setQueryData(qk.projects.get(projectId), data)
+        },
+        [projectId, queryClient],
+    )
+    const settings = useAutosave<ProjectSettings, ProjectSettingsPatch>({
+        data: project?.settings,
+        save,
+    })
+
+    return {
+        slideshowImageCount: settings.value?.slideshowImageCount ?? 4,
+        sceneCardSize: settings.value?.sceneCardSize ?? 'md',
+        defaultImageCount: settings.value?.defaultImageCount ?? 1,
+        setSlideshowImageCount: (value: string) =>
+            settings.update({ slideshowImageCount: Math.min(10, Math.max(1, Number(value) || 1)) }),
+        setSceneCardSize: (value: ProjectSettings['sceneCardSize']) =>
+            settings.update({ sceneCardSize: value }),
+        setDefaultImageCount: (value: number) =>
+            settings.update({ defaultImageCount: clampImageCount(value) }),
+    }
+}

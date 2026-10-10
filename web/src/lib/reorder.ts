@@ -1,9 +1,16 @@
 import { arrayMove } from '@dnd-kit/sortable'
 
+/** A move request: the item ends up between `beforeId` and `afterId` (null = list edge). */
 export type OrderPatch = {
     id: number
-    prevId: number | null
-    nextId: number | null
+    beforeId: number | null
+    afterId: number | null
+}
+
+export function comparePosition<T extends { position: string; id: number }>(a: T, b: T) {
+    if (a.position < b.position) return -1
+    if (a.position > b.position) return 1
+    return a.id - b.id
 }
 
 export function reorderById<T extends { id: number }>(
@@ -24,8 +31,8 @@ export function reorderById<T extends { id: number }>(
         items: nextItems,
         orderPatch: {
             id: activeId,
-            prevId: newIndex > 0 ? nextItems[newIndex - 1].id : null,
-            nextId: newIndex < nextItems.length - 1 ? nextItems[newIndex + 1].id : null,
+            beforeId: newIndex > 0 ? nextItems[newIndex - 1].id : null,
+            afterId: newIndex < nextItems.length - 1 ? nextItems[newIndex + 1].id : null,
         },
     }
 }

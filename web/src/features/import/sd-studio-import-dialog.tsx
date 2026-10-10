@@ -1,0 +1,367 @@
+import type { SceneSummary, SdStudioImportOptions } from '@nai-factory/shared'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
+import { ArrowLeft, FileJson } from 'lucide-react'
+import { useEffect, useState } from 'react'
+
+import { Button } from '@/components/ui/button'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { call, contract } from '@/lib/api'
+import { restoreSnapshot, snapshotQuery } from '@/lib/optimistic'
+import { optimisticSceneSummaries } from '@/lib/optimistic-scenes'
+import { qk } from '@/lib/queries'
+
+import { OptionRow } from './option-row'
+
+type SdStudioImportStep = 'choose' | 'options' | 'project-name'
+type SdStudioImportOptionsDraft = Required<SdStudioImportOptions>
+
+interface ParsedSdStudioFile {
+    raw: unknown
+    name: string
+    sceneCount: number
+    hasPreset: boolean
+}
+
+const DEFAULT_IMPORT_OPTIONS: SdStudioImportOptionsDraft = {
+    importPrompt: true,
+    importNegativePrompt: true,
+    importScenes: true,
+    importCharacterPrompts: true,
+    importParameters: true,
+}
+
+interface Props {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    file: File | null
+    /** Null when dropped outside a project page. */
+    projectId: number | null
+}
+
+export function SdStudioImportDialog({ open, onOpenChange, file, projectId }: Props) {
+    const navigate = useNavigate()
+    const queryClient = useQueryClient()
+    const [step, setStep] = useState<SdStudioImportStep>('choose')
+    const [parsed, setParsed] = useState<ParsedSdStudioFile | null>(null)
+    const [parseError, setParseError] = useState<string | null>(null)
+    const [projectName, setProjectName] = useState('')
+    const [options, setOptions] = useState(DEFAULT_IMPORT_OPTIONS)
+
+    // Start over whenever another file is dropped.
+    const [currentFile, setCurrentFile] = useState<File | null>(null)
+    if (file !== currentFile) {
+        setCurrentFile(file)
+        setParsed(null)
+        setParseError(null)
+        setStep(projectId ? 'choose' : 'project-name')
+    }
+
+    useEffect(() => {
+        if (!file) return
+        let cancelled = false
+
+        void file.text().then((text) => {
+            if (cancelled) return
+            try {
+                const raw = JSON.parse(text) as Record<string, unknown>
+                const name =
+                    typeof raw.name === 'string' ? raw.name : file.name.replace(/\.json$/, '')
+                const scenesObj = raw.scenes as Record<string, unknown> | undefined
+                const sceneCount = scenesObj ? Object.keys(scenesObj).length : 0
+                const hasPreset = !!raw.selectedWorkflow && !!raw.presets
+
+                setParsed({ raw: text, name, sceneCount, hasPreset })
+                setProjectName(name)
+            } catch {
+                setParseError('JSON 파일을 파싱할 수 없습니다.')
+            }
+        })
+        return () => {
+            cancelled = true
+        }
+    }, [file])
+
+    const importMutation = useMutation({
+        mutationFn: async () => {
+            if (!parsed || !projectId) throw new Error('Invalid state')
+            return call(contract.sdStudio.import, {
+                body: { projectId, data: parsed.raw, options },
+            })
+        },
+        onMutate: async () => {
+            if (!parsed || !projectId || !options.importScenes) return null
+            const previousScenes = await snapshotQuery<SceneSummary[]>(
+                queryClient,
+                qk.scenes.list(projectId),
+            )
+            const optimisticScenes = optimisticSceneSummaries(
+                projectId,
+                Array.from({ length: parsed.sceneCount }, (_, index) => ({
+                    name: `${parsed.name} ${index + 1}`,
+                    variations: [],
+                })),
+            )
+            queryClient.setQueryData<SceneSummary[]>(qk.scenes.list(projectId), (scenes) => [
+                ...(scenes ?? []),
+                ...optimisticScenes,
+            ])
+            return { previousScenes }
+        },
+        onError: (_error, _variables, context) => {
+            restoreSnapshot(queryClient, context?.previousScenes)
+        },
+        onSuccess: () => {
+            if (projectId) {
+                void queryClient.invalidateQueries({ queryKey: qk.scenes.list(projectId) })
+                void queryClient.invalidateQueries({ queryKey: qk.projects.get(projectId) })
+            }
+            onOpenChange(false)
+        },
+    })
+
+    const createAndImportMutation = useMutation({
+        mutationFn: async () => {
+            if (!parsed || !projectName.trim()) throw new Error('Invalid state')
+
+            const project = await call(contract.projects.create, {
+                body: { groupId: null, name: projectName.trim() },
+            })
+
+            await call(contract.sdStudio.import, {
+                body: {
+                    projectId: project.id,
+                    data: parsed.raw,
+                    options: {
+                        importPrompt: true,
+                        importNegativePrompt: true,
+                        importScenes: true,
+                        importCharacterPrompts: true,
+                        importParameters: true,
+                    },
+                },
+            })
+
+            return project.id
+        },
+        onSuccess: (newProjectId) => {
+            void queryClient.invalidateQueries({ queryKey: qk.groups.tree() })
+            void navigate({
+                to: '/project/$projectId',
+                params: { projectId: String(newProjectId) },
+            })
+            onOpenChange(false)
+        },
+    })
+
+    const isLoading = importMutation.isPending || createAndImportMutation.isPending
+
+    function toggleOption(key: keyof SdStudioImportOptionsDraft) {
+        setOptions((prev) => ({ ...prev, [key]: !prev[key] }))
+    }
+
+    function handleClose() {
+        if (isLoading) return
+        onOpenChange(false)
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={handleClose}>
+            <DialogContent className="max-w-md">
+                {parseError && (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>파일 오류</DialogTitle>
+                            <DialogDescription>{parseError}</DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button onClick={() => onOpenChange(false)}>닫기</Button>
+                        </DialogFooter>
+                    </>
+                )}
+
+                {!parseError && !parsed && (
+                    <DialogHeader>
+                        <DialogTitle>파일 읽는 중...</DialogTitle>
+                    </DialogHeader>
+                )}
+
+                {!parseError && parsed && step === 'choose' && (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <FileJson className="size-4" />
+                                SD Studio 가져오기
+                            </DialogTitle>
+                            <DialogDescription>
+                                <span className="font-medium text-foreground">{parsed.name}</span>
+                                {' — 씬 '}
+                                <span className="font-medium text-foreground">
+                                    {parsed.sceneCount}개
+                                </span>{' '}
+                                발견
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-2 py-1">
+                            <Button
+                                variant="outline"
+                                className="h-auto flex-col items-start gap-1 px-4 py-3 text-left"
+                                onClick={() => setStep('options')}
+                            >
+                                <span className="font-medium">현재 프로젝트에 가져오기</span>
+                                <span className="text-xs font-normal text-muted-foreground">
+                                    씬을 현재 프로젝트에 추가합니다. 가져올 항목을 선택할 수
+                                    있습니다.
+                                </span>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="h-auto flex-col items-start gap-1 px-4 py-3 text-left"
+                                onClick={() => setStep('project-name')}
+                            >
+                                <span className="font-medium">새 프로젝트로 가져오기</span>
+                                <span className="text-xs font-normal text-muted-foreground">
+                                    새 프로젝트를 생성하고 모든 항목을 가져옵니다.
+                                </span>
+                            </Button>
+                        </div>
+                    </>
+                )}
+
+                {!parseError && parsed && step === 'options' && (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>가져올 항목 선택</DialogTitle>
+                            <DialogDescription>
+                                {!parsed.hasPreset && (
+                                    <span className="block text-yellow-500">
+                                        ⚠ 프리셋 정보가 없습니다. 씬만 가져올 수 있습니다.
+                                    </span>
+                                )}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-3 py-1">
+                            <OptionRow
+                                id="importPrompt"
+                                label="프롬프트"
+                                description="프로젝트 프롬프트 설정"
+                                checked={options.importPrompt}
+                                disabled={!parsed.hasPreset}
+                                onChange={() => toggleOption('importPrompt')}
+                            />
+                            <OptionRow
+                                id="importNegativePrompt"
+                                label="부정 프롬프트"
+                                description="프리셋의 UC를 프로젝트 부정 프롬프트로 설정"
+                                checked={options.importNegativePrompt}
+                                disabled={!parsed.hasPreset}
+                                onChange={() => toggleOption('importNegativePrompt')}
+                            />
+                            <OptionRow
+                                id="importScenes"
+                                label="씬"
+                                description="SD Studio 씬을 현재 프로젝트에 추가"
+                                checked={options.importScenes}
+                                onChange={() => toggleOption('importScenes')}
+                            />
+                            <OptionRow
+                                id="importCharacterPrompts"
+                                label="캐릭터 프롬프트"
+                                description="프리셋의 캐릭터 프롬프트 목록 가져오기"
+                                checked={options.importCharacterPrompts}
+                                disabled={!parsed.hasPreset}
+                                onChange={() => toggleOption('importCharacterPrompts')}
+                            />
+                            <OptionRow
+                                id="importParameters"
+                                label="파라미터"
+                                description="steps, sampler, CFG 등 생성 파라미터 가져오기"
+                                checked={options.importParameters}
+                                disabled={!parsed.hasPreset}
+                                onChange={() => toggleOption('importParameters')}
+                            />
+                        </div>
+                        {importMutation.isError && (
+                            <p className="text-sm text-destructive">
+                                가져오기에 실패했습니다. 다시 시도해주세요.
+                            </p>
+                        )}
+                        <DialogFooter>
+                            <Button
+                                variant="outline"
+                                onClick={() => setStep('choose')}
+                                disabled={isLoading}
+                            >
+                                <ArrowLeft className="mr-1 size-4" />
+                                뒤로
+                            </Button>
+                            <Button onClick={() => importMutation.mutate()} disabled={isLoading}>
+                                {isLoading ? '가져오는 중...' : '가져오기'}
+                            </Button>
+                        </DialogFooter>
+                    </>
+                )}
+
+                {!parseError && parsed && step === 'project-name' && (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>새 프로젝트로 가져오기</DialogTitle>
+                            <DialogDescription>
+                                씬 {parsed.sceneCount}개와 모든 설정을 새 프로젝트로 가져옵니다.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault()
+                                if (!projectName.trim()) return
+                                createAndImportMutation.mutate()
+                            }}
+                            className="flex flex-col gap-4 py-1"
+                        >
+                            <div className="flex flex-col gap-1.5">
+                                <Label htmlFor="sd-project-name">프로젝트 이름</Label>
+                                <Input
+                                    id="sd-project-name"
+                                    value={projectName}
+                                    onChange={(e) => setProjectName(e.target.value)}
+                                    placeholder="프로젝트 이름..."
+                                    autoFocus
+                                />
+                            </div>
+                            {createAndImportMutation.isError && (
+                                <p className="text-sm text-destructive">
+                                    가져오기에 실패했습니다. 다시 시도해주세요.
+                                </p>
+                            )}
+                            <DialogFooter>
+                                {projectId && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setStep('choose')}
+                                        disabled={isLoading}
+                                    >
+                                        <ArrowLeft className="mr-1 size-4" />
+                                        뒤로
+                                    </Button>
+                                )}
+                                <Button type="submit" disabled={!projectName.trim() || isLoading}>
+                                    {isLoading ? '가져오는 중...' : '가져오기'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </>
+                )}
+            </DialogContent>
+        </Dialog>
+    )
+}

@@ -1,28 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
-import { qk } from '@/lib/queries'
+import { useParams } from '@tanstack/react-router'
 
-function idFromPath(pathname: string, prefix: string) {
-    if (!pathname.startsWith(prefix)) return null
+import { queries } from '@/lib/queries'
 
-    const id = Number(pathname.split('/')[2])
-    return Number.isFinite(id) && id > 0 ? id : null
+function toId(value: string | undefined) {
+    const id = Number(value)
+    return Number.isInteger(id) && id > 0 ? id : null
 }
 
-export function useActiveProjectId(pathname: string) {
-    const projectId = idFromPath(pathname, '/project/')
-    const sceneId = idFromPath(pathname, '/scene/')
+export function useRouteIds() {
+    const params = useParams({ strict: false })
+    return { projectId: toId(params.projectId), sceneId: toId(params.sceneId) }
+}
 
-    const sceneContextQuery = useQuery({
-        queryKey: qk.sceneContext(sceneId ?? 0),
-        queryFn: async () => {
-            const { data } = await api.scenes({ id: sceneId as number }).summary.get()
-            return data ? { projectId: data.projectId } : null
-        },
-        enabled: sceneId !== null,
-        staleTime: Number.POSITIVE_INFINITY,
-        gcTime: Number.POSITIVE_INFINITY,
+export function useActiveProjectId() {
+    const { projectId, sceneId } = useRouteIds()
+    const sceneQuery = useQuery({
+        ...queries.scenes.get(sceneId ?? 0),
+        enabled: projectId === null && sceneId !== null,
     })
 
-    return projectId ?? sceneContextQuery.data?.projectId ?? null
+    return projectId ?? sceneQuery.data?.projectId ?? null
 }

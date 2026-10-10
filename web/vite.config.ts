@@ -1,14 +1,19 @@
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
-
 import viteReact from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { defineConfig, type PluginOption } from 'vite'
 
 const analyze = process.env.ANALYZE === 'true'
 
+const apiTarget = process.env.NAI_FACTORY_API_TARGET ?? 'http://localhost:3000'
+
 const config = defineConfig({
     resolve: { tsconfigPaths: true },
+    server: {
+        // The API is always same-origin (`/api`); in development Vite forwards it to the server.
+        proxy: { '/api': { target: apiTarget } },
+    },
     build: {
         rolldownOptions: {
             output: {
@@ -42,11 +47,7 @@ const config = defineConfig({
     },
     plugins: [
         tailwindcss(),
-        tanstackRouter({
-            target: 'react',
-            autoCodeSplitting: true,
-            routeFileIgnorePattern: '(^|/)atom\\.ts$',
-        }),
+        tanstackRouter({ target: 'react', autoCodeSplitting: true }),
         viteReact(),
         analyze &&
             visualizer({
