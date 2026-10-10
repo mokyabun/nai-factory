@@ -92,12 +92,13 @@ describe('deletion and GC', () => {
         const [kept, ...removed] = images
         const removedPaths = removed.map((image) => assets.get(t.ctx, image.assetId)!.relPath)
 
+        t.ctx.events.flush()
         const events: RealtimeEvent[] = []
         const unsubscribe = t.ctx.events.subscribe(({ event }) => events.push(event))
         const result = await t.call(contract.images.deleteMany, {
             body: { ids: [...removed.map((image) => image.id), 999_999] },
         })
-        await Bun.sleep(0)
+        t.ctx.events.flush()
         unsubscribe()
 
         expect(result).toEqual({ deleted: 2 })
