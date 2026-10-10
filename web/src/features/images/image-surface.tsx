@@ -29,7 +29,12 @@ export function ImageSurface({ image, alt = '', className, tone = 'light' }: Ima
     const layer = 'col-start-1 row-start-1 h-full w-full object-contain'
 
     return (
-        <div className={cn('relative grid h-full w-full min-h-0 min-w-0', className)}>
+        <div
+            className={cn(
+                'relative grid h-full w-full min-h-0 min-w-0 grid-cols-1 grid-rows-1',
+                className,
+            )}
+        >
             {status !== 'loaded' && thumbnailUrl !== sourceUrl && (
                 <img src={thumbnailUrl} alt="" className={layer} draggable={false} />
             )}
