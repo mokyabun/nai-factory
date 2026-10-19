@@ -51,3 +51,7 @@ Open <http://localhost:3000>, go to **Settings**, and enter your NovelAI API key
 
 See [docs/development.md](docs/development.md) for running from source, testing, and database
 migrations.
+
+## License
+
+[MIT](LICENSE)

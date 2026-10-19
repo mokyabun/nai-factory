@@ -1,6 +1,7 @@
 {
     "name": "@nai-factory/server",
     "version": "1.0.0",
+    "license": "MIT",
     "module": "src/index.ts",
     "scripts": {
         "dev": "bun run --hot src/index.ts",

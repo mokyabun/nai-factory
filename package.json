@@ -1,6 +1,7 @@
 {
     "name": "nai-factory",
     "version": "1.0.0",
+    "license": "MIT",
     "private": true,
     "scripts": {
         "dev": "bun run --parallel dev:server dev:web",
