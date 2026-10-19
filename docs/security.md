@@ -23,4 +23,4 @@ NAI Factory has no user accounts. By default:
 ## Data encryption
 
 - Files and the stored API key can be encrypted at rest. See
-[Configuration](configuration.md#encryption).
+  [Configuration](configuration.md#encryption).
